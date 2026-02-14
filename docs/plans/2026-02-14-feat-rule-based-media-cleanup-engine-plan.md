@@ -249,18 +249,18 @@ for each item in unified models:
 ```
 
 **Acceptance criteria (Phase 1):**
-- [ ] YAML config loads from file path priority chain
-- [ ] Zod validation catches all invalid configs with clear error messages
-- [ ] Rules targeting unconfigured services fail validation at startup
-- [ ] Rules referencing unconfigured enrichment services fail validation at startup
-- [ ] All 11 operators work correctly with unit tests
-- [ ] Nested AND/OR conditions evaluate correctly (3+ levels deep)
-- [ ] Null date fields evaluate as infinitely old for `older_than`
-- [ ] `is_empty`/`is_not_empty` work without `value` field
-- [ ] Least-destructive-wins conflict resolution works (`keep > unmonitor > delete`)
-- [ ] Field resolver handles dotted paths (`sonarr.season.episode_file_count`)
-- [ ] Duration parser handles `d`, `w`, `m`, `y` units
-- [ ] Config service is injectable and provides typed config throughout the app
+- [x] YAML config loads from file path priority chain
+- [x] Zod validation catches all invalid configs with clear error messages
+- [x] Rules targeting unconfigured services fail validation at startup
+- [x] Rules referencing unconfigured enrichment services fail validation at startup
+- [x] All 11 operators work correctly with unit tests
+- [x] Nested AND/OR conditions evaluate correctly (3+ levels deep)
+- [x] Null date fields evaluate as infinitely old for `older_than`
+- [x] `is_empty`/`is_not_empty` work without `value` field
+- [x] Least-destructive-wins conflict resolution works (`keep > unmonitor > delete`)
+- [x] Field resolver handles dotted paths (`sonarr.season.episode_file_count`)
+- [x] Duration parser handles `d`, `w`, `m`, `y` units
+- [x] Config service is injectable and provides typed config throughout the app
 
 ---
 
