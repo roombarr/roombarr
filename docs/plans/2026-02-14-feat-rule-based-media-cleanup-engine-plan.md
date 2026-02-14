@@ -427,13 +427,13 @@ src/
 ```
 
 **Acceptance criteria (Phase 4):**
-- [ ] Jellyseerr pagination fetches all requests (not just first page)
-- [ ] Dual indexing by TMDB and TVDB ID for Jellyseerr data
-- [ ] Radarr movies enriched with Jellyfin + Jellyseerr data where matched
-- [ ] Sonarr seasons enriched with Jellyfin + Jellyseerr data where matched
-- [ ] Unmatched items (missing cross-service IDs) produce warnings but don't error
-- [ ] Lazy fetching: services not referenced by any rule are not queried
-- [ ] Service unavailability handled gracefully (skip, warn, continue)
+- [x] Jellyseerr pagination fetches all requests (not just first page)
+- [x] Dual indexing by TMDB and TVDB ID for Jellyseerr data
+- [x] Radarr movies enriched with Jellyfin + Jellyseerr data where matched
+- [x] Sonarr seasons enriched with Jellyfin + Jellyseerr data where matched
+- [x] Unmatched items (missing cross-service IDs) produce warnings but don't error
+- [x] Lazy fetching: services not referenced by any rule are not queried
+- [x] Service unavailability handled gracefully (skip, warn, continue)
 
 ---
 

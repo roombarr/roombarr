@@ -1,0 +1,108 @@
+import { describe, expect, test } from 'bun:test';
+import { HttpModule, HttpService } from '@nestjs/axios';
+import { Test } from '@nestjs/testing';
+import type { AxiosResponse } from 'axios';
+import { of } from 'rxjs';
+import { JellyseerrClient } from './jellyseerr.client.js';
+import type {
+  JellyseerrRequest,
+  JellyseerrRequestsResponse,
+} from './jellyseerr.types.js';
+
+function axiosResponse<T>(data: T): AxiosResponse<T> {
+  return {
+    data,
+    status: 200,
+    statusText: 'OK',
+    headers: {},
+    config: {} as any,
+  };
+}
+
+function makeRequest(
+  overrides: Partial<JellyseerrRequest> = {},
+): JellyseerrRequest {
+  return {
+    id: 1,
+    status: 2,
+    type: 'movie',
+    createdAt: '2025-01-15T12:00:00Z',
+    media: {
+      id: 10,
+      tmdbId: 603,
+      mediaType: 'movie',
+      status: 5,
+    },
+    requestedBy: {
+      id: 1,
+      username: 'testuser',
+      email: 'test@example.com',
+    },
+    ...overrides,
+  };
+}
+
+describe('JellyseerrClient', () => {
+  async function setup() {
+    const module = await Test.createTestingModule({
+      imports: [HttpModule],
+      providers: [JellyseerrClient],
+    }).compile();
+
+    const client = module.get(JellyseerrClient);
+    const http = module.get(HttpService);
+    return { client, http };
+  }
+
+  describe('fetchAllRequests', () => {
+    test('returns all requests from a single page', async () => {
+      const { client, http } = await setup();
+      const fixture: JellyseerrRequestsResponse = {
+        pageInfo: { page: 1, pages: 1, results: 2 },
+        results: [makeRequest({ id: 1 }), makeRequest({ id: 2 })],
+      };
+
+      http.get = () => of(axiosResponse(fixture)) as any;
+      const result = await client.fetchAllRequests();
+      expect(result).toHaveLength(2);
+      expect(result[0].id).toBe(1);
+      expect(result[1].id).toBe(2);
+    });
+
+    test('paginates through multiple pages', async () => {
+      const { client, http } = await setup();
+      let callCount = 0;
+
+      const page1: JellyseerrRequestsResponse = {
+        pageInfo: { page: 1, pages: 2, results: 3 },
+        results: [makeRequest({ id: 1 }), makeRequest({ id: 2 })],
+      };
+      const page2: JellyseerrRequestsResponse = {
+        pageInfo: { page: 2, pages: 2, results: 3 },
+        results: [makeRequest({ id: 3 })],
+      };
+
+      http.get = () => {
+        callCount++;
+        const data = callCount === 1 ? page1 : page2;
+        return of(axiosResponse(data)) as any;
+      };
+
+      const result = await client.fetchAllRequests();
+      expect(result).toHaveLength(3);
+      expect(callCount).toBe(2);
+    });
+
+    test('returns empty array when no requests exist', async () => {
+      const { client, http } = await setup();
+      const fixture: JellyseerrRequestsResponse = {
+        pageInfo: { page: 1, pages: 1, results: 0 },
+        results: [],
+      };
+
+      http.get = () => of(axiosResponse(fixture)) as any;
+      const result = await client.fetchAllRequests();
+      expect(result).toEqual([]);
+    });
+  });
+});
