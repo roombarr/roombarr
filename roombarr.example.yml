@@ -1,0 +1,93 @@
+# roombarr — Rule-Based Media Cleanup Engine
+# Copy this file to /config/roombarr.yml and adjust to your setup.
+
+# ── Services ──────────────────────────────────────────────────
+# At least one of sonarr or radarr must be configured.
+# Jellyfin and Jellyseerr are optional enrichment sources.
+services:
+  sonarr:
+    base_url: http://sonarr:8989
+    api_key: your-sonarr-api-key
+
+  radarr:
+    base_url: http://radarr:7878
+    api_key: your-radarr-api-key
+
+  jellyfin:
+    base_url: http://jellyfin:8096
+    api_key: your-jellyfin-api-key
+
+  jellyseerr:
+    base_url: http://jellyseerr:5055
+    api_key: your-jellyseerr-api-key
+
+# ── Schedule ──────────────────────────────────────────────────
+# Standard 5-field cron expression (minute hour day month weekday).
+# Example: run daily at 3:00 AM.
+schedule: "0 3 * * *"
+
+# ── Performance ───────────────────────────────────────────────
+# Max concurrent API requests to external services.
+performance:
+  concurrency: 10
+
+# ── Rules ─────────────────────────────────────────────────────
+# Each rule targets either sonarr (TV seasons) or radarr (movies).
+# Conditions are AND/OR trees referencing fields from any configured service.
+# Actions: delete | unmonitor | keep
+# Conflict resolution: keep > unmonitor > delete (least destructive wins).
+#
+# v1 is dry-run only — actions are logged but never executed.
+
+rules:
+  # Delete movies that everyone has watched and were added over 6 months ago
+  - name: Delete fully watched old movies
+    target: radarr
+    action: delete
+    conditions:
+      operator: AND
+      children:
+        - field: jellyfin.watched_by_all
+          operator: equals
+          value: true
+        - field: radarr.added
+          operator: older_than
+          value: 6m
+
+  # Keep anything tagged "favorite" in Radarr
+  - name: Keep favorites
+    target: radarr
+    action: keep
+    conditions:
+      operator: AND
+      children:
+        - field: radarr.tags
+          operator: includes
+          value: favorite
+
+  # Unmonitor completed series seasons that everyone has watched
+  - name: Unmonitor watched completed seasons
+    target: sonarr
+    action: unmonitor
+    conditions:
+      operator: AND
+      children:
+        - field: sonarr.status
+          operator: equals
+          value: ended
+        - field: jellyfin.watched_by_all
+          operator: equals
+          value: true
+
+  # Delete seasons requested over a year ago that nobody has watched
+  - name: Delete stale unwatched requests
+    target: sonarr
+    action: delete
+    conditions:
+      operator: AND
+      children:
+        - field: jellyseerr.requested_at
+          operator: older_than
+          value: 1y
+        - field: jellyfin.watched_by
+          operator: is_empty

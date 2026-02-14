@@ -1,7 +1,7 @@
 ---
 title: "feat: Rule-Based Media Cleanup Engine"
 type: feat
-status: active
+status: completed
 date: 2026-02-14
 brainstorm: docs/brainstorms/2026-02-13-rule-based-media-cleanup-brainstorm.md
 ---
@@ -522,14 +522,14 @@ src/
 - All date comparisons use UTC (API dates are UTC, `older_than`/`newer_than` compute against `new Date()` which is UTC-aware)
 
 **Acceptance criteria (Phase 5):**
-- [ ] POST /evaluate returns 202 with run ID
-- [ ] GET /evaluate/:runId returns results when complete, 202 when running, 404 when unknown
-- [ ] Concurrent evaluation attempts rejected (409 for POST, skip for cron)
-- [ ] Cron schedule fires at configured time
-- [ ] Structured JSON logs for evaluation summary
-- [ ] Skip warnings aggregated per-rule (not per-item) to avoid log spam
-- [ ] GET /health returns 200
-- [ ] End-to-end test with mocked services
+- [x] POST /evaluate returns 202 with run ID
+- [x] GET /evaluate/:runId returns results when complete, 202 when running, 404 when unknown
+- [x] Concurrent evaluation attempts rejected (409 for POST, skip for cron)
+- [x] Cron schedule fires at configured time
+- [x] Structured JSON logs for evaluation summary
+- [x] Skip warnings aggregated per-rule (not per-item) to avoid log spam
+- [x] GET /health returns 200
+- [x] End-to-end test with mocked services
 
 ---
 
@@ -575,11 +575,11 @@ CMD ["bun", "run", "dist/main.js"]
 **Note:** Full LSIO s6-overlay + PUID/PGID support is a future improvement. v1 uses Bun's Alpine image directly, which is simpler and sufficient for personal use.
 
 **Acceptance criteria (Phase 6):**
-- [ ] Docker image builds successfully
-- [ ] Container starts and loads config from /config/roombarr.yml
-- [ ] Health check passes
-- [ ] Example config file documents all options
-- [ ] Docker Compose example works alongside typical *arr stack
+- [x] Docker image builds successfully
+- [x] Container starts and loads config from /config/roombarr.yml
+- [x] Health check passes
+- [x] Example config file documents all options
+- [x] Docker Compose example works alongside typical *arr stack
 
 ---
 
