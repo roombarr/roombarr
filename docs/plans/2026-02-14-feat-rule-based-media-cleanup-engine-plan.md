@@ -368,14 +368,14 @@ src/
 - `play_count`: for movies, sum across users; for seasons, min `PlayCount` across episodes then sum across users
 
 **Acceptance criteria (Phase 3):**
-- [ ] User enumeration filters out disabled users (`IsDisabled: true`)
-- [ ] Movie watch data aggregated correctly across all users
-- [ ] Season watch data aggregated from episodes (not series-level)
-- [ ] `watched_by_all` correctly reflects all active users
-- [ ] Null `LastPlayedDate` handled (never-played items have null `last_played`)
-- [ ] Bounded concurrency limits parallel Jellyfin API calls
-- [ ] Pagination handled for large Jellyfin libraries
-- [ ] Integration tests with recorded API fixtures
+- [x] User enumeration filters out disabled users (`IsDisabled: true`)
+- [x] Movie watch data aggregated correctly across all users
+- [x] Season watch data aggregated from episodes (not series-level)
+- [x] `watched_by_all` correctly reflects all active users
+- [x] Null `LastPlayedDate` handled (never-played items have null `last_played`)
+- [x] Bounded concurrency limits parallel Jellyfin API calls
+- [x] Pagination handled for large Jellyfin libraries
+- [x] Integration tests with recorded API fixtures
 
 ---
 
