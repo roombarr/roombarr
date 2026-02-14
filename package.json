@@ -13,9 +13,11 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@nestjs/axios": "^4.0.1",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
+    "axios": "^1.13.5",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "yaml": "^2.8.2",
@@ -32,5 +34,6 @@
     "lint-staged": "^16.2.7",
     "supertest": "^7.0.0",
     "typescript": "^5.7.3"
-  }
+  },
+  "packageManager": "pnpm@10.28.1+sha512.7d7dbbca9e99447b7c3bf7a73286afaaf6be99251eb9498baefa7d406892f67b879adb3a1d7e687fc4ccc1a388c7175fbaae567a26ab44d1067b54fcb0d6a316"
 }

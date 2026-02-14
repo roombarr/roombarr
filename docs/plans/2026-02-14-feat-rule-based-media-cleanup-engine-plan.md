@@ -316,15 +316,15 @@ src/
 - Store resolved maps for condition evaluation (conditions compare against name strings; the mapping is used when building the unified model to convert IDs→names)
 
 **Acceptance criteria (Phase 2):**
-- [ ] Sonarr client fetches series and tags with proper API key header
-- [ ] Radarr client fetches movies and tags with proper API key header
+- [x] Sonarr client fetches series and tags with proper API key header
+- [x] Radarr client fetches movies and tags with proper API key header
 - [ ] Tag names in rules are validated against actual tags at startup
-- [ ] Tag IDs in API responses are resolved to tag names in unified models
-- [ ] Sonarr series expand into per-season models with correct field mapping
-- [ ] Radarr movies map to UnifiedMovie with all condition-relevant fields
-- [ ] API fixtures cover normal responses and edge cases (empty library, missing fields)
-- [ ] Base URL normalization (trailing slash handling)
-- [ ] HTTP timeout of 30s per request (configurable later)
+- [x] Tag IDs in API responses are resolved to tag names in unified models
+- [x] Sonarr series expand into per-season models with correct field mapping
+- [x] Radarr movies map to UnifiedMovie with all condition-relevant fields
+- [x] API fixtures cover normal responses and edge cases (empty library, missing fields)
+- [x] Base URL normalization (trailing slash handling)
+- [x] HTTP timeout of 30s per request (configurable later)
 
 ---
 
