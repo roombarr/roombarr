@@ -6,9 +6,16 @@
 
 export type FieldType = 'date' | 'number' | 'boolean' | 'string' | 'array';
 
+export type ServiceName =
+  | 'radarr'
+  | 'sonarr'
+  | 'jellyfin'
+  | 'jellyseerr'
+  | 'state';
+
 export interface FieldDefinition {
   type: FieldType;
-  service: 'radarr' | 'sonarr' | 'jellyfin' | 'jellyseerr';
+  service: ServiceName;
 }
 
 const radarrFields: Record<string, FieldDefinition> = {
@@ -22,6 +29,8 @@ const radarrFields: Record<string, FieldDefinition> = {
   'radarr.status': { type: 'string', service: 'radarr' },
   'radarr.year': { type: 'number', service: 'radarr' },
   'radarr.has_file': { type: 'boolean', service: 'radarr' },
+  'radarr.on_import_list': { type: 'boolean', service: 'radarr' },
+  'radarr.import_list_ids': { type: 'array', service: 'radarr' },
 };
 
 const sonarrFields: Record<string, FieldDefinition> = {
@@ -49,6 +58,11 @@ const jellyseerrFields: Record<string, FieldDefinition> = {
   'jellyseerr.request_status': { type: 'string', service: 'jellyseerr' },
 };
 
+const stateFields: Record<string, FieldDefinition> = {
+  'state.days_off_import_list': { type: 'number', service: 'state' },
+  'state.ever_on_import_list': { type: 'boolean', service: 'state' },
+};
+
 const enrichmentFields: Record<string, FieldDefinition> = {
   ...jellyfinFields,
   ...jellyseerrFields,
@@ -58,7 +72,7 @@ export const fieldRegistry: Record<
   'radarr' | 'sonarr',
   Record<string, FieldDefinition>
 > = {
-  radarr: { ...radarrFields, ...enrichmentFields },
+  radarr: { ...radarrFields, ...enrichmentFields, ...stateFields },
   sonarr: { ...sonarrFields, ...enrichmentFields },
 };
 

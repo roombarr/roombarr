@@ -2,6 +2,7 @@ import { Module, RequestMethod } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { LoggerModule } from 'nestjs-pino';
 import { ConfigModule } from './config/config.module.js';
+import { DatabaseModule } from './database/database.module.js';
 import { EvaluationModule } from './evaluation/evaluation.module.js';
 import { HealthModule } from './health/health.module.js';
 import { JellyfinModule } from './jellyfin/jellyfin.module.js';
@@ -25,6 +26,7 @@ import { SonarrModule } from './sonarr/sonarr.module.js';
     }),
     ScheduleModule.forRoot(),
     ConfigModule,
+    DatabaseModule,
     RulesModule,
     SonarrModule,
     RadarrModule,

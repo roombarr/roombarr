@@ -1,7 +1,11 @@
 import { HttpService } from '@nestjs/axios';
 import { Injectable, Logger } from '@nestjs/common';
 import { firstValueFrom } from 'rxjs';
-import type { RadarrMovie, RadarrTag } from './radarr.types.js';
+import type {
+  RadarrImportListMovie,
+  RadarrMovie,
+  RadarrTag,
+} from './radarr.types.js';
 
 @Injectable()
 export class RadarrClient {
@@ -24,6 +28,15 @@ export class RadarrClient {
       this.http.get<RadarrTag[]>('/api/v3/tag'),
     );
     this.logger.debug(`Fetched ${data.length} tags`);
+    return data;
+  }
+
+  async fetchImportListMovies(): Promise<RadarrImportListMovie[]> {
+    this.logger.debug('Fetching import list movies from Radarr');
+    const { data } = await firstValueFrom(
+      this.http.get<RadarrImportListMovie[]>('/api/v3/importlist/movie'),
+    );
+    this.logger.debug(`Fetched ${data.length} import list movies`);
     return data;
   }
 }

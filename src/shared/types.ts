@@ -15,6 +15,8 @@ export interface RadarrData {
   digital_release: string | null;
   physical_release: string | null;
   path: string;
+  on_import_list: boolean;
+  import_list_ids: number[];
 }
 
 export interface SonarrData {
@@ -45,6 +47,11 @@ export interface JellyseerrData {
   request_status: string;
 }
 
+export interface StateData {
+  days_off_import_list: number | null;
+  ever_on_import_list: boolean;
+}
+
 export interface UnifiedMovie {
   type: 'movie';
   tmdb_id: number;
@@ -54,6 +61,7 @@ export interface UnifiedMovie {
   radarr: RadarrData;
   jellyfin: JellyfinData | null;
   jellyseerr: JellyseerrData | null;
+  state: StateData | null;
 }
 
 export interface UnifiedSeason {

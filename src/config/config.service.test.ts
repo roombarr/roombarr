@@ -590,6 +590,113 @@ describe('validateConfig (cross-validation)', () => {
     expect(errors).toEqual([]);
   });
 
+  test('passes with state fields on radarr target', () => {
+    const config = parse({
+      rules: [
+        {
+          name: 'State rule',
+          target: 'radarr',
+          conditions: {
+            operator: 'AND',
+            children: [
+              {
+                field: 'state.days_off_import_list',
+                operator: 'greater_than',
+                value: 30,
+              },
+            ],
+          },
+          action: 'delete',
+        },
+      ],
+    });
+    const errors = validateConfig(config);
+    expect(errors).toEqual([]);
+  });
+
+  test('fails with state fields on sonarr target', () => {
+    const config = parse({
+      services: {
+        sonarr: { base_url: 'http://localhost:8989', api_key: 'key' },
+      },
+      rules: [
+        {
+          name: 'Bad state rule',
+          target: 'sonarr',
+          conditions: {
+            operator: 'AND',
+            children: [
+              {
+                field: 'state.days_off_import_list',
+                operator: 'greater_than',
+                value: 30,
+              },
+            ],
+          },
+          action: 'delete',
+        },
+      ],
+    });
+    const errors = validateConfig(config);
+    expect(errors).toContainEqual(
+      expect.stringContaining(
+        'unknown field "state.days_off_import_list" for target "sonarr"',
+      ),
+    );
+  });
+
+  test('passes with new radarr import list fields', () => {
+    const config = parse({
+      rules: [
+        {
+          name: 'Import list rule',
+          target: 'radarr',
+          conditions: {
+            operator: 'AND',
+            children: [
+              {
+                field: 'radarr.on_import_list',
+                operator: 'equals',
+                value: true,
+              },
+            ],
+          },
+          action: 'keep',
+        },
+      ],
+    });
+    const errors = validateConfig(config);
+    expect(errors).toEqual([]);
+  });
+
+  test('state fields do not require service config', () => {
+    const config = parse({
+      services: {
+        radarr: { base_url: 'http://localhost:7878', api_key: 'key' },
+      },
+      rules: [
+        {
+          name: 'State rule no config',
+          target: 'radarr',
+          conditions: {
+            operator: 'AND',
+            children: [
+              {
+                field: 'state.ever_on_import_list',
+                operator: 'equals',
+                value: true,
+              },
+            ],
+          },
+          action: 'delete',
+        },
+      ],
+    });
+    // No services.state config needed — state is computed locally
+    const errors = validateConfig(config);
+    expect(errors).toEqual([]);
+  });
+
   test('passes with sonarr season fields', () => {
     const config = parse({
       services: {

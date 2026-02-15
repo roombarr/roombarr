@@ -7,6 +7,10 @@ services:
       - "3000:3000"
     volumes:
       - ./config:/config:ro
+      - roombarr-data:/data
     environment:
       - TZ=America/New_York
       - CONFIG_PATH=/config/roombarr.yml
+
+volumes:
+  roombarr-data:

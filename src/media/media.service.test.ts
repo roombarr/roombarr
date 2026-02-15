@@ -27,7 +27,10 @@ function makeMovie(tmdbId: number): UnifiedMovie {
       digital_release: null,
       physical_release: null,
       path: `/movies/Movie ${tmdbId}`,
+      on_import_list: false,
+      import_list_ids: [],
     },
+    state: null,
     jellyfin: null,
     jellyseerr: null,
   };

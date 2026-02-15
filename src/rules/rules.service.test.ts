@@ -26,7 +26,10 @@ function makeMovie(overrides: Record<string, any> = {}): UnifiedMovie {
       digital_release: null,
       physical_release: null,
       path: '/movies/test',
+      on_import_list: false,
+      import_list_ids: [],
     },
+    state: null,
     jellyfin: {
       watched_by: ['Alice', 'Bob'],
       watched_by_all: true,

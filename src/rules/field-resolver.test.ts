@@ -21,7 +21,10 @@ function makeMovie(overrides: Record<string, any> = {}): UnifiedMedia {
       digital_release: '2024-03-01T00:00:00Z',
       physical_release: '2024-04-01T00:00:00Z',
       path: '/movies/test',
+      on_import_list: false,
+      import_list_ids: [],
     },
+    state: null,
     jellyfin: {
       watched_by: ['Alice', 'Bob'],
       watched_by_all: true,

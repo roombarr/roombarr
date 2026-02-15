@@ -26,3 +26,11 @@ export interface RadarrTag {
   id: number;
   label: string;
 }
+
+/** Response from GET /api/v3/importlist/movie */
+export interface RadarrImportListMovie {
+  tmdbId: number;
+  lists: number[];
+  title: string;
+  isExisting: boolean;
+}

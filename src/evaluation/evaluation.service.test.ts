@@ -46,7 +46,10 @@ const testMovie: UnifiedMovie = {
     digital_release: null,
     physical_release: null,
     path: '/movies/The Matrix (1999)',
+    on_import_list: false,
+    import_list_ids: [],
   },
+  state: null,
   jellyfin: null,
   jellyseerr: null,
 };
@@ -76,6 +79,8 @@ describe('EvaluationService', () => {
   let configService: { getConfig: ReturnType<typeof mock> };
   let mediaService: { hydrate: ReturnType<typeof mock> };
   let rulesService: { evaluate: ReturnType<typeof mock> };
+  let snapshotService: { snapshot: ReturnType<typeof mock> };
+  let stateService: { enrich: ReturnType<typeof mock> };
   let service: EvaluationService;
 
   beforeEach(() => {
@@ -91,11 +96,19 @@ describe('EvaluationService', () => {
         summary: testSummary,
       })),
     };
+    snapshotService = {
+      snapshot: mock(() => {}),
+    };
+    stateService = {
+      enrich: mock((items: any) => items),
+    };
 
     service = new EvaluationService(
       configService as any,
       mediaService as any,
       rulesService as any,
+      snapshotService as any,
+      stateService as any,
     );
   });
 

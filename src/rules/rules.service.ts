@@ -84,6 +84,13 @@ export class RulesService {
   }
 
   /**
+   * Services whose data is always present on the unified model and
+   * should never cause a rule to be skipped. State is computed locally
+   * from SQLite, not fetched from an external API.
+   */
+  private static readonly ALWAYS_PRESENT_SERVICES = new Set(['state']);
+
+  /**
    * Check if a rule references service data that's missing on the item.
    * If so, the entire rule is skipped for safety.
    */
@@ -94,6 +101,8 @@ export class RulesService {
     const services = this.extractServicePrefixes(rule.conditions);
 
     for (const service of services) {
+      if (RulesService.ALWAYS_PRESENT_SERVICES.has(service)) continue;
+
       const serviceData = (item as unknown as Record<string, unknown>)[service];
       if (serviceData === null || serviceData === undefined) {
         return { skip: true };
