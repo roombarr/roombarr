@@ -73,7 +73,7 @@ export const fieldRegistry: Record<
   Record<string, FieldDefinition>
 > = {
   radarr: { ...radarrFields, ...enrichmentFields, ...stateFields },
-  sonarr: { ...sonarrFields, ...enrichmentFields },
+  sonarr: { ...sonarrFields, ...enrichmentFields, ...stateFields },
 };
 
 const operatorTypeCompatibility: Record<string, FieldType[]> = {

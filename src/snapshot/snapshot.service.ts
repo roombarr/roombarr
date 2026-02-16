@@ -1,29 +1,44 @@
-import type { Database } from 'bun:sqlite';
 import { Injectable, Logger } from '@nestjs/common';
+import { gt, sql } from 'drizzle-orm';
+import type { BunSQLiteDatabase } from 'drizzle-orm/bun-sqlite';
 import diff from 'microdiff';
 import { fieldRegistry } from '../config/field-registry.js';
 import { DatabaseService } from '../database/database.service.js';
+import type * as schema from '../database/schema.js';
+import { fieldChanges, mediaItems } from '../database/schema.js';
 import { resolveField } from '../rules/field-resolver.js';
 import type { UnifiedMedia } from '../shared/types.js';
 
-/** Row shape for media_snapshots table. */
+/** Row shape returned from loading media_items. */
 interface SnapshotRow {
-  media_type: string;
-  media_id: string;
+  mediaType: string;
+  mediaId: string;
   title: string;
   data: string;
-  data_hash: string;
-  missed_evaluations: number;
+  dataHash: string;
+  missedEvaluations: number;
 }
 
 /** How many evaluations an item can be absent before its snapshot is purged. */
 const ORPHAN_GRACE_EVALUATIONS = 7;
 
-/** Default retention for field_changes rows (days). */
-const CHANGE_RETENTION_DAYS = 90;
+/**
+ * SQLite supports at most 999 bound parameters per statement.
+ * Chunk multi-row inserts to stay under this limit.
+ */
+const MEDIA_ITEMS_COLUMNS = 8;
+const FIELD_CHANGES_COLUMNS = 7;
+const MEDIA_ITEMS_CHUNK_SIZE = Math.floor(999 / MEDIA_ITEMS_COLUMNS);
+const FIELD_CHANGES_CHUNK_SIZE = Math.floor(999 / FIELD_CHANGES_COLUMNS);
 
-/** Batch size for retention cleanup deletes. */
-const RETENTION_CLEANUP_BATCH = 1000;
+/** Split an array into chunks of a given size. */
+function chunk<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+}
 
 /**
  * Persists unified media snapshots to SQLite and tracks
@@ -34,29 +49,32 @@ const RETENTION_CLEANUP_BATCH = 1000;
 @Injectable()
 export class SnapshotService {
   private readonly logger = new Logger(SnapshotService.name);
-  private db!: Database;
+  private db!: BunSQLiteDatabase<typeof schema>;
 
   constructor(private readonly databaseService: DatabaseService) {}
 
-  /** Late-bind to avoid accessing DB before module init. */
   private getDb() {
     if (!this.db) {
-      this.db = this.databaseService.getDatabase();
+      this.db = this.databaseService.getDrizzle();
     }
     return this.db;
   }
 
   /**
    * Snapshot all unified media items, detect field changes,
-   * and clean up orphans/expired changes.
+   * and clean up orphans.
    *
    * @param items - The current evaluation's hydrated unified models
    * @param hydratedServices - Set of service prefixes that were actually fetched
    *   this cycle (e.g., {'radarr', 'jellyfin'}). Only fields belonging to
    *   these services are diffed/overwritten.
    */
-  snapshot(items: UnifiedMedia[], hydratedServices: Set<string>): void {
+  async snapshot(
+    items: UnifiedMedia[],
+    hydratedServices: Set<string>,
+  ): Promise<void> {
     const db = this.getDb();
+    const now = new Date().toISOString();
 
     // Step 1: Batch-read all existing snapshots into a Map
     const existingSnapshots = this.loadAllSnapshots();
@@ -71,6 +89,8 @@ export class SnapshotService {
       title: string;
       data: string;
       dataHash: string;
+      firstSeenAt: string;
+      lastSeenAt: string;
       isNew: boolean;
     }> = [];
 
@@ -80,6 +100,7 @@ export class SnapshotService {
       fieldPath: string;
       oldValue: string | null;
       newValue: string | null;
+      changedAt: string;
     }> = [];
 
     for (const item of items) {
@@ -103,20 +124,24 @@ export class SnapshotService {
           title: item.title,
           data: dataJson,
           dataHash,
+          firstSeenAt: now,
+          lastSeenAt: now,
           isNew: true,
         });
         continue;
       }
 
       // Content hash skip — if unchanged, just reset missed_evaluations
-      if (existing.data_hash === dataHash) {
-        if (existing.missed_evaluations > 0) {
+      if (existing.dataHash === dataHash) {
+        if (existing.missedEvaluations > 0) {
           upserts.push({
             mediaType,
             mediaId,
             title: item.title,
             data: existing.data,
-            dataHash: existing.data_hash,
+            dataHash: existing.dataHash,
+            firstSeenAt: now,
+            lastSeenAt: now,
             isNew: false,
           });
         }
@@ -124,7 +149,15 @@ export class SnapshotService {
       }
 
       // Diff against previous snapshot (only hydrated service fields)
-      const previousData = JSON.parse(existing.data) as Record<string, unknown>;
+      let previousData: Record<string, unknown>;
+      try {
+        previousData = JSON.parse(existing.data) as Record<string, unknown>;
+      } catch {
+        this.logger.warn(
+          `Corrupt data for ${mediaType}/${mediaId}, treating as empty`,
+        );
+        previousData = {};
+      }
       const currentFiltered = this.filterByServices(flatData, hydratedServices);
       const previousFiltered = this.filterByServices(
         previousData,
@@ -146,6 +179,7 @@ export class SnapshotService {
             fieldPath,
             oldValue: JSON.stringify(d.oldValue),
             newValue: JSON.stringify(d.value),
+            changedAt: now,
           });
         } else if (d.type === 'CREATE') {
           changes.push({
@@ -154,6 +188,7 @@ export class SnapshotService {
             fieldPath,
             oldValue: null,
             newValue: JSON.stringify(d.value),
+            changedAt: now,
           });
         } else if (d.type === 'REMOVE') {
           changes.push({
@@ -162,12 +197,13 @@ export class SnapshotService {
             fieldPath,
             oldValue: JSON.stringify(d.oldValue),
             newValue: null,
+            changedAt: now,
           });
         }
       }
 
       // Merge: preserve non-hydrated fields from previous snapshot
-      const mergedData = { ...previousData };
+      const mergedData: Record<string, unknown> = { ...previousData };
       for (const [key, value] of Object.entries(flatData)) {
         const service = key.split('.')[0];
         if (hydratedServices.has(service)) {
@@ -194,47 +230,59 @@ export class SnapshotService {
         title: item.title,
         data: mergedJson,
         dataHash: mergedHash,
+        firstSeenAt: now,
+        lastSeenAt: now,
         isNew: false,
       });
     }
 
     // Step 4: Execute all writes in a single transaction
-    const runTransaction = db.transaction(() => {
-      const upsertStmt = db.query(`
-        INSERT INTO media_snapshots (media_type, media_id, title, data, data_hash, missed_evaluations)
-        VALUES (?, ?, ?, ?, ?, 0)
-        ON CONFLICT(media_type, media_id) DO UPDATE SET
-          title = excluded.title,
-          data = excluded.data,
-          data_hash = excluded.data_hash,
-          last_updated_at = datetime('now'),
-          missed_evaluations = 0
-      `);
-
-      const changeStmt = db.query(`
-        INSERT INTO field_changes (media_type, media_id, field_path, old_value, new_value)
-        VALUES (?, ?, ?, ?, ?)
-      `);
-
-      for (const u of upserts) {
-        upsertStmt.run(u.mediaType, u.mediaId, u.title, u.data, u.dataHash);
+    await db.transaction(async tx => {
+      // Upsert media items in chunks
+      for (const batch of chunk(upserts, MEDIA_ITEMS_CHUNK_SIZE)) {
+        await tx
+          .insert(mediaItems)
+          .values(
+            batch.map(u => ({
+              mediaType: u.mediaType,
+              mediaId: u.mediaId,
+              title: u.title,
+              data: u.data,
+              dataHash: u.dataHash,
+              firstSeenAt: u.firstSeenAt,
+              lastSeenAt: u.lastSeenAt,
+              missedEvaluations: 0,
+            })),
+          )
+          .onConflictDoUpdate({
+            target: [mediaItems.mediaType, mediaItems.mediaId],
+            set: {
+              title: sql`excluded.title`,
+              data: sql`excluded.data`,
+              dataHash: sql`excluded.data_hash`,
+              lastSeenAt: sql`excluded.last_seen_at`,
+              missedEvaluations: sql`0`,
+            },
+          });
       }
 
-      for (const c of changes) {
-        changeStmt.run(
-          c.mediaType,
-          c.mediaId,
-          c.fieldPath,
-          c.oldValue,
-          c.newValue,
+      // Insert field changes in chunks
+      for (const batch of chunk(changes, FIELD_CHANGES_CHUNK_SIZE)) {
+        await tx.insert(fieldChanges).values(
+          batch.map(c => ({
+            mediaType: c.mediaType,
+            mediaId: c.mediaId,
+            fieldPath: c.fieldPath,
+            oldValue: c.oldValue,
+            newValue: c.newValue,
+            changedAt: c.changedAt,
+          })),
         );
       }
 
       // Increment missed_evaluations for items not seen this cycle
-      this.incrementMissedEvaluations(currentIds);
+      await this.incrementMissedEvaluations(tx, currentIds);
     });
-
-    runTransaction();
 
     this.logger.log(
       `Snapshot complete: ${upserts.filter(u => u.isNew).length} new, ` +
@@ -243,8 +291,7 @@ export class SnapshotService {
     );
 
     // Step 5: Cleanup (outside transaction for smaller lock windows)
-    this.cleanupOrphans();
-    this.cleanupExpiredChanges();
+    await this.cleanupOrphans();
   }
 
   /** Extract the media ID used as the composite key. */
@@ -316,69 +363,51 @@ export class SnapshotService {
   /** Load all existing snapshots into a Map for batch comparison. */
   private loadAllSnapshots(): Map<string, SnapshotRow> {
     const db = this.getDb();
-    const rows = db
-      .query<SnapshotRow, []>('SELECT * FROM media_snapshots')
-      .all();
+    const rows = db.select().from(mediaItems).all();
     const map = new Map<string, SnapshotRow>();
     for (const row of rows) {
-      map.set(`${row.media_type}:${row.media_id}`, row);
+      map.set(`${row.mediaType}:${row.mediaId}`, row);
     }
     return map;
   }
 
   /** Increment missed_evaluations for all items not in the current set. */
-  private incrementMissedEvaluations(currentIds: Set<string>): void {
-    const db = this.getDb();
-    const allRows = db
-      .query<{ media_type: string; media_id: string }, []>(
-        'SELECT media_type, media_id FROM media_snapshots',
-      )
+  private async incrementMissedEvaluations(
+    tx: BunSQLiteDatabase<typeof schema>,
+    currentIds: Set<string>,
+  ): Promise<void> {
+    const allRows = tx
+      .select({
+        mediaType: mediaItems.mediaType,
+        mediaId: mediaItems.mediaId,
+      })
+      .from(mediaItems)
       .all();
 
-    const stmt = db.query(
-      'UPDATE media_snapshots SET missed_evaluations = missed_evaluations + 1 WHERE media_type = ? AND media_id = ?',
-    );
-
     for (const row of allRows) {
-      const key = `${row.media_type}:${row.media_id}`;
+      const key = `${row.mediaType}:${row.mediaId}`;
       if (!currentIds.has(key)) {
-        stmt.run(row.media_type, row.media_id);
+        await tx
+          .update(mediaItems)
+          .set({
+            missedEvaluations: sql`${mediaItems.missedEvaluations} + 1`,
+          })
+          .where(
+            sql`${mediaItems.mediaType} = ${row.mediaType} AND ${mediaItems.mediaId} = ${row.mediaId}`,
+          );
       }
     }
   }
 
   /** Delete snapshots that have been missing for more than the grace period. */
-  private cleanupOrphans(): void {
+  private async cleanupOrphans(): Promise<void> {
     const db = this.getDb();
-    const { changes } = db
-      .query('DELETE FROM media_snapshots WHERE missed_evaluations > ?')
-      .run(ORPHAN_GRACE_EVALUATIONS);
+    const deleted = await db
+      .delete(mediaItems)
+      .where(gt(mediaItems.missedEvaluations, ORPHAN_GRACE_EVALUATIONS));
 
-    if (changes > 0) {
-      this.logger.log(`Cleaned up ${changes} orphan snapshots`);
-    }
-  }
-
-  /**
-   * Delete expired field_changes rows, but always preserve
-   * the most recent entry per (media_id, field_path) regardless of age.
-   */
-  private cleanupExpiredChanges(): void {
-    const db = this.getDb();
-    const { changes } = db
-      .query(
-        `DELETE FROM field_changes
-         WHERE changed_at < datetime('now', '-${CHANGE_RETENTION_DAYS} days')
-           AND id NOT IN (
-             SELECT MAX(id) FROM field_changes
-             GROUP BY media_type, media_id, field_path
-           )
-         LIMIT ?`,
-      )
-      .run(RETENTION_CLEANUP_BATCH);
-
-    if (changes > 0) {
-      this.logger.log(`Cleaned up ${changes} expired field change records`);
+    if (deleted.changes > 0) {
+      this.logger.log(`Cleaned up ${deleted.changes} orphan snapshots`);
     }
   }
 }

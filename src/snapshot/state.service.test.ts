@@ -4,7 +4,7 @@ import { existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseService } from '../database/database.service.js';
-import type { UnifiedMovie } from '../shared/types.js';
+import type { UnifiedMovie, UnifiedSeason } from '../shared/types.js';
 import { SnapshotService } from './snapshot.service.js';
 import { StateService } from './state.service.js';
 
@@ -72,11 +72,11 @@ describe('StateService', () => {
     expect((enriched[0] as UnifiedMovie).state).toBeNull();
   });
 
-  test('populates state after first snapshot exists', () => {
+  test('populates state after first snapshot exists', async () => {
     const movie = makeMovie();
 
     // Create initial snapshot
-    snapshotService.snapshot([movie], new Set(['radarr']));
+    await snapshotService.snapshot([movie], new Set(['radarr']));
 
     // Enrich
     const enriched = stateService.enrich([movie]);
@@ -88,11 +88,11 @@ describe('StateService', () => {
     expect(enrichedMovie.state!.ever_on_import_list).toBe(true);
   });
 
-  test('days_off_import_list is null when currently on a list', () => {
+  test('days_off_import_list is null when currently on a list', async () => {
     const movie = makeMovie({
       radarr: { ...makeMovie().radarr, on_import_list: true },
     });
-    snapshotService.snapshot([movie], new Set(['radarr']));
+    await snapshotService.snapshot([movie], new Set(['radarr']));
 
     const enriched = stateService.enrich([movie]);
     const state = (enriched[0] as UnifiedMovie).state!;
@@ -100,9 +100,9 @@ describe('StateService', () => {
     expect(state.days_off_import_list).toBeNull();
   });
 
-  test('days_off_import_list computes from change history', () => {
+  test('days_off_import_list computes from change history', async () => {
     const movieOn = makeMovie();
-    snapshotService.snapshot([movieOn], new Set(['radarr']));
+    await snapshotService.snapshot([movieOn], new Set(['radarr']));
 
     // Movie falls off import list
     const movieOff = makeMovie({
@@ -112,7 +112,7 @@ describe('StateService', () => {
         import_list_ids: [],
       },
     });
-    snapshotService.snapshot([movieOff], new Set(['radarr']));
+    await snapshotService.snapshot([movieOff], new Set(['radarr']));
 
     // Manually backdate the field_change to 5 days ago for testing
     db.query(
@@ -127,7 +127,7 @@ describe('StateService', () => {
     expect(state.days_off_import_list).toBe(5);
   });
 
-  test('days_off_import_list is null when never on a list', () => {
+  test('days_off_import_list is null when never on a list', async () => {
     const movie = makeMovie({
       radarr: {
         ...makeMovie().radarr,
@@ -135,7 +135,7 @@ describe('StateService', () => {
         import_list_ids: [],
       },
     });
-    snapshotService.snapshot([movie], new Set(['radarr']));
+    await snapshotService.snapshot([movie], new Set(['radarr']));
 
     const enriched = stateService.enrich([movie]);
     const state = (enriched[0] as UnifiedMovie).state!;
@@ -144,9 +144,9 @@ describe('StateService', () => {
     expect(state.days_off_import_list).toBeNull();
   });
 
-  test('ever_on_import_list is true when currently on list', () => {
+  test('ever_on_import_list is true when currently on list', async () => {
     const movie = makeMovie();
-    snapshotService.snapshot([movie], new Set(['radarr']));
+    await snapshotService.snapshot([movie], new Set(['radarr']));
 
     const enriched = stateService.enrich([movie]);
     const state = (enriched[0] as UnifiedMovie).state!;
@@ -154,10 +154,10 @@ describe('StateService', () => {
     expect(state.ever_on_import_list).toBe(true);
   });
 
-  test('ever_on_import_list is true after falling off list', () => {
+  test('ever_on_import_list is true after falling off list', async () => {
     // Was on list
     const movieOn = makeMovie();
-    snapshotService.snapshot([movieOn], new Set(['radarr']));
+    await snapshotService.snapshot([movieOn], new Set(['radarr']));
 
     // Fell off list
     const movieOff = makeMovie({
@@ -167,7 +167,7 @@ describe('StateService', () => {
         import_list_ids: [],
       },
     });
-    snapshotService.snapshot([movieOff], new Set(['radarr']));
+    await snapshotService.snapshot([movieOff], new Set(['radarr']));
 
     const enriched = stateService.enrich([movieOff]);
     const state = (enriched[0] as UnifiedMovie).state!;
@@ -175,7 +175,7 @@ describe('StateService', () => {
     expect(state.ever_on_import_list).toBe(true);
   });
 
-  test('ever_on_import_list is false when never on a list', () => {
+  test('ever_on_import_list is false when never on a list', async () => {
     const movie = makeMovie({
       radarr: {
         ...makeMovie().radarr,
@@ -183,7 +183,7 @@ describe('StateService', () => {
         import_list_ids: [],
       },
     });
-    snapshotService.snapshot([movie], new Set(['radarr']));
+    await snapshotService.snapshot([movie], new Set(['radarr']));
 
     const enriched = stateService.enrich([movie]);
     const state = (enriched[0] as UnifiedMovie).state!;
@@ -191,9 +191,9 @@ describe('StateService', () => {
     expect(state.ever_on_import_list).toBe(false);
   });
 
-  test('does not compute state for seasons', () => {
-    const season = {
-      type: 'season' as const,
+  test('returns seasons unchanged when no registry fields target sonarr', async () => {
+    const season: UnifiedSeason = {
+      type: 'season',
       tvdb_id: 100,
       title: 'Test Show - S01',
       year: 2024,
@@ -213,16 +213,43 @@ describe('StateService', () => {
       },
       jellyfin: null,
       jellyseerr: null,
+      state: null,
     };
 
-    // Create a snapshot so enrichment actually runs
-    db.query(
-      `INSERT INTO media_snapshots (media_type, media_id, title, data, data_hash)
-       VALUES (?, ?, ?, ?, ?)`,
-    ).run('season', '100:1', 'Test Show - S01', '{}', 'hash');
+    // Create a snapshot so enrichment would run if applicable
+    await snapshotService.snapshot([season], new Set(['sonarr']));
 
     const enriched = stateService.enrich([season]);
-    // Seasons should pass through unchanged (no state property)
-    expect(enriched[0]).toBe(season);
+    const enrichedSeason = enriched[0] as UnifiedSeason;
+    // No state fields in registry target sonarr yet — state remains null
+    expect(enrichedSeason.state).toBeNull();
+  });
+
+  test('batch query handles multiple items efficiently', async () => {
+    const movie1 = makeMovie({ tmdb_id: 1, title: 'Movie 1' });
+    const movie2 = makeMovie({
+      tmdb_id: 2,
+      title: 'Movie 2',
+      radarr: {
+        ...makeMovie().radarr,
+        on_import_list: false,
+        import_list_ids: [],
+      },
+    });
+
+    await snapshotService.snapshot([movie1, movie2], new Set(['radarr']));
+
+    const enriched = stateService.enrich([movie1, movie2]);
+
+    // Both should get state
+    expect((enriched[0] as UnifiedMovie).state).toBeTruthy();
+    expect((enriched[1] as UnifiedMovie).state).toBeTruthy();
+
+    // Movie 1 is on a list
+    expect((enriched[0] as UnifiedMovie).state!.ever_on_import_list).toBe(true);
+    // Movie 2 was never on a list
+    expect((enriched[1] as UnifiedMovie).state!.ever_on_import_list).toBe(
+      false,
+    );
   });
 });

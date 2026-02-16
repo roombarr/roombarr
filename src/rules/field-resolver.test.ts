@@ -67,6 +67,7 @@ function makeSeason(overrides: Record<string, any> = {}): UnifiedMedia {
       play_count: 1,
     },
     jellyseerr: null,
+    state: null,
     ...overrides,
   };
 }

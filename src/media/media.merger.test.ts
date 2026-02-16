@@ -58,6 +58,7 @@ function makeSeason(tvdbId: number, seasonNumber: number): UnifiedSeason {
     },
     jellyfin: null,
     jellyseerr: null,
+    state: null,
   };
 }
 

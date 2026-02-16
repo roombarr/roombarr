@@ -614,14 +614,14 @@ describe('validateConfig (cross-validation)', () => {
     expect(errors).toEqual([]);
   });
 
-  test('fails with state fields on sonarr target', () => {
+  test('passes with state fields on sonarr target', () => {
     const config = parse({
       services: {
         sonarr: { base_url: 'http://localhost:8989', api_key: 'key' },
       },
       rules: [
         {
-          name: 'Bad state rule',
+          name: 'State rule on sonarr',
           target: 'sonarr',
           conditions: {
             operator: 'AND',
@@ -638,11 +638,7 @@ describe('validateConfig (cross-validation)', () => {
       ],
     });
     const errors = validateConfig(config);
-    expect(errors).toContainEqual(
-      expect.stringContaining(
-        'unknown field "state.days_off_import_list" for target "sonarr"',
-      ),
-    );
+    expect(errors).toHaveLength(0);
   });
 
   test('passes with new radarr import list fields', () => {

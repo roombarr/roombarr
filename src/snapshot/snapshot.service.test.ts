@@ -61,13 +61,13 @@ describe('SnapshotService', () => {
     delete process.env.DATA_PATH;
   });
 
-  test('creates snapshot for new items', () => {
+  test('creates snapshot for new items', async () => {
     const movie = makeMovie();
-    snapshotService.snapshot([movie], new Set(['radarr']));
+    await snapshotService.snapshot([movie], new Set(['radarr']));
 
     const row = db
       .query<{ media_id: string; title: string }, []>(
-        'SELECT media_id, title FROM media_snapshots',
+        'SELECT media_id, title FROM media_items',
       )
       .get();
     expect(row).toBeTruthy();
@@ -75,9 +75,9 @@ describe('SnapshotService', () => {
     expect(row!.title).toBe('Test Movie');
   });
 
-  test('does not generate field_changes on first observation', () => {
+  test('does not generate field_changes on first observation', async () => {
     const movie = makeMovie();
-    snapshotService.snapshot([movie], new Set(['radarr']));
+    await snapshotService.snapshot([movie], new Set(['radarr']));
 
     const changes = db
       .query<{ id: number }, []>('SELECT id FROM field_changes')
@@ -85,9 +85,9 @@ describe('SnapshotService', () => {
     expect(changes).toHaveLength(0);
   });
 
-  test('detects field value changes on subsequent snapshots', () => {
+  test('detects field value changes on subsequent snapshots', async () => {
     const movie1 = makeMovie();
-    snapshotService.snapshot([movie1], new Set(['radarr']));
+    await snapshotService.snapshot([movie1], new Set(['radarr']));
 
     // Change monitored from true to false
     const movie2 = makeMovie({
@@ -96,7 +96,7 @@ describe('SnapshotService', () => {
         monitored: false,
       },
     });
-    snapshotService.snapshot([movie2], new Set(['radarr']));
+    await snapshotService.snapshot([movie2], new Set(['radarr']));
 
     const changes = db
       .query<{ field_path: string; old_value: string; new_value: string }, []>(
@@ -112,14 +112,14 @@ describe('SnapshotService', () => {
     expect(monitoredChange!.new_value).toBe('false');
   });
 
-  test('skips diffing when content hash is unchanged', () => {
+  test('skips diffing when content hash is unchanged', async () => {
     const movie = makeMovie();
 
     // First snapshot
-    snapshotService.snapshot([movie], new Set(['radarr']));
+    await snapshotService.snapshot([movie], new Set(['radarr']));
 
     // Same movie again — no changes expected
-    snapshotService.snapshot([movie], new Set(['radarr']));
+    await snapshotService.snapshot([movie], new Set(['radarr']));
 
     const changes = db
       .query<{ id: number }, []>('SELECT id FROM field_changes')
@@ -127,7 +127,7 @@ describe('SnapshotService', () => {
     expect(changes).toHaveLength(0);
   });
 
-  test('only snapshots fields for hydrated services', () => {
+  test('only snapshots fields for hydrated services', async () => {
     const movie = makeMovie({
       jellyfin: {
         watched_by: ['Alice'],
@@ -138,10 +138,10 @@ describe('SnapshotService', () => {
     });
 
     // Only hydrate radarr, not jellyfin
-    snapshotService.snapshot([movie], new Set(['radarr']));
+    await snapshotService.snapshot([movie], new Set(['radarr']));
 
     const row = db
-      .query<{ data: string }, []>('SELECT data FROM media_snapshots')
+      .query<{ data: string }, []>('SELECT data FROM media_items')
       .get();
     const data = JSON.parse(row!.data);
 
@@ -151,7 +151,7 @@ describe('SnapshotService', () => {
     expect(data['jellyfin.play_count']).toBeUndefined();
   });
 
-  test('preserves non-hydrated service fields on subsequent snapshots', () => {
+  test('preserves non-hydrated service fields on subsequent snapshots', async () => {
     const movie = makeMovie({
       jellyfin: {
         watched_by: ['Alice'],
@@ -162,14 +162,14 @@ describe('SnapshotService', () => {
     });
 
     // First snapshot with both services hydrated
-    snapshotService.snapshot([movie], new Set(['radarr', 'jellyfin']));
+    await snapshotService.snapshot([movie], new Set(['radarr', 'jellyfin']));
 
     // Second snapshot with only radarr hydrated (jellyfin API was down)
     const movie2 = makeMovie({ jellyfin: null });
-    snapshotService.snapshot([movie2], new Set(['radarr']));
+    await snapshotService.snapshot([movie2], new Set(['radarr']));
 
     const row = db
-      .query<{ data: string }, []>('SELECT data FROM media_snapshots')
+      .query<{ data: string }, []>('SELECT data FROM media_items')
       .get();
     const data = JSON.parse(row!.data);
 
@@ -179,64 +179,62 @@ describe('SnapshotService', () => {
     expect(data['jellyfin.play_count']).toBe(1);
   });
 
-  test('increments missed_evaluations for absent items', () => {
+  test('increments missed_evaluations for absent items', async () => {
     const movie = makeMovie();
-    snapshotService.snapshot([movie], new Set(['radarr']));
+    await snapshotService.snapshot([movie], new Set(['radarr']));
 
     // Next evaluation with no items
-    snapshotService.snapshot([], new Set(['radarr']));
+    await snapshotService.snapshot([], new Set(['radarr']));
 
     const row = db
       .query<{ missed_evaluations: number }, []>(
-        'SELECT missed_evaluations FROM media_snapshots',
+        'SELECT missed_evaluations FROM media_items',
       )
       .get();
     expect(row!.missed_evaluations).toBe(1);
   });
 
-  test('resets missed_evaluations when item reappears', () => {
+  test('resets missed_evaluations when item reappears', async () => {
     const movie = makeMovie();
-    snapshotService.snapshot([movie], new Set(['radarr']));
+    await snapshotService.snapshot([movie], new Set(['radarr']));
 
     // Disappear for one eval
-    snapshotService.snapshot([], new Set(['radarr']));
+    await snapshotService.snapshot([], new Set(['radarr']));
 
     // Reappear
-    snapshotService.snapshot([movie], new Set(['radarr']));
+    await snapshotService.snapshot([movie], new Set(['radarr']));
 
     const row = db
       .query<{ missed_evaluations: number }, []>(
-        'SELECT missed_evaluations FROM media_snapshots',
+        'SELECT missed_evaluations FROM media_items',
       )
       .get();
     expect(row!.missed_evaluations).toBe(0);
   });
 
-  test('deletes orphan snapshots after grace period', () => {
+  test('deletes orphan snapshots after grace period', async () => {
     const movie = makeMovie();
-    snapshotService.snapshot([movie], new Set(['radarr']));
+    await snapshotService.snapshot([movie], new Set(['radarr']));
 
     // Simulate 8 evaluations without the item (grace = 7)
     for (let i = 0; i < 8; i++) {
-      snapshotService.snapshot([], new Set(['radarr']));
+      await snapshotService.snapshot([], new Set(['radarr']));
     }
 
     const count = db
-      .query<{ count: number }, []>(
-        'SELECT COUNT(*) as count FROM media_snapshots',
-      )
+      .query<{ count: number }, []>('SELECT COUNT(*) as count FROM media_items')
       .get();
     expect(count!.count).toBe(0);
   });
 
-  test('sorts arrays before diffing to avoid phantom changes', () => {
+  test('sorts arrays before diffing to avoid phantom changes', async () => {
     const movie1 = makeMovie({
       radarr: {
         ...makeMovie().radarr,
         tags: ['action', 'sci-fi'],
       },
     });
-    snapshotService.snapshot([movie1], new Set(['radarr']));
+    await snapshotService.snapshot([movie1], new Set(['radarr']));
 
     // Same tags in different order — should NOT produce a change
     const movie2 = makeMovie({
@@ -245,7 +243,7 @@ describe('SnapshotService', () => {
         tags: ['sci-fi', 'action'],
       },
     });
-    snapshotService.snapshot([movie2], new Set(['radarr']));
+    await snapshotService.snapshot([movie2], new Set(['radarr']));
 
     const changes = db
       .query<{ field_path: string }, []>(
@@ -255,16 +253,28 @@ describe('SnapshotService', () => {
     expect(changes).toHaveLength(0);
   });
 
-  test('handles multiple items in single snapshot', () => {
+  test('handles multiple items in single snapshot', async () => {
     const movie1 = makeMovie({ tmdb_id: 1, title: 'Movie 1' });
     const movie2 = makeMovie({ tmdb_id: 2, title: 'Movie 2' });
-    snapshotService.snapshot([movie1, movie2], new Set(['radarr']));
+    await snapshotService.snapshot([movie1, movie2], new Set(['radarr']));
 
     const count = db
-      .query<{ count: number }, []>(
-        'SELECT COUNT(*) as count FROM media_snapshots',
-      )
+      .query<{ count: number }, []>('SELECT COUNT(*) as count FROM media_items')
       .get();
     expect(count!.count).toBe(2);
+  });
+
+  test('sets last_seen_at on every upsert', async () => {
+    const movie = makeMovie();
+    await snapshotService.snapshot([movie], new Set(['radarr']));
+
+    const row = db
+      .query<{ last_seen_at: string }, []>(
+        'SELECT last_seen_at FROM media_items',
+      )
+      .get();
+    expect(row!.last_seen_at).toBeTruthy();
+    // Should be an ISO timestamp
+    expect(new Date(row!.last_seen_at).toISOString()).toBe(row!.last_seen_at);
   });
 });

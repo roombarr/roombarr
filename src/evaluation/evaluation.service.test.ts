@@ -97,7 +97,7 @@ describe('EvaluationService', () => {
       })),
     };
     snapshotService = {
-      snapshot: mock(() => {}),
+      snapshot: mock(() => Promise.resolve()),
     };
     stateService = {
       enrich: mock((items: any) => items),

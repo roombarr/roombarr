@@ -1,51 +1,57 @@
-import type { Database } from 'bun:sqlite';
 import { Injectable, Logger } from '@nestjs/common';
+import { inArray, sql } from 'drizzle-orm';
+import type { BunSQLiteDatabase } from 'drizzle-orm/bun-sqlite';
 import { DatabaseService } from '../database/database.service.js';
-import type { StateData, UnifiedMedia, UnifiedMovie } from '../shared/types.js';
+import type * as schema from '../database/schema.js';
+import { fieldChanges, mediaItems } from '../database/schema.js';
+import { resolveField } from '../rules/field-resolver.js';
+import type { StateData, UnifiedMedia } from '../shared/types.js';
+import {
+  type StateFieldPattern,
+  stateFieldRegistry,
+} from './state-registry.js';
 
 interface FieldChangeRow {
-  new_value: string | null;
-  changed_at: string;
-}
-
-interface SnapshotDataRow {
-  data: string;
+  mediaType: string;
+  mediaId: string;
+  fieldPath: string;
+  oldValue: string | null;
+  newValue: string | null;
+  changedAt: string;
 }
 
 /**
  * Computes temporal state fields from the field_changes history.
- * These enriched fields enable time-based lifecycle rules
- * like "days since this movie fell off all import lists."
+ * Uses the state field registry for data-driven computation —
+ * no custom SQL methods needed per field.
  */
 @Injectable()
 export class StateService {
   private readonly logger = new Logger(StateService.name);
-  private db!: Database;
+  private db!: BunSQLiteDatabase<typeof schema>;
 
   constructor(private readonly databaseService: DatabaseService) {}
 
   private getDb() {
     if (!this.db) {
-      this.db = this.databaseService.getDatabase();
+      this.db = this.databaseService.getDrizzle();
     }
     return this.db;
   }
 
   /**
    * Enrich unified media items with computed temporal state.
-   * Only movies get state data (state fields are Radarr-only).
    * Returns the same items with `state` populated.
    */
   enrich(items: UnifiedMedia[]): UnifiedMedia[] {
     const db = this.getDb();
 
     // Check if any snapshots exist — if not, this is the first evaluation
-    const snapshotCount =
-      db
-        .query<{ count: number }, []>(
-          'SELECT COUNT(*) as count FROM media_snapshots',
-        )
-        .get()?.count ?? 0;
+    const result = db
+      .select({ count: sql<number>`count(*)` })
+      .from(mediaItems)
+      .get();
+    const snapshotCount = result?.count ?? 0;
 
     if (snapshotCount === 0) {
       this.logger.debug(
@@ -54,103 +60,194 @@ export class StateService {
       return items;
     }
 
+    // Collect all tracked field paths for the items in this batch
+    const targetTypes = new Set(
+      items.map(item => (item.type === 'movie' ? 'radarr' : 'sonarr')),
+    );
+
+    const relevantEntries = Object.entries(stateFieldRegistry).filter(
+      ([, pattern]) => pattern.targets.some(t => targetTypes.has(t)),
+    );
+
+    if (relevantEntries.length === 0) return items;
+
+    const trackedPaths = [
+      ...new Set(relevantEntries.map(([, pattern]) => pattern.tracks)),
+    ];
+
+    // Batch query: fetch all relevant field changes in one shot
+    const allChanges = db
+      .select()
+      .from(fieldChanges)
+      .where(inArray(fieldChanges.fieldPath, trackedPaths))
+      .all() as FieldChangeRow[];
+
+    // Index by composite key → field_path → rows (sorted by changedAt DESC)
+    const changeIndex = this.buildChangeIndex(allChanges);
+
     return items.map(item => {
-      if (item.type !== 'movie') return item;
-      return { ...item, state: this.computeMovieState(item) };
+      const target = item.type === 'movie' ? 'radarr' : 'sonarr';
+      const mediaId = this.getMediaId(item);
+      const compositeKey = `${item.type}:${mediaId}`;
+
+      const state = this.computeState(
+        item,
+        target,
+        compositeKey,
+        relevantEntries,
+        changeIndex,
+      );
+
+      return { ...item, state };
     });
   }
 
-  /** Compute all temporal state fields for a single movie. */
-  private computeMovieState(movie: UnifiedMovie): StateData | null {
+  /** Build a nested index: compositeKey → fieldPath → sorted FieldChangeRow[]. */
+  private buildChangeIndex(
+    rows: FieldChangeRow[],
+  ): Map<string, Map<string, FieldChangeRow[]>> {
+    const index = new Map<string, Map<string, FieldChangeRow[]>>();
+
+    for (const row of rows) {
+      const key = `${row.mediaType}:${row.mediaId}`;
+      let pathMap = index.get(key);
+      if (!pathMap) {
+        pathMap = new Map();
+        index.set(key, pathMap);
+      }
+      let pathRows = pathMap.get(row.fieldPath);
+      if (!pathRows) {
+        pathRows = [];
+        pathMap.set(row.fieldPath, pathRows);
+      }
+      pathRows.push(row);
+    }
+
+    // Sort each group by changedAt DESC (in-memory sort is cheaper than SQL ORDER BY)
+    for (const pathMap of index.values()) {
+      for (const rows of pathMap.values()) {
+        rows.sort((a, b) => b.changedAt.localeCompare(a.changedAt));
+      }
+    }
+
+    return index;
+  }
+
+  /** Compute all applicable state fields for a single item. */
+  private computeState(
+    item: UnifiedMedia,
+    target: 'radarr' | 'sonarr',
+    compositeKey: string,
+    entries: Array<[string, StateFieldPattern]>,
+    changeIndex: Map<string, Map<string, FieldChangeRow[]>>,
+  ): StateData | null {
     const db = this.getDb();
-    const mediaType = 'movie';
-    const mediaId = String(movie.tmdb_id);
 
-    // Check if this movie has a snapshot (i.e., has been seen before)
+    // Check if this item has been snapshotted before
+    const mediaType = item.type === 'movie' ? 'movie' : 'season';
+    const mediaId = compositeKey.split(':')[1];
     const snapshot = db
-      .query<SnapshotDataRow, [string, string]>(
-        'SELECT data FROM media_snapshots WHERE media_type = ? AND media_id = ?',
+      .select({ mediaId: mediaItems.mediaId })
+      .from(mediaItems)
+      .where(
+        sql`${mediaItems.mediaType} = ${mediaType} AND ${mediaItems.mediaId} = ${mediaId}`,
       )
-      .get(mediaType, mediaId);
+      .get();
 
-    if (!snapshot) {
-      // Movie hasn't been snapshotted yet — no state
-      return null;
+    if (!snapshot) return null;
+
+    const itemChanges = changeIndex.get(compositeKey);
+    const result: Record<string, unknown> = {};
+
+    for (const [fieldName, pattern] of entries) {
+      if (!pattern.targets.includes(target)) continue;
+
+      const pathChanges = itemChanges?.get(pattern.tracks) ?? [];
+
+      switch (pattern.type) {
+        case 'days_since_value':
+          result[fieldName] = this.computeDaysSinceValue(
+            item,
+            pattern,
+            pathChanges,
+          );
+          break;
+        case 'ever_was_value':
+          result[fieldName] = this.computeEverWasValue(
+            item,
+            pattern,
+            pathChanges,
+          );
+          break;
+      }
     }
 
     return {
-      days_off_import_list: this.computeDaysOffImportList(
-        mediaType,
-        mediaId,
-        movie.radarr.on_import_list,
-      ),
-      ever_on_import_list: this.computeEverOnImportList(
-        mediaType,
-        mediaId,
-        movie.radarr.on_import_list,
-      ),
+      days_off_import_list:
+        (result['state.days_off_import_list'] as number | null) ?? null,
+      ever_on_import_list:
+        (result['state.ever_on_import_list'] as boolean) ?? false,
     };
   }
 
   /**
-   * Compute days since `radarr.on_import_list` changed to `false`.
-   *
-   * - If currently on a list: return null (safe)
-   * - If currently off: find most recent change to false, compute elapsed days
-   * - If no change history exists: return null (never observed on a list)
+   * Compute days since a field last changed to a specific value.
+   * Returns null if the current value doesn't match the trigger condition.
    */
-  private computeDaysOffImportList(
-    mediaType: string,
-    mediaId: string,
-    currentlyOnList: boolean,
+  private computeDaysSinceValue(
+    item: UnifiedMedia,
+    pattern: Extract<StateFieldPattern, { type: 'days_since_value' }>,
+    changes: FieldChangeRow[],
   ): number | null {
-    if (currentlyOnList) return null;
+    // Check the live value against nullWhenCurrentNot
+    if (pattern.nullWhenCurrentNot) {
+      const { value: currentValue, resolved } = resolveField(
+        item,
+        pattern.tracks,
+      );
+      if (!resolved) return null;
 
-    const db = this.getDb();
-    const row = db
-      .query<FieldChangeRow, [string, string, string, string]>(
-        `SELECT new_value, changed_at FROM field_changes
-         WHERE media_type = ? AND media_id = ? AND field_path = ?
-           AND new_value = ?
-         ORDER BY changed_at DESC
-         LIMIT 1`,
-      )
-      .get(mediaType, mediaId, 'radarr.on_import_list', 'false');
+      const currentSerialized = JSON.stringify(currentValue);
+      if (currentSerialized !== pattern.value) return null;
+    }
 
-    if (!row) return null;
+    // Find the most recent change where new_value matches the target value
+    const match = changes.find(c => c.newValue === pattern.value);
+    if (!match) return null;
 
-    const changedAt = new Date(row.changed_at);
+    const changedAt = new Date(match.changedAt);
     const now = new Date();
     const diffMs = now.getTime() - changedAt.getTime();
     return Math.floor(diffMs / (1000 * 60 * 60 * 24));
   }
 
   /**
-   * Check if the movie was ever observed on an import list.
-   * True if any field_changes row shows on_import_list was or became true,
-   * OR if the movie is currently on a list.
-   *
-   * We check both old_value and new_value because the first observation
-   * skips field_changes generation — if a movie starts on a list and then
-   * falls off, the only field_change has old_value='true', new_value='false'.
+   * Check if a field ever held a specific value.
+   * Checks the current live value first, then scans change history.
    */
-  private computeEverOnImportList(
-    mediaType: string,
-    mediaId: string,
-    currentlyOnList: boolean,
+  private computeEverWasValue(
+    item: UnifiedMedia,
+    pattern: Extract<StateFieldPattern, { type: 'ever_was_value' }>,
+    changes: FieldChangeRow[],
   ): boolean {
-    if (currentlyOnList) return true;
+    // Check current live value
+    const { value: currentValue, resolved } = resolveField(
+      item,
+      pattern.tracks,
+    );
+    if (resolved && JSON.stringify(currentValue) === pattern.value) return true;
 
-    const db = this.getDb();
-    const row = db
-      .query<{ id: number }, [string, string, string, string, string]>(
-        `SELECT id FROM field_changes
-         WHERE media_type = ? AND media_id = ? AND field_path = ?
-           AND (new_value = ? OR old_value = ?)
-         LIMIT 1`,
-      )
-      .get(mediaType, mediaId, 'radarr.on_import_list', 'true', 'true');
+    // Check change history — both old_value and new_value
+    return changes.some(
+      c => c.newValue === pattern.value || c.oldValue === pattern.value,
+    );
+  }
 
-    return row !== null;
+  /** Extract the media ID for a unified item. */
+  private getMediaId(item: UnifiedMedia): string {
+    if (item.type === 'movie') {
+      return String(item.tmdb_id);
+    }
+    return `${item.tvdb_id}:${item.sonarr.season.season_number}`;
   }
 }

@@ -128,7 +128,7 @@ export class EvaluationService {
 
       // Step 2: Snapshot — persist unified models, detect field changes
       const hydratedServices = this.getHydratedServices(rules);
-      this.snapshotService.snapshot(items, hydratedServices);
+      await this.snapshotService.snapshot(items, hydratedServices);
 
       // Step 3: Enrich — compute temporal state fields from change history
       const enrichedItems = this.stateService.enrich(items);

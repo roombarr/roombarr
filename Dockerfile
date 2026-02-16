@@ -15,6 +15,7 @@ RUN mkdir -p /data && chown -R roombarr:roombarr /data
 COPY --from=builder --chown=roombarr:roombarr /app/dist ./dist
 COPY --from=builder --chown=roombarr:roombarr /app/node_modules ./node_modules
 COPY --from=builder --chown=roombarr:roombarr /app/package.json ./
+COPY --chown=roombarr:roombarr drizzle ./drizzle
 
 USER roombarr
 

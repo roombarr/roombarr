@@ -72,6 +72,7 @@ export interface UnifiedSeason {
   sonarr: SonarrData;
   jellyfin: JellyfinData | null;
   jellyseerr: JellyseerrData | null;
+  state: StateData | null;
 }
 
 export type UnifiedMedia = UnifiedMovie | UnifiedSeason;

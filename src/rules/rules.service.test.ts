@@ -72,6 +72,7 @@ function makeSeason(overrides: Record<string, any> = {}): UnifiedSeason {
       play_count: 1,
     },
     jellyseerr: null,
+    state: null,
     ...overrides,
   };
 }

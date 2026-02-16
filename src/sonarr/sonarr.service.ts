@@ -39,6 +39,7 @@ export class SonarrService {
           sonarr: mapSeason(s, season, tagMap),
           jellyfin: null,
           jellyseerr: null,
+          state: null,
         });
       }
     }
