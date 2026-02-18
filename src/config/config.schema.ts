@@ -66,6 +66,10 @@ export interface RoombarrConfig {
   performance: {
     concurrency: number;
   };
+  audit: {
+    log_directory: string;
+    retention_days: number;
+  };
   rules: RuleConfig[];
 }
 
@@ -103,6 +107,23 @@ const performanceSchema = z
   })
   .default({ concurrency: 10 });
 
+const AUDIT_DEFAULTS = {
+  log_directory: '/data/logs/',
+  retention_days: 90,
+} as const;
+
+const auditSchema = z
+  .object({
+    log_directory: z.string().min(1).default(AUDIT_DEFAULTS.log_directory),
+    retention_days: z
+      .number()
+      .int()
+      .min(1)
+      .max(3650)
+      .default(AUDIT_DEFAULTS.retention_days),
+  })
+  .default(AUDIT_DEFAULTS);
+
 const servicesSchema = z.object({
   sonarr: serviceConfigSchema.optional(),
   radarr: serviceConfigSchema.optional(),
@@ -114,6 +135,7 @@ export const configSchema = z.object({
   services: servicesSchema,
   schedule: z.string().min(1),
   performance: performanceSchema,
+  audit: auditSchema,
   rules: z.array(ruleSchema).min(1),
 });
 

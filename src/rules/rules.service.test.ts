@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import type { AuditService } from '../audit/audit.service.js';
 import type { RoombarrConfig } from '../config/config.schema.js';
 import type {
   UnifiedMedia,
@@ -81,7 +82,11 @@ function makeRules(rules: RoombarrConfig['rules']): RoombarrConfig['rules'] {
   return rules;
 }
 
-const service = new RulesService();
+const mockAuditService = {
+  logAction: () => {},
+} as unknown as AuditService;
+
+const service = new RulesService(mockAuditService);
 
 describe('RulesService.evaluate', () => {
   test('matches a simple rule', () => {
@@ -108,7 +113,7 @@ describe('RulesService.evaluate', () => {
       },
     ]);
 
-    const { results, summary } = service.evaluate(items, rules);
+    const { results, summary } = service.evaluate(items, rules, 'test-eval-id');
     expect(results[0].resolved_action).toBe('keep');
     expect(results[0].matched_rules).toEqual(['Protect permanent']);
     expect(summary.items_matched).toBe(1);
@@ -132,7 +137,7 @@ describe('RulesService.evaluate', () => {
       },
     ]);
 
-    const { results } = service.evaluate(items, rules);
+    const { results } = service.evaluate(items, rules, 'test-eval-id');
     expect(results[0].resolved_action).toBeNull();
     expect(results[0].matched_rules).toEqual([]);
   });
@@ -158,7 +163,7 @@ describe('RulesService.evaluate', () => {
       },
     ]);
 
-    const { results } = service.evaluate(items, rules);
+    const { results } = service.evaluate(items, rules, 'test-eval-id');
     expect(results[0].resolved_action).toBeNull();
   });
 
@@ -211,7 +216,7 @@ describe('RulesService.evaluate', () => {
       },
     ]);
 
-    const { results } = service.evaluate(items, rules);
+    const { results } = service.evaluate(items, rules, 'test-eval-id');
     expect(results[0].resolved_action).toBe('keep');
     expect(results[0].matched_rules).toContain('Delete watched');
     expect(results[0].matched_rules).toContain('Keep permanent');
@@ -264,7 +269,7 @@ describe('RulesService.evaluate', () => {
       },
     ]);
 
-    const { results } = service.evaluate(items, rules);
+    const { results } = service.evaluate(items, rules, 'test-eval-id');
     expect(results[0].resolved_action).toBe('unmonitor');
   });
 
@@ -289,7 +294,7 @@ describe('RulesService.evaluate', () => {
       },
     ]);
 
-    const { results, summary } = service.evaluate(items, rules);
+    const { results, summary } = service.evaluate(items, rules, 'test-eval-id');
     expect(results[0].resolved_action).toBeNull();
     expect(summary.rules_skipped_missing_data).toBe(1);
   });
@@ -354,7 +359,7 @@ describe('RulesService.evaluate', () => {
       },
     ]);
 
-    const { results } = service.evaluate(items, rules);
+    const { results } = service.evaluate(items, rules, 'test-eval-id');
     expect(results[0].resolved_action).toBe('delete');
   });
 
@@ -407,7 +412,7 @@ describe('RulesService.evaluate', () => {
       },
     ]);
 
-    const { results } = service.evaluate(items, rules);
+    const { results } = service.evaluate(items, rules, 'test-eval-id');
     expect(results[0].resolved_action).toBe('delete');
   });
 
@@ -441,7 +446,7 @@ describe('RulesService.evaluate', () => {
       },
     ]);
 
-    const { results } = service.evaluate(items, rules);
+    const { results } = service.evaluate(items, rules, 'test-eval-id');
     expect(results[0].resolved_action).toBe('delete');
     expect(results[0].type).toBe('season');
   });
@@ -467,7 +472,7 @@ describe('RulesService.evaluate', () => {
       },
     ]);
 
-    const { results, summary } = service.evaluate(items, rules);
+    const { results, summary } = service.evaluate(items, rules, 'test-eval-id');
     expect(summary.items_evaluated).toBe(3);
     expect(summary.items_matched).toBe(2);
     expect(results[0].resolved_action).toBe('delete');
@@ -506,7 +511,7 @@ describe('RulesService.evaluate', () => {
       },
     ]);
 
-    const { results } = service.evaluate(items, rules);
+    const { results } = service.evaluate(items, rules, 'test-eval-id');
     expect(results[0].resolved_action).toBe('delete');
   });
 
@@ -554,7 +559,7 @@ describe('RulesService.evaluate', () => {
       },
     ]);
 
-    const { summary } = service.evaluate(items, rules);
+    const { summary } = service.evaluate(items, rules, 'test-eval-id');
     expect(summary.items_evaluated).toBe(3);
     // Movie 1: skipped (no jellyfin) for "Delete watched", no match for "Keep permanent" → null
     // Movie 2: matches "Delete watched" → delete
@@ -579,7 +584,7 @@ describe('RulesService.evaluate', () => {
       },
     ]);
 
-    const { results } = service.evaluate(items, rules);
+    const { results } = service.evaluate(items, rules, 'test-eval-id');
     for (const result of results) {
       expect(result.dry_run).toBe(true);
     }

@@ -67,6 +67,42 @@ describe('configSchema', () => {
     }
   });
 
+  test('applies defaults for audit section when omitted', () => {
+    const result = configSchema.safeParse(validConfig());
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.audit.log_directory).toBe('/data/logs/');
+      expect(result.data.audit.retention_days).toBe(90);
+    }
+  });
+
+  test('allows custom audit settings', () => {
+    const result = configSchema.safeParse(
+      validConfig({
+        audit: { log_directory: '/custom/logs/', retention_days: 30 },
+      }),
+    );
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.audit.log_directory).toBe('/custom/logs/');
+      expect(result.data.audit.retention_days).toBe(30);
+    }
+  });
+
+  test('rejects audit.retention_days less than 1', () => {
+    const result = configSchema.safeParse(
+      validConfig({ audit: { retention_days: 0 } }),
+    );
+    expect(result.success).toBe(false);
+  });
+
+  test('rejects empty audit.log_directory', () => {
+    const result = configSchema.safeParse(
+      validConfig({ audit: { log_directory: '' } }),
+    );
+    expect(result.success).toBe(false);
+  });
+
   test('rejects missing schedule', () => {
     const { schedule, ...rest } = validConfig();
     const result = configSchema.safeParse(rest);

@@ -1,4 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { AuditService } from '../audit/audit.service.js';
+import { buildReasoning } from '../audit/reasoning.js';
 import type {
   Condition,
   ConditionGroup,
@@ -22,12 +24,21 @@ import {
 export class RulesService {
   private readonly logger = new Logger(RulesService.name);
 
+  constructor(private readonly auditService: AuditService) {}
+
   evaluate(
     items: UnifiedMedia[],
     rules: RoombarrConfig['rules'],
+    evaluationId: string,
   ): { results: EvaluationItemResult[]; summary: EvaluationSummary } {
     const results: EvaluationItemResult[] = [];
     let skippedCount = 0;
+
+    // Pre-compute reasoning strings per rule (memoized — condition tree is identical for all items)
+    const reasoningCache = new Map<string, string>();
+    for (const rule of rules) {
+      reasoningCache.set(rule.name, buildReasoning(rule.conditions));
+    }
 
     for (const item of items) {
       const matches: RuleMatch[] = [];
@@ -49,12 +60,39 @@ export class RulesService {
 
       const resolvedAction = this.resolveAction(matches);
       const externalId = item.type === 'movie' ? item.tmdb_id : item.tvdb_id;
+      const matchedRuleNames = matches.map(m => m.rule_name);
+
+      // Emit audit event for destructive actions and keep-overrides
+      if (resolvedAction !== null) {
+        const isKeepOverride = resolvedAction === 'keep' && matches.length > 1;
+        const isDestructive =
+          resolvedAction === 'delete' || resolvedAction === 'unmonitor';
+
+        if (isDestructive || isKeepOverride) {
+          const winningRule = matches.find(m => m.action === resolvedAction);
+          if (!winningRule) {
+            this.logger.error(
+              `No matching rule found for resolved action "${resolvedAction}" on "${item.title}" — skipping audit`,
+            );
+          } else {
+            this.auditService.logAction({
+              item,
+              action: resolvedAction,
+              winningRule: winningRule.rule_name,
+              matchedRules: matchedRuleNames,
+              reasoning: reasoningCache.get(winningRule.rule_name) ?? '',
+              evaluationId,
+              dryRun: true, // v1 is always dry-run
+            });
+          }
+        }
+      }
 
       results.push({
         title: item.title,
         type: item.type,
         external_id: externalId,
-        matched_rules: matches.map(m => m.rule_name),
+        matched_rules: matchedRuleNames,
         resolved_action: resolvedAction,
         dry_run: true,
       });

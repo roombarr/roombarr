@@ -1,6 +1,7 @@
 import { Module, RequestMethod } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { LoggerModule } from 'nestjs-pino';
+import { AuditModule } from './audit/audit.module.js';
 import { ConfigModule } from './config/config.module.js';
 import { DatabaseModule } from './database/database.module.js';
 import { EvaluationModule } from './evaluation/evaluation.module.js';
@@ -27,6 +28,7 @@ import { SonarrModule } from './sonarr/sonarr.module.js';
     ScheduleModule.forRoot(),
     ConfigModule,
     DatabaseModule,
+    AuditModule,
     RulesModule,
     SonarrModule,
     RadarrModule,

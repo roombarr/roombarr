@@ -137,6 +137,7 @@ export class EvaluationService {
       const { results, summary } = this.rulesService.evaluate(
         enrichedItems,
         rules,
+        run.run_id,
       );
 
       // Step 3: Update run with results
