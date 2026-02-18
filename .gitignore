@@ -12,5 +12,7 @@ data/logs/
 .env.*
 !.env.example
 
+todos/
+
 roombarr.yml
 data
