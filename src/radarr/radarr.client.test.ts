@@ -44,6 +44,7 @@ describe('RadarrClient', () => {
           tags: [1],
           monitored: true,
           sizeOnDisk: 8_500_000_000,
+          hasFile: true,
           added: '2024-06-01T12:00:00Z',
           digitalRelease: null,
           physicalRelease: null,

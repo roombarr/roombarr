@@ -8,9 +8,12 @@ import type {
 } from '../shared/types.js';
 import { enrichMovies, enrichSeasons } from './media.merger.js';
 
+let nextMovieInternalId = 5000;
+
 function makeMovie(tmdbId: number): UnifiedMovie {
   return {
     type: 'movie',
+    radarr_id: nextMovieInternalId++,
     tmdb_id: tmdbId,
     imdb_id: `tt${tmdbId}`,
     title: `Movie ${tmdbId}`,
@@ -18,6 +21,7 @@ function makeMovie(tmdbId: number): UnifiedMovie {
     radarr: {
       added: '2024-06-01T12:00:00Z',
       size_on_disk: 5_000_000_000,
+      has_file: true,
       monitored: true,
       tags: [],
       genres: ['action'],
@@ -35,9 +39,12 @@ function makeMovie(tmdbId: number): UnifiedMovie {
   };
 }
 
+let nextSeasonInternalId = 8000;
+
 function makeSeason(tvdbId: number, seasonNumber: number): UnifiedSeason {
   return {
     type: 'season',
+    sonarr_series_id: nextSeasonInternalId++,
     tvdb_id: tvdbId,
     title: `Series ${tvdbId} - S${String(seasonNumber).padStart(2, '0')}`,
     year: 2024,
@@ -52,6 +59,7 @@ function makeSeason(tvdbId: number, seasonNumber: number): UnifiedSeason {
         monitored: true,
         episode_count: 10,
         episode_file_count: 10,
+        has_file: true,
         size_on_disk: 10_000_000_000,
       },
     },

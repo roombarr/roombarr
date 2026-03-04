@@ -92,6 +92,7 @@ describe('mapSeason', () => {
         monitored: true,
         episode_count: 7,
         episode_file_count: 7,
+        has_file: true,
         size_on_disk: 14_000_000_000,
       },
     });
@@ -107,6 +108,7 @@ describe('mapSeason', () => {
       monitored: false,
       episode_count: 0,
       episode_file_count: 0,
+      has_file: false,
       size_on_disk: 0,
     });
   });

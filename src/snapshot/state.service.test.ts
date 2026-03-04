@@ -11,6 +11,7 @@ import { StateService } from './state.service.js';
 function makeMovie(overrides: Record<string, any> = {}): UnifiedMovie {
   return {
     type: 'movie',
+    radarr_id: 101,
     tmdb_id: 1,
     imdb_id: 'tt0000001',
     title: 'Test Movie',
@@ -18,6 +19,7 @@ function makeMovie(overrides: Record<string, any> = {}): UnifiedMovie {
     radarr: {
       added: '2024-01-01T00:00:00Z',
       size_on_disk: 5_000_000_000,
+      has_file: true,
       monitored: true,
       tags: [],
       genres: ['Action'],
@@ -193,6 +195,7 @@ describe('StateService', () => {
   test('returns seasons unchanged when no registry fields target sonarr', async () => {
     const season: UnifiedSeason = {
       type: 'season',
+      sonarr_series_id: 201,
       tvdb_id: 100,
       title: 'Test Show - S01',
       year: 2024,
@@ -207,6 +210,7 @@ describe('StateService', () => {
           monitored: true,
           episode_count: 10,
           episode_file_count: 10,
+          has_file: true,
           size_on_disk: 10_000_000_000,
         },
       },

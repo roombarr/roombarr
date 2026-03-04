@@ -8,6 +8,7 @@ import type { UnifiedMovie } from '../shared/types.js';
 import { EvaluationService } from './evaluation.service.js';
 
 const testConfig: RoombarrConfig = {
+  dry_run: true,
   services: {
     radarr: { base_url: 'http://radarr:7878', api_key: 'test' },
   },
@@ -31,6 +32,7 @@ const testConfig: RoombarrConfig = {
 
 const testMovie: UnifiedMovie = {
   type: 'movie',
+  radarr_id: 42,
   tmdb_id: 603,
   imdb_id: 'tt0133093',
   title: 'The Matrix (1999)',
@@ -38,6 +40,7 @@ const testMovie: UnifiedMovie = {
   radarr: {
     added: '2024-01-01T00:00:00Z',
     size_on_disk: 5_000_000_000,
+    has_file: true,
     monitored: true,
     tags: [],
     genres: ['action'],
@@ -57,6 +60,7 @@ const testMovie: UnifiedMovie = {
 const testEvaluationResult: EvaluationItemResult = {
   title: 'The Matrix (1999)',
   type: 'movie',
+  internal_id: 'movie:42',
   external_id: 603,
   matched_rules: ['Delete old movies'],
   resolved_action: 'delete',
@@ -81,6 +85,7 @@ describe('EvaluationService', () => {
   let rulesService: { evaluate: ReturnType<typeof mock> };
   let snapshotService: { snapshot: ReturnType<typeof mock> };
   let stateService: { enrich: ReturnType<typeof mock> };
+  let actionExecutor: { execute: ReturnType<typeof mock> };
   let service: EvaluationService;
 
   beforeEach(() => {
@@ -102,6 +107,9 @@ describe('EvaluationService', () => {
     stateService = {
       enrich: mock((items: any) => items),
     };
+    actionExecutor = {
+      execute: mock((results: any) => Promise.resolve({ results })),
+    };
 
     service = new EvaluationService(
       configService as any,
@@ -109,6 +117,7 @@ describe('EvaluationService', () => {
       rulesService as any,
       snapshotService as any,
       stateService as any,
+      actionExecutor as any,
     );
   });
 
@@ -125,12 +134,19 @@ describe('EvaluationService', () => {
       expect(run.results[0].title).toBe('The Matrix (1999)');
       expect(mediaService.hydrate).toHaveBeenCalledTimes(1);
       expect(rulesService.evaluate).toHaveBeenCalledTimes(1);
+      expect(actionExecutor.execute).toHaveBeenCalledTimes(1);
+      expect(actionExecutor.execute).toHaveBeenCalledWith(
+        [testEvaluationResult],
+        [testMovie],
+        testConfig.dry_run,
+      );
     });
 
     test('filters out unmatched items from results', async () => {
       const unmatchedResult: EvaluationItemResult = {
         title: 'Unmatched Movie',
         type: 'movie',
+        internal_id: 'movie:999',
         external_id: 999,
         matched_rules: [],
         resolved_action: null,

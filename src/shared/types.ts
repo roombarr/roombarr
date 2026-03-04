@@ -6,6 +6,7 @@
 export interface RadarrData {
   added: string;
   size_on_disk: number;
+  has_file: boolean;
   monitored: boolean;
   tags: string[];
   genres: string[];
@@ -29,6 +30,7 @@ export interface SonarrData {
     monitored: boolean;
     episode_count: number;
     episode_file_count: number;
+    has_file: boolean;
     size_on_disk: number;
   };
 }
@@ -53,6 +55,7 @@ export interface StateData {
 
 export interface UnifiedMovie {
   type: 'movie';
+  radarr_id: number;
   tmdb_id: number;
   imdb_id: string | null;
   title: string;
@@ -65,6 +68,7 @@ export interface UnifiedMovie {
 
 export interface UnifiedSeason {
   type: 'season';
+  sonarr_series_id: number;
   tvdb_id: number;
   title: string;
   year: number;
@@ -75,3 +79,12 @@ export interface UnifiedSeason {
 }
 
 export type UnifiedMedia = UnifiedMovie | UnifiedSeason;
+
+/**
+ * Builds a stable, unique key for any unified media item using internal IDs.
+ * Movies key on radarr_id; seasons key on sonarr_series_id + season_number.
+ */
+export function buildInternalId(item: UnifiedMedia): string {
+  if (item.type === 'movie') return `movie:${item.radarr_id}`;
+  return `season:${item.sonarr_series_id}:${item.sonarr.season.season_number}`;
+}

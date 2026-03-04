@@ -19,6 +19,6 @@ import { RadarrService } from './radarr.service.js';
     }),
   ],
   providers: [RadarrClient, RadarrService],
-  exports: [RadarrService],
+  exports: [RadarrClient, RadarrService],
 })
 export class RadarrModule {}

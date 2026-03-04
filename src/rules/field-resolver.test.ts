@@ -5,6 +5,7 @@ import { resolveField } from './field-resolver.js';
 function makeMovie(overrides: Record<string, any> = {}): UnifiedMedia {
   return {
     type: 'movie',
+    radarr_id: 501,
     tmdb_id: 12345,
     imdb_id: 'tt1234567',
     title: 'Test Movie',
@@ -12,6 +13,7 @@ function makeMovie(overrides: Record<string, any> = {}): UnifiedMedia {
     radarr: {
       added: '2024-01-01T00:00:00Z',
       size_on_disk: 5_000_000_000,
+      has_file: true,
       monitored: true,
       tags: ['permanent', 'favorite'],
       genres: ['Action', 'Drama'],
@@ -42,6 +44,7 @@ function makeMovie(overrides: Record<string, any> = {}): UnifiedMedia {
 function makeSeason(overrides: Record<string, any> = {}): UnifiedMedia {
   return {
     type: 'season',
+    sonarr_series_id: 601,
     tvdb_id: 54321,
     title: 'Test Show',
     year: 2023,
@@ -56,6 +59,7 @@ function makeSeason(overrides: Record<string, any> = {}): UnifiedMedia {
         monitored: true,
         episode_count: 10,
         episode_file_count: 10,
+        has_file: true,
         size_on_disk: 15_000_000_000,
       },
     },
@@ -126,6 +130,33 @@ describe('resolveField', () => {
     const season = makeSeason({ jellyseerr: null });
     const result = resolveField(season, 'jellyseerr.requested_by');
     expect(result).toEqual({ value: undefined, resolved: false });
+  });
+
+  test('resolves radarr.has_file boolean field', () => {
+    const result = resolveField(makeMovie(), 'radarr.has_file');
+    expect(result).toEqual({ value: true, resolved: true });
+  });
+
+  test('resolves radarr.has_file as false without treating it as unresolved', () => {
+    const movie = makeMovie({
+      radarr: {
+        added: '2024-01-01T00:00:00Z',
+        size_on_disk: 0,
+        has_file: false,
+        monitored: true,
+        tags: [],
+        genres: [],
+        status: 'released',
+        year: 2024,
+        digital_release: null,
+        physical_release: null,
+        path: '/movies/test',
+        on_import_list: false,
+        import_list_ids: [],
+      },
+    });
+    const result = resolveField(movie, 'radarr.has_file');
+    expect(result).toEqual({ value: false, resolved: true });
   });
 
   test('resolves deeply nested path', () => {
