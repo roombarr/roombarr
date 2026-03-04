@@ -1,4 +1,4 @@
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   Injectable,
@@ -23,14 +23,27 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
     const configDir = resolve('/config');
     const configDirPrefix = `${configDir}/`;
 
+    // Lexical check first — fast-fail for obviously wrong paths
     if (resolvedDir !== configDir && !resolvedDir.startsWith(configDirPrefix)) {
       throw new Error(
         `Audit log_directory must be within /config. Got: ${resolvedDir}`,
       );
     }
 
-    this.initTransport(resolvedDir);
-    this.logger.log(`Audit logging initialized at ${resolvedDir}`);
+    // Create the directory, then verify with realpath to catch symlink escapes
+    mkdirSync(resolvedDir, { recursive: true });
+    const realDir = realpathSync(resolvedDir);
+    const realConfigDir = realpathSync(configDir);
+    const realConfigDirPrefix = `${realConfigDir}/`;
+
+    if (realDir !== realConfigDir && !realDir.startsWith(realConfigDirPrefix)) {
+      throw new Error(
+        `Audit log_directory resolves outside /config (symlink escape). Got: ${realDir}`,
+      );
+    }
+
+    this.initTransport(realDir);
+    this.logger.log(`Audit logging initialized at ${realDir}`);
   }
 
   async onModuleDestroy() {
@@ -94,7 +107,6 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
   }
 
   private initTransport(logDir: string) {
-    mkdirSync(logDir, { recursive: true });
     const { retention_days } = this.configService.getConfig().audit;
 
     const transport = pino.transport({

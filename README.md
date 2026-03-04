@@ -72,7 +72,7 @@ docker compose up -d
 
 ```bash
 curl http://localhost:3000/health
-# → { "status": "ok", "version": "1.0.0" }
+# → { "status": "ok", "version": "0.1.0" }
 ```
 
 If the container exits immediately, check the logs for configuration errors:
@@ -440,7 +440,7 @@ HTTP/1.1 200 OK
 
 {
   "status": "ok",
-  "version": "1.0.0"
+  "version": "0.1.0"
 }
 ```
 

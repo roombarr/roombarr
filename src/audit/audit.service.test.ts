@@ -138,44 +138,52 @@ describe('buildReasoning', () => {
 });
 
 describe('AuditService path validation', () => {
+  function makeConfigService(logDirectory: string) {
+    return {
+      getConfig: () => ({
+        audit: { log_directory: logDirectory, retention_days: 90 },
+      }),
+    };
+  }
+
+  function makeService(logDirectory: string) {
+    const { AuditService } = require('./audit.service.js');
+    return new AuditService(makeConfigService(logDirectory));
+  }
+
   test('rejects log_directory outside /config', () => {
-    const { resolve } = require('node:path');
-    const configDir = resolve('/config');
-    const configDirPrefix = `${configDir}/`;
-
-    // Standard case: completely different path
-    const evilDir = resolve('/tmp/evil-logs');
-    expect(evilDir !== configDir && !evilDir.startsWith(configDirPrefix)).toBe(
-      true,
+    const service = makeService('/tmp/evil-logs');
+    expect(() => service.onModuleInit()).toThrow(
+      'Audit log_directory must be within /config',
     );
+  });
 
-    // Prefix-overlap case: /config-evil should NOT pass the /config check
-    const prefixOverlapDir = resolve('/config-evil/logs');
-    expect(
-      prefixOverlapDir !== configDir &&
-        !prefixOverlapDir.startsWith(configDirPrefix),
-    ).toBe(true);
+  test('rejects log_directory with prefix overlap', () => {
+    const service = makeService('/config-evil/logs');
+    expect(() => service.onModuleInit()).toThrow(
+      'Audit log_directory must be within /config',
+    );
   });
 
   test('accepts log_directory within /config', () => {
-    const { resolve } = require('node:path');
-    const configDir = resolve('/config');
-    const configDirPrefix = `${configDir}/`;
-
-    const logDir = resolve('/config/logs');
-    expect(logDir === configDir || logDir.startsWith(configDirPrefix)).toBe(
-      true,
-    );
+    const service = makeService('/config/logs');
+    try {
+      service.onModuleInit();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      expect(message).not.toContain('must be within /config');
+      expect(message).not.toContain('symlink escape');
+    }
   });
 
   test('accepts log_directory equal to /config', () => {
-    const { resolve } = require('node:path');
-    const configDir = resolve('/config');
-    const configDirPrefix = `${configDir}/`;
-
-    const logDir = resolve('/config');
-    expect(logDir === configDir || logDir.startsWith(configDirPrefix)).toBe(
-      true,
-    );
+    const service = makeService('/config');
+    try {
+      service.onModuleInit();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      expect(message).not.toContain('must be within /config');
+      expect(message).not.toContain('symlink escape');
+    }
   });
 });
