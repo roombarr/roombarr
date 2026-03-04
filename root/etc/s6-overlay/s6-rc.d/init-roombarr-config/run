@@ -1,6 +1,6 @@
 #!/usr/bin/with-contenv bash
 # shellcheck shell=bash
 
-mkdir -p /data
-lsiown -R abc:abc /data
+mkdir -p /config/logs
+lsiown -R abc:abc /config/logs
 lsiown abc:abc /app

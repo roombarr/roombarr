@@ -108,7 +108,7 @@ const performanceSchema = z
   .default({ concurrency: 10 });
 
 const AUDIT_DEFAULTS = {
-  log_directory: '/data/logs/',
+  log_directory: '/config/logs/',
   retention_days: 90,
 } as const;
 

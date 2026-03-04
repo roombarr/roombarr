@@ -71,7 +71,7 @@ describe('configSchema', () => {
     const result = configSchema.safeParse(validConfig());
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.audit.log_directory).toBe('/data/logs/');
+      expect(result.data.audit.log_directory).toBe('/config/logs/');
       expect(result.data.audit.retention_days).toBe(90);
     }
   });

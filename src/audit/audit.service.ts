@@ -20,12 +20,12 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
   onModuleInit() {
     const { log_directory } = this.configService.getConfig().audit;
     const resolvedDir = resolve(log_directory);
-    const dataDir = resolve(process.env.DATA_PATH ?? '/data');
-    const dataDirPrefix = dataDir.endsWith('/') ? dataDir : `${dataDir}/`;
+    const configDir = resolve('/config');
+    const configDirPrefix = `${configDir}/`;
 
-    if (resolvedDir !== dataDir && !resolvedDir.startsWith(dataDirPrefix)) {
+    if (resolvedDir !== configDir && !resolvedDir.startsWith(configDirPrefix)) {
       throw new Error(
-        `Audit log_directory must be within the data directory. Got: ${resolvedDir}, expected within: ${dataDir}`,
+        `Audit log_directory must be within /config. Got: ${resolvedDir}`,
       );
     }
 

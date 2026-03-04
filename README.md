@@ -2,7 +2,7 @@
 
 Roombarr is a rule-based media cleanup engine for Sonarr, Radarr, Jellyfin, and Jellyseerr. Define declarative YAML rules that decide what to keep, unmonitor, or delete — and let Roombarr evaluate them on a schedule.
 
-> **Roombarr v1.0.0 is dry-run only.** No media is deleted or unmonitored. Every evaluation logs what _would_ happen, so you can safely experiment with your rules and see exactly what they'd do before committing to any actions. Live execution is planned for a future release.
+> **Early Development (v0.x)** — Roombarr is under active development. Breaking changes are expected between minor versions. Currently dry-run only: no media is deleted or unmonitored. Feedback and bug reports are welcome via [GitHub Issues](https://github.com/jacksonblankenship/roombarr/issues).
 
 ## Features
 
@@ -55,15 +55,11 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./config:/config:ro
-      - roombarr-data:/data
+      - ./config:/config
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=America/New_York
-
-volumes:
-  roombarr-data:
 ```
 
 ### 3. Start Roombarr
@@ -145,8 +141,8 @@ Destructive actions are logged to daily-rotated JSONL files. In v1, all entries 
 
 ```yaml
 audit:
-  log_directory: /data/logs/  # Default: /data/logs/. Must be within the DATA_PATH directory.
-  retention_days: 90           # How long to keep log files (1–3650, default: 90)
+  log_directory: /config/logs/  # Default: /config/logs/. Must be within /config.
+  retention_days: 90             # How long to keep log files (1–3650, default: 90)
 ```
 
 ### `rules`
@@ -537,7 +533,6 @@ HTTP/1.1 200 OK
 | `PUID` | `1000` | User ID for file permissions — see [Understanding PUID and PGID](https://docs.linuxserver.io/general/understanding-puid-and-pgid/) |
 | `PGID` | `1000` | Group ID for file permissions |
 | `CONFIG_PATH` | `/config/roombarr.yml` | Path to the YAML config file |
-| `DATA_PATH` | `/data` | Root directory for SQLite database and audit logs |
 | `PORT` | `3000` | HTTP server listen port |
 | `TZ` | _(UTC)_ | Timezone for cron schedule evaluation (e.g., `America/New_York`) |
 | `NODE_ENV` | `production` | Controls log format. Set to `development` for pretty-printed logs. |

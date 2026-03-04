@@ -13,7 +13,7 @@ const testConfig: RoombarrConfig = {
   },
   schedule: '0 3 * * *',
   performance: { concurrency: 10 },
-  audit: { log_directory: '/data/logs/', retention_days: 90 },
+  audit: { log_directory: '/config/logs/', retention_days: 90 },
   rules: [
     {
       name: 'Delete old movies',

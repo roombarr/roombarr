@@ -34,7 +34,7 @@ performance:
 # ── Audit ─────────────────────────────────────────────────────
 # Destructive actions are logged to daily-rotated JSONL files.
 # audit:
-#   log_directory: /data/logs/   # Default: /data/logs/
+#   log_directory: /config/logs/   # Default: /config/logs/
 #   retention_days: 90           # Default: 90. Min: 1.
 
 # ── Rules ─────────────────────────────────────────────────────

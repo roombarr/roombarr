@@ -138,43 +138,44 @@ describe('buildReasoning', () => {
 });
 
 describe('AuditService path validation', () => {
-  test('rejects log_directory outside data directory', () => {
+  test('rejects log_directory outside /config', () => {
     const { resolve } = require('node:path');
-    const dataDir = resolve(process.env.DATA_PATH ?? '/data');
-    const dataDirPrefix = dataDir.endsWith('/') ? dataDir : `${dataDir}/`;
+    const configDir = resolve('/config');
+    const configDirPrefix = `${configDir}/`;
 
     // Standard case: completely different path
     const evilDir = resolve('/tmp/evil-logs');
-    expect(evilDir !== dataDir && !evilDir.startsWith(dataDirPrefix)).toBe(
+    expect(evilDir !== configDir && !evilDir.startsWith(configDirPrefix)).toBe(
       true,
     );
 
-    // Prefix-overlap case: /data-evil should NOT pass the /data check
-    const prefixOverlapDir = resolve('/data-evil/logs');
+    // Prefix-overlap case: /config-evil should NOT pass the /config check
+    const prefixOverlapDir = resolve('/config-evil/logs');
     expect(
-      prefixOverlapDir !== dataDir &&
-        !prefixOverlapDir.startsWith(dataDirPrefix),
+      prefixOverlapDir !== configDir &&
+        !prefixOverlapDir.startsWith(configDirPrefix),
     ).toBe(true);
   });
 
-  test('accepts log_directory within data directory', () => {
+  test('accepts log_directory within /config', () => {
     const { resolve } = require('node:path');
-    const dataPath = process.env.DATA_PATH ?? '/data';
-    const dataDir = resolve(dataPath);
-    const dataDirPrefix = dataDir.endsWith('/') ? dataDir : `${dataDir}/`;
+    const configDir = resolve('/config');
+    const configDirPrefix = `${configDir}/`;
 
-    const logDir = resolve(`${dataPath}/logs`);
-    expect(logDir === dataDir || logDir.startsWith(dataDirPrefix)).toBe(true);
+    const logDir = resolve('/config/logs');
+    expect(logDir === configDir || logDir.startsWith(configDirPrefix)).toBe(
+      true,
+    );
   });
 
-  test('accepts log_directory equal to data directory', () => {
+  test('accepts log_directory equal to /config', () => {
     const { resolve } = require('node:path');
-    const dataPath = process.env.DATA_PATH ?? '/data';
-    const dataDir = resolve(dataPath);
-    const dataDirPrefix = dataDir.endsWith('/') ? dataDir : `${dataDir}/`;
+    const configDir = resolve('/config');
+    const configDirPrefix = `${configDir}/`;
 
-    // When log dir IS the data dir, it should pass (resolvedDir === dataDir)
-    const logDir = resolve(dataPath);
-    expect(logDir === dataDir || logDir.startsWith(dataDirPrefix)).toBe(true);
+    const logDir = resolve('/config');
+    expect(logDir === configDir || logDir.startsWith(configDirPrefix)).toBe(
+      true,
+    );
   });
 });
