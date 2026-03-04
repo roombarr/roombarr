@@ -76,6 +76,7 @@ export class ActionExecutorService {
           this.logger.warn(
             `${result.resolved_action} "${result.title}": 404 — already removed`,
           );
+          executed.push({ ...result, execution_status: 'not_found' });
         } else {
           const message =
             error instanceof Error ? error.message : 'Unknown error';

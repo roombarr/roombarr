@@ -137,6 +137,28 @@ describe('resolveField', () => {
     expect(result).toEqual({ value: true, resolved: true });
   });
 
+  test('resolves radarr.has_file as false without treating it as unresolved', () => {
+    const movie = makeMovie({
+      radarr: {
+        added: '2024-01-01T00:00:00Z',
+        size_on_disk: 0,
+        has_file: false,
+        monitored: true,
+        tags: [],
+        genres: [],
+        status: 'released',
+        year: 2024,
+        digital_release: null,
+        physical_release: null,
+        path: '/movies/test',
+        on_import_list: false,
+        import_list_ids: [],
+      },
+    });
+    const result = resolveField(movie, 'radarr.has_file');
+    expect(result).toEqual({ value: false, resolved: true });
+  });
+
   test('resolves deeply nested path', () => {
     const result = resolveField(makeSeason(), 'sonarr.season.size_on_disk');
     expect(result).toEqual({ value: 15_000_000_000, resolved: true });

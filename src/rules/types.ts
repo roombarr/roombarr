@@ -5,7 +5,7 @@ import type {
 } from '../config/config.schema.js';
 export type { Action, ConditionGroup, RuleConfig };
 
-export type ExecutionStatus = 'success' | 'failed' | 'skipped';
+export type ExecutionStatus = 'success' | 'failed' | 'skipped' | 'not_found';
 
 export interface EvaluationItemResult {
   title: string;

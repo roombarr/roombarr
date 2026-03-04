@@ -310,7 +310,8 @@ describe('ActionExecutorService', () => {
         false,
       );
 
-      expect(results).toHaveLength(0);
+      expect(results).toHaveLength(1);
+      expect(results[0].execution_status).toBe('not_found');
       expect(executionSummary?.actions_executed.delete).toBe(0);
       expect(executionSummary?.actions_failed).toBe(0);
     });
