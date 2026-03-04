@@ -1,6 +1,7 @@
 {
   "type": "module",
   "scripts": {
+    "preinstall": "npx only-allow bun",
     "start": "bun run dist/main.js",
     "dev": "bun --watch src/main.ts",
     "build": "tsc -p tsconfig.build.json",
