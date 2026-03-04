@@ -13,6 +13,7 @@ function makeMovie(overrides: Record<string, any> = {}): UnifiedMedia {
     radarr: {
       added: '2024-01-01T00:00:00Z',
       size_on_disk: 5_000_000_000,
+      has_file: true,
       monitored: true,
       tags: ['permanent', 'favorite'],
       genres: ['Action', 'Drama'],
@@ -58,6 +59,7 @@ function makeSeason(overrides: Record<string, any> = {}): UnifiedMedia {
         monitored: true,
         episode_count: 10,
         episode_file_count: 10,
+        has_file: true,
         size_on_disk: 15_000_000_000,
       },
     },
@@ -128,6 +130,11 @@ describe('resolveField', () => {
     const season = makeSeason({ jellyseerr: null });
     const result = resolveField(season, 'jellyseerr.requested_by');
     expect(result).toEqual({ value: undefined, resolved: false });
+  });
+
+  test('resolves radarr.has_file boolean field', () => {
+    const result = resolveField(makeMovie(), 'radarr.has_file');
+    expect(result).toEqual({ value: true, resolved: true });
   });
 
   test('resolves deeply nested path', () => {

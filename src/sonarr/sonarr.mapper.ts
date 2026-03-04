@@ -44,6 +44,7 @@ export function mapSeason(
       monitored: season.monitored,
       episode_count: stats?.episodeCount ?? 0,
       episode_file_count: stats?.episodeFileCount ?? 0,
+      has_file: (stats?.episodeFileCount ?? 0) > 0,
       size_on_disk: stats?.sizeOnDisk ?? 0,
     },
   };

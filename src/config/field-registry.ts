@@ -23,6 +23,7 @@ const radarrFields: Record<string, FieldDefinition> = {
   'radarr.digital_release': { type: 'date', service: 'radarr' },
   'radarr.physical_release': { type: 'date', service: 'radarr' },
   'radarr.size_on_disk': { type: 'number', service: 'radarr' },
+  'radarr.has_file': { type: 'boolean', service: 'radarr' },
   'radarr.monitored': { type: 'boolean', service: 'radarr' },
   'radarr.tags': { type: 'array', service: 'radarr' },
   'radarr.genres': { type: 'array', service: 'radarr' },
@@ -41,6 +42,7 @@ const sonarrFields: Record<string, FieldDefinition> = {
   'sonarr.season.season_number': { type: 'number', service: 'sonarr' },
   'sonarr.season.episode_count': { type: 'number', service: 'sonarr' },
   'sonarr.season.episode_file_count': { type: 'number', service: 'sonarr' },
+  'sonarr.season.has_file': { type: 'boolean', service: 'sonarr' },
   'sonarr.season.size_on_disk': { type: 'number', service: 'sonarr' },
 };
 

@@ -379,6 +379,7 @@ Available on rules with `target: radarr`.
 | `radarr.digital_release` | date | Digital release date | Can be null. Null dates always match `older_than`, never match `newer_than`. |
 | `radarr.physical_release` | date | Physical release date | Can be null. Same null behavior as above. |
 | `radarr.size_on_disk` | number | File size in bytes | |
+| `radarr.has_file` | boolean | Whether a file exists on disk | |
 | `radarr.monitored` | boolean | Whether the movie is monitored | |
 | `radarr.on_import_list` | boolean | Whether the movie is on any import list | |
 | `radarr.status` | string | Release status (e.g., `released`, `announced`) | |
@@ -402,6 +403,7 @@ Available on rules with `target: sonarr`. Sonarr rules evaluate per-season, so s
 | `sonarr.season.episode_count` | number | Total episodes in the season | Season-level |
 | `sonarr.season.episode_file_count` | number | Episodes with files downloaded | Season-level |
 | `sonarr.season.size_on_disk` | number | Season file size in bytes | Season-level |
+| `sonarr.season.has_file` | boolean | Whether the season has any episode files | Derived from episode_file_count > 0. Season-level |
 
 ### Jellyfin Fields
 

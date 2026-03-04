@@ -6,6 +6,7 @@
 export interface RadarrData {
   added: string;
   size_on_disk: number;
+  has_file: boolean;
   monitored: boolean;
   tags: string[];
   genres: string[];
@@ -29,6 +30,7 @@ export interface SonarrData {
     monitored: boolean;
     episode_count: number;
     episode_file_count: number;
+    has_file: boolean;
     size_on_disk: number;
   };
 }

@@ -21,6 +21,7 @@ function makeMovie(tmdbId: number): UnifiedMovie {
     radarr: {
       added: '2024-06-01T12:00:00Z',
       size_on_disk: 5_000_000_000,
+      has_file: true,
       monitored: true,
       tags: [],
       genres: ['action'],
@@ -58,6 +59,7 @@ function makeSeason(tvdbId: number, seasonNumber: number): UnifiedSeason {
         monitored: true,
         episode_count: 10,
         episode_file_count: 10,
+        has_file: true,
         size_on_disk: 10_000_000_000,
       },
     },

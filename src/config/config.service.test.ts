@@ -720,6 +720,57 @@ describe('validateConfig (cross-validation)', () => {
     expect(errors).toEqual([]);
   });
 
+  test('passes with radarr.has_file field', () => {
+    const config = parse({
+      rules: [
+        {
+          name: 'Has file rule',
+          target: 'radarr',
+          conditions: {
+            operator: 'AND',
+            children: [
+              {
+                field: 'radarr.has_file',
+                operator: 'equals',
+                value: true,
+              },
+            ],
+          },
+          action: 'delete',
+        },
+      ],
+    });
+    const errors = validateConfig(config);
+    expect(errors).toEqual([]);
+  });
+
+  test('passes with sonarr.season.has_file field', () => {
+    const config = parse({
+      services: {
+        sonarr: { base_url: 'http://localhost:8989', api_key: 'key' },
+      },
+      rules: [
+        {
+          name: 'Season has file rule',
+          target: 'sonarr',
+          conditions: {
+            operator: 'AND',
+            children: [
+              {
+                field: 'sonarr.season.has_file',
+                operator: 'equals',
+                value: true,
+              },
+            ],
+          },
+          action: 'delete',
+        },
+      ],
+    });
+    const errors = validateConfig(config);
+    expect(errors).toEqual([]);
+  });
+
   test('passes with sonarr season fields', () => {
     const config = parse({
       services: {

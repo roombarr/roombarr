@@ -53,6 +53,7 @@ export function mapMovie(
   return {
     added: movie.added,
     size_on_disk: movie.sizeOnDisk,
+    has_file: movie.hasFile,
     monitored: movie.monitored,
     tags: resolveTagNames(movie.tags, tagMap),
     genres: movie.genres,

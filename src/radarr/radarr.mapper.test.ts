@@ -29,6 +29,7 @@ function makeMovie(overrides: Partial<RadarrMovie> = {}): RadarrMovie {
     genres: ['action', 'sci-fi'],
     tags: [1, 2],
     monitored: true,
+    hasFile: true,
     sizeOnDisk: 8_500_000_000,
     added: '2024-06-01T12:00:00Z',
     digitalRelease: '1999-09-21T00:00:00Z',
@@ -101,6 +102,7 @@ describe('mapMovie', () => {
     expect(result).toEqual({
       added: '2024-06-01T12:00:00Z',
       size_on_disk: 8_500_000_000,
+      has_file: true,
       monitored: true,
       tags: ['keep-forever', 'classics'],
       genres: ['action', 'sci-fi'],
@@ -141,9 +143,10 @@ describe('mapMovie', () => {
   });
 
   test('handles movie with no file on disk', () => {
-    const movie = makeMovie({ sizeOnDisk: 0 });
+    const movie = makeMovie({ hasFile: false, sizeOnDisk: 0 });
     const result = mapMovie(movie, tagMap, emptyImportIndex);
     expect(result.size_on_disk).toBe(0);
+    expect(result.has_file).toBe(false);
   });
 
   test('handles empty genres', () => {

@@ -19,6 +19,7 @@ function makeMovie(overrides: Record<string, any> = {}): UnifiedMovie {
     radarr: {
       added: '2024-01-01T00:00:00Z',
       size_on_disk: 5_000_000_000,
+      has_file: true,
       monitored: true,
       tags: [],
       genres: ['Action'],
@@ -64,6 +65,7 @@ function makeSeason(overrides: Record<string, any> = {}): UnifiedSeason {
         monitored: true,
         episode_count: 10,
         episode_file_count: 10,
+        has_file: true,
         size_on_disk: 10_000_000_000,
       },
     },

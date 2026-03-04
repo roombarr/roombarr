@@ -40,6 +40,7 @@ const testMovie: UnifiedMovie = {
   radarr: {
     added: '2024-01-01T00:00:00Z',
     size_on_disk: 5_000_000_000,
+    has_file: true,
     monitored: true,
     tags: [],
     genres: ['action'],
