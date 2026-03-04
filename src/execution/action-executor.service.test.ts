@@ -247,6 +247,25 @@ describe('ActionExecutorService', () => {
       expect(results[0].execution_status).toBe('success');
     });
 
+    test('continues deleting remaining files when individual file returns 404', async () => {
+      let callCount = 0;
+      sonarrClient.deleteEpisodeFile = mock(() => {
+        callCount++;
+        if (callCount === 1) return Promise.reject(make404Error());
+        return Promise.resolve();
+      });
+
+      const season = makeSeason();
+      const result = makeResult(season, 'delete');
+
+      const { results } = await service.execute([result], [season], false);
+
+      expect(sonarrClient.deleteEpisodeFile).toHaveBeenCalledTimes(2);
+      expect(sonarrClient.deleteEpisodeFile).toHaveBeenCalledWith(1);
+      expect(sonarrClient.deleteEpisodeFile).toHaveBeenCalledWith(2);
+      expect(results[0].execution_status).toBe('success');
+    });
+
     test('handles season with no episode files gracefully', async () => {
       sonarrClient.fetchEpisodeFiles = mock(() => Promise.resolve([]));
       const season = makeSeason();

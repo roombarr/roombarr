@@ -106,14 +106,20 @@ export class ActionExecutorService {
     item: UnifiedMedia,
     action: Action,
   ): Promise<void> {
-    if (item.type === 'movie') {
-      return action === 'delete'
-        ? this.deleteMovie(item)
-        : this.unmonitorMovie(item);
+    switch (action) {
+      case 'delete':
+        return item.type === 'movie'
+          ? this.deleteMovie(item)
+          : this.deleteSeasonFiles(item);
+      case 'unmonitor':
+        return item.type === 'movie'
+          ? this.unmonitorMovie(item)
+          : this.unmonitorSeason(item);
+      case 'keep':
+        return;
+      default:
+        throw new Error(`Unknown action: ${action satisfies never}`);
     }
-    return action === 'delete'
-      ? this.deleteSeasonFiles(item)
-      : this.unmonitorSeason(item);
   }
 
   private async deleteMovie(movie: UnifiedMovie): Promise<void> {
@@ -159,22 +165,30 @@ export class ActionExecutorService {
       return;
     }
 
+    let deletedCount = 0;
+    let alreadyRemovedCount = 0;
+
     for (const file of seasonFiles) {
       try {
         await this.sonarrClient.deleteEpisodeFile(file.id);
+        deletedCount++;
       } catch (error) {
         if (this.isNotFound(error)) {
           this.logger.warn(
             `Episode file ${file.id} for "${season.title}" S${String(seasonNumber).padStart(2, '0')}: 404 — already removed`,
           );
+          alreadyRemovedCount++;
           continue;
         }
         throw error;
       }
     }
 
+    const parts = [`Deleted ${deletedCount} episode files`];
+    if (alreadyRemovedCount > 0)
+      parts.push(`${alreadyRemovedCount} already removed`);
     this.logger.log(
-      `Deleted ${seasonFiles.length} episode files for "${season.title}" S${String(seasonNumber).padStart(2, '0')}`,
+      `${parts.join(', ')} for "${season.title}" S${String(seasonNumber).padStart(2, '0')}`,
     );
   }
 

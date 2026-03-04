@@ -19,7 +19,8 @@ export interface EvaluationItemResult {
   /**
    * Present in both dry-run and live mode. Set to 'skipped' for dry-run items
    * and non-actionable items in live mode. Set to 'success' or 'failed' after
-   * a live execution attempt. See {@link ExecutionStatus} for possible values.
+   * a live execution attempt. A 404 response is treated as a desired end state
+   * and mapped to 'not_found'. See {@link ExecutionStatus} for possible values.
    */
   execution_status?: ExecutionStatus;
   /** Error message populated only when execution_status is 'failed'. */
