@@ -6,15 +6,12 @@ coverage/
 .DS_Store
 *.log
 *.jsonl
-data/logs/
+/config/
 
 .env
 .env.*
 !.env.example
 
 todos/
-
-roombarr.yml
-data
 
 pnpm-lock.yaml

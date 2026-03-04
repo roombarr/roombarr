@@ -1,5 +1,4 @@
 import { mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
 import {
   Injectable,
   Logger,
@@ -10,6 +9,8 @@ import pino from 'pino';
 import { ConfigService } from '../config/config.service.js';
 import type { AuditEntry, LogActionParams } from './audit.types.js';
 
+const AUDIT_LOG_DIR = '/config/logs/';
+
 @Injectable()
 export class AuditService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AuditService.name);
@@ -18,19 +19,9 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly configService: ConfigService) {}
 
   onModuleInit() {
-    const { log_directory } = this.configService.getConfig().audit;
-    const resolvedDir = resolve(log_directory);
-    const dataDir = resolve(process.env.DATA_PATH ?? '/data');
-    const dataDirPrefix = dataDir.endsWith('/') ? dataDir : `${dataDir}/`;
-
-    if (resolvedDir !== dataDir && !resolvedDir.startsWith(dataDirPrefix)) {
-      throw new Error(
-        `Audit log_directory must be within the data directory. Got: ${resolvedDir}, expected within: ${dataDir}`,
-      );
-    }
-
-    this.initTransport(resolvedDir);
-    this.logger.log(`Audit logging initialized at ${resolvedDir}`);
+    mkdirSync(AUDIT_LOG_DIR, { recursive: true });
+    this.initTransport(AUDIT_LOG_DIR);
+    this.logger.log(`Audit logging initialized at ${AUDIT_LOG_DIR}`);
   }
 
   async onModuleDestroy() {
@@ -94,7 +85,6 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
   }
 
   private initTransport(logDir: string) {
-    mkdirSync(logDir, { recursive: true });
     const { retention_days } = this.configService.getConfig().audit;
 
     const transport = pino.transport({

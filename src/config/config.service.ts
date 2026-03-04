@@ -7,11 +7,7 @@ import {
   validateConfig,
 } from './config.schema.js';
 
-const CONFIG_PATHS = [
-  process.env.CONFIG_PATH,
-  '/config/roombarr.yml',
-  './roombarr.yml',
-];
+const CONFIG_PATHS = [process.env.CONFIG_PATH, '/config/roombarr.yml'];
 
 @Injectable()
 export class ConfigService {

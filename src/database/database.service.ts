@@ -11,7 +11,7 @@ import { type BunSQLiteDatabase, drizzle } from 'drizzle-orm/bun-sqlite';
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
 import * as schema from './schema.js';
 
-const DEFAULT_DB_PATH = '/data/roombarr.sqlite';
+const DEFAULT_DB_PATH = '/config/roombarr.sqlite';
 
 /**
  * Path to drizzle migration files. Resolved relative to process.cwd()
@@ -43,9 +43,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   private readonly dbPath: string;
 
   constructor() {
-    this.dbPath = process.env.DATA_PATH
-      ? `${process.env.DATA_PATH}/roombarr.sqlite`
-      : DEFAULT_DB_PATH;
+    this.dbPath = process.env.DB_PATH ?? DEFAULT_DB_PATH;
   }
 
   onModuleInit() {

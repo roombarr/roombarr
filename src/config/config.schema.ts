@@ -67,7 +67,6 @@ export interface RoombarrConfig {
     concurrency: number;
   };
   audit: {
-    log_directory: string;
     retention_days: number;
   };
   rules: RuleConfig[];
@@ -108,13 +107,11 @@ const performanceSchema = z
   .default({ concurrency: 10 });
 
 const AUDIT_DEFAULTS = {
-  log_directory: '/data/logs/',
   retention_days: 90,
 } as const;
 
 const auditSchema = z
   .object({
-    log_directory: z.string().min(1).default(AUDIT_DEFAULTS.log_directory),
     retention_days: z
       .number()
       .int()

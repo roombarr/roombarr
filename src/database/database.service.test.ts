@@ -11,7 +11,7 @@ describe('DatabaseService', () => {
 
   beforeEach(() => {
     testDir = join(tmpdir(), `roombarr-test-${Date.now()}`);
-    process.env.DATA_PATH = testDir;
+    process.env.DB_PATH = join(testDir, 'roombarr.sqlite');
     service = new DatabaseService();
   });
 
@@ -24,7 +24,7 @@ describe('DatabaseService', () => {
     if (existsSync(testDir)) {
       rmSync(testDir, { recursive: true });
     }
-    delete process.env.DATA_PATH;
+    delete process.env.DB_PATH;
   });
 
   test('creates database directory and file on init', () => {

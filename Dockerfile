@@ -51,10 +51,9 @@ RUN chmod +x /etc/s6-overlay/s6-rc.d/*/run
 ENV LSIO_FIRST_PRIORITY=false
 ENV NODE_ENV=production
 ENV CONFIG_PATH=/config/roombarr.yml
-ENV DATA_PATH=/data
 
 EXPOSE 3000
-VOLUME /config /data
+VOLUME /config
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
   CMD wget --quiet --tries=1 --spider http://localhost:3000/health || exit 1

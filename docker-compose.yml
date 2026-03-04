@@ -1,18 +1,14 @@
+# Local development only. For production usage, see the README.
 services:
   roombarr:
-    image: ghcr.io/jacksonblankenship/roombarr:latest
-    # build: .
+    build: .
     container_name: roombarr
     restart: unless-stopped
     ports:
       - "3000:3000"
     volumes:
-      - ./config:/config:ro
-      - roombarr-data:/data
+      - ./config:/config
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=America/New_York
-
-volumes:
-  roombarr-data:

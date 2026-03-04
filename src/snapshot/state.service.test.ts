@@ -45,7 +45,7 @@ describe('StateService', () => {
 
   beforeEach(() => {
     testDir = join(tmpdir(), `roombarr-state-test-${Date.now()}`);
-    process.env.DATA_PATH = testDir;
+    process.env.DB_PATH = join(testDir, 'roombarr.sqlite');
 
     dbService = new DatabaseService();
     dbService.onModuleInit();
@@ -60,7 +60,7 @@ describe('StateService', () => {
     if (existsSync(testDir)) {
       rmSync(testDir, { recursive: true });
     }
-    delete process.env.DATA_PATH;
+    delete process.env.DB_PATH;
   });
 
   test('returns items unchanged on first evaluation (no snapshots)', () => {
