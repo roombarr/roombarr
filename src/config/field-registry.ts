@@ -28,7 +28,6 @@ const radarrFields: Record<string, FieldDefinition> = {
   'radarr.genres': { type: 'array', service: 'radarr' },
   'radarr.status': { type: 'string', service: 'radarr' },
   'radarr.year': { type: 'number', service: 'radarr' },
-  'radarr.has_file': { type: 'boolean', service: 'radarr' },
   'radarr.on_import_list': { type: 'boolean', service: 'radarr' },
   'radarr.import_list_ids': { type: 'array', service: 'radarr' },
 };

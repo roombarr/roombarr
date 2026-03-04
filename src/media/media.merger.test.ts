@@ -23,7 +23,6 @@ function makeMovie(tmdbId: number): UnifiedMovie {
       genres: ['action'],
       status: 'released',
       year: 2024,
-      has_file: true,
       digital_release: null,
       physical_release: null,
       path: `/movies/Movie ${tmdbId}`,

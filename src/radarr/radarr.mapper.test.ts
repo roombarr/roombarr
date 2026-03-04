@@ -29,7 +29,6 @@ function makeMovie(overrides: Partial<RadarrMovie> = {}): RadarrMovie {
     genres: ['action', 'sci-fi'],
     tags: [1, 2],
     monitored: true,
-    hasFile: true,
     sizeOnDisk: 8_500_000_000,
     added: '2024-06-01T12:00:00Z',
     digitalRelease: '1999-09-21T00:00:00Z',
@@ -107,7 +106,6 @@ describe('mapMovie', () => {
       genres: ['action', 'sci-fi'],
       status: 'released',
       year: 1999,
-      has_file: true,
       digital_release: '1999-09-21T00:00:00Z',
       physical_release: '1999-09-21T00:00:00Z',
       path: '/movies/The Matrix (1999)',
@@ -142,10 +140,9 @@ describe('mapMovie', () => {
     expect(result.tags).toEqual([]);
   });
 
-  test('handles movie with no file', () => {
-    const movie = makeMovie({ hasFile: false, sizeOnDisk: 0 });
+  test('handles movie with no file on disk', () => {
+    const movie = makeMovie({ sizeOnDisk: 0 });
     const result = mapMovie(movie, tagMap, emptyImportIndex);
-    expect(result.has_file).toBe(false);
     expect(result.size_on_disk).toBe(0);
   });
 

@@ -16,7 +16,7 @@ interface BaseAuditEntry {
   evaluation_id: string;
   action: Action;
   rule: string;
-  matched_rules: string[];
+  matched_rules: readonly string[];
   reasoning: string;
   dry_run: boolean;
 }

@@ -402,12 +402,8 @@ export class SnapshotService {
   /** Delete snapshots that have been missing for more than the grace period. */
   private async cleanupOrphans(): Promise<void> {
     const db = this.getDb();
-    const deleted = await db
+    await db
       .delete(mediaItems)
       .where(gt(mediaItems.missedEvaluations, ORPHAN_GRACE_EVALUATIONS));
-
-    if (deleted.changes > 0) {
-      this.logger.log(`Cleaned up ${deleted.changes} orphan snapshots`);
-    }
   }
 }

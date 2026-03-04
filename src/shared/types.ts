@@ -11,7 +11,6 @@ export interface RadarrData {
   genres: string[];
   status: string;
   year: number;
-  has_file: boolean;
   digital_release: string | null;
   physical_release: string | null;
   path: string;

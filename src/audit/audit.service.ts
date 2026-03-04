@@ -1,3 +1,4 @@
+import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   Injectable,
@@ -93,6 +94,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
   }
 
   private initTransport(logDir: string) {
+    mkdirSync(logDir, { recursive: true });
     const { retention_days } = this.configService.getConfig().audit;
 
     const transport = pino.transport({

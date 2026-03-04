@@ -15,7 +15,6 @@ export interface RadarrMovie {
   genres: string[];
   tags: number[];
   monitored: boolean;
-  hasFile: boolean;
   sizeOnDisk: number;
   added: string;
   digitalRelease: string | null;

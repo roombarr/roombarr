@@ -43,6 +43,11 @@ describe('operators', () => {
       expect(operators.greater_than(50, 100)).toBe(false);
       expect(operators.greater_than(50, 50)).toBe(false);
     });
+
+    test('returns false for null or undefined field', () => {
+      expect(operators.greater_than(null, 50)).toBe(false);
+      expect(operators.greater_than(undefined, 50)).toBe(false);
+    });
   });
 
   describe('less_than', () => {
@@ -53,6 +58,11 @@ describe('operators', () => {
     test('rejects when field >= value', () => {
       expect(operators.less_than(50, 10)).toBe(false);
       expect(operators.less_than(50, 50)).toBe(false);
+    });
+
+    test('returns false for null or undefined field', () => {
+      expect(operators.less_than(null, 50)).toBe(false);
+      expect(operators.less_than(undefined, 50)).toBe(false);
     });
   });
 
