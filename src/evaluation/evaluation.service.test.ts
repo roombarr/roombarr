@@ -43,7 +43,6 @@ const testMovie: UnifiedMovie = {
     genres: ['action'],
     status: 'released',
     year: 1999,
-    has_file: true,
     digital_release: null,
     physical_release: null,
     path: '/movies/The Matrix (1999)',

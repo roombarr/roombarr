@@ -7,9 +7,15 @@ export const operators: Record<string, OperatorFn> = {
 
   not_equals: (field, value) => field !== value,
 
-  greater_than: (field, value) => (field as number) > (value as number),
+  greater_than: (field, value) => {
+    if (field === null || field === undefined) return false;
+    return (field as number) > (value as number);
+  },
 
-  less_than: (field, value) => (field as number) < (value as number),
+  less_than: (field, value) => {
+    if (field === null || field === undefined) return false;
+    return (field as number) < (value as number);
+  },
 
   older_than: (field, value) => {
     // null dates = infinitely old = always matches older_than

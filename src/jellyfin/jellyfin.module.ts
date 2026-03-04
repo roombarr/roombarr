@@ -12,7 +12,7 @@ import { JellyfinService } from './jellyfin.service.js';
         const jellyfin = config.getConfig().services.jellyfin;
         return {
           baseURL: jellyfin?.base_url,
-          headers: jellyfin ? { 'X-Api-Key': jellyfin.api_key } : {},
+          headers: jellyfin ? { 'X-Emby-Token': jellyfin.api_key } : {},
           timeout: 30_000,
         };
       },

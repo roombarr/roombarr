@@ -23,7 +23,6 @@ function makeMovie(overrides: Record<string, any> = {}): UnifiedMovie {
       genres: ['Action'],
       status: 'released',
       year: 2024,
-      has_file: true,
       digital_release: null,
       physical_release: null,
       path: '/movies/test',

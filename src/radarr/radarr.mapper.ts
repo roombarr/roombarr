@@ -58,7 +58,6 @@ export function mapMovie(
     genres: movie.genres,
     status: movie.status,
     year: movie.year,
-    has_file: movie.hasFile,
     digital_release: movie.digitalRelease,
     physical_release: movie.physicalRelease,
     path: movie.path,

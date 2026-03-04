@@ -43,7 +43,6 @@ describe('RadarrClient', () => {
           genres: ['action'],
           tags: [1],
           monitored: true,
-          hasFile: true,
           sizeOnDisk: 8_500_000_000,
           added: '2024-06-01T12:00:00Z',
           digitalRelease: null,

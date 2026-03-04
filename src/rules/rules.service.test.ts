@@ -23,7 +23,6 @@ function makeMovie(overrides: Record<string, any> = {}): UnifiedMovie {
       genres: ['Action'],
       status: 'released',
       year: 2024,
-      has_file: true,
       digital_release: null,
       physical_release: null,
       path: '/movies/test',
@@ -465,7 +464,11 @@ describe('RulesService.evaluate', () => {
         conditions: {
           operator: 'AND',
           children: [
-            { field: 'radarr.has_file', operator: 'equals', value: true },
+            {
+              field: 'radarr.size_on_disk',
+              operator: 'greater_than',
+              value: 0,
+            },
           ],
         },
         action: 'delete',
@@ -577,7 +580,11 @@ describe('RulesService.evaluate', () => {
         conditions: {
           operator: 'AND',
           children: [
-            { field: 'radarr.has_file', operator: 'equals', value: true },
+            {
+              field: 'radarr.size_on_disk',
+              operator: 'greater_than',
+              value: 0,
+            },
           ],
         },
         action: 'delete',
