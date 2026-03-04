@@ -11,7 +11,7 @@ FROM lscr.io/linuxserver/baseimage-alpine:3.21
 ARG BUILD_DATE
 ARG VERSION
 
-LABEL maintainer="jacksonblankenship"
+LABEL build_version="Roombarr version: ${VERSION} build-date: ${BUILD_DATE}"
 LABEL org.opencontainers.image.title="Roombarr"
 LABEL org.opencontainers.image.description="Rule-based media cleanup engine"
 LABEL org.opencontainers.image.version="${VERSION}"
@@ -19,6 +19,9 @@ LABEL org.opencontainers.image.created="${BUILD_DATE}"
 LABEL org.opencontainers.image.source="https://github.com/jacksonblankenship/roombarr"
 LABEL org.opencontainers.image.url="https://github.com/jacksonblankenship/roombarr"
 LABEL org.opencontainers.image.licenses="GPL-2.0-only"
+LABEL org.opencontainers.image.authors="jacksonblankenship"
+LABEL org.opencontainers.image.vendor="jacksonblankenship"
+LABEL org.opencontainers.image.documentation="https://github.com/jacksonblankenship/roombarr"
 
 RUN set -eux; \
     ARCH="$(uname -m)"; \
@@ -45,6 +48,7 @@ COPY root/ /
 
 RUN chmod +x /etc/s6-overlay/s6-rc.d/*/run
 
+ENV LSIO_FIRST_PRIORITY=false
 ENV NODE_ENV=production
 ENV CONFIG_PATH=/config/roombarr.yml
 ENV DATA_PATH=/data
