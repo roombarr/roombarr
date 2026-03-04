@@ -136,12 +136,11 @@ performance:
 
 ### `audit`
 
-Destructive actions are logged to daily-rotated JSONL files. In v1, all entries are tagged `dry_run: true`.
+Destructive actions are logged to daily-rotated JSONL files at `/config/logs/`. In v1, all entries are tagged `dry_run: true`.
 
 ```yaml
 audit:
-  log_directory: /config/logs/  # Default: /config/logs/. Must be within /config.
-  retention_days: 90             # How long to keep log files (1–3650, default: 90)
+  retention_days: 90  # How long to keep log files (1–3650, default: 90)
 ```
 
 ### `rules`
@@ -439,7 +438,7 @@ HTTP/1.1 200 OK
 
 {
   "status": "ok",
-  "version": "0.1.0"
+  "version": "x.y.z"
 }
 ```
 
