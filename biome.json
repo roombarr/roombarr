@@ -62,7 +62,11 @@
       }
     },
     {
-      "includes": ["lint-staged.config.ts", "drizzle.config.ts"],
+      "includes": [
+        "lint-staged.config.ts",
+        "drizzle.config.ts",
+        "commitlint.config.ts"
+      ],
       "linter": {
         "rules": {
           "style": {
