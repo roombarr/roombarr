@@ -1,7 +1,7 @@
+# Local development only. For production usage, see the README.
 services:
   roombarr:
-    image: ghcr.io/jacksonblankenship/roombarr:latest
-    # build: .
+    build: .
     container_name: roombarr
     restart: unless-stopped
     ports:
