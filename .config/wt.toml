@@ -1,0 +1,7 @@
+[post-create]
+mise = "mise trust"
+copy-claude-settings = "mkdir -p .claude && cp \"{{ primary_worktree_path }}/.claude/settings.local.json\" \".claude/settings.local.json\" 2>/dev/null || true"
+deps = "bun i"
+
+[pre-remove]
+merge-claude-settings = "jq -s '.[0] * .[1]' {{ primary_worktree_path }}/.claude/settings.local.json .claude/settings.local.json > {{ primary_worktree_path }}/.claude/settings.local.json.tmp && mv {{ primary_worktree_path }}/.claude/settings.local.json.tmp {{ primary_worktree_path }}/.claude/settings.local.json 2>/dev/null || true"
