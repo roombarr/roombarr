@@ -4,6 +4,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import type { Condition, RoombarrConfig } from '../config/config.schema.js';
 import { ConfigService } from '../config/config.service.js';
 import { getServiceFromField } from '../config/field-registry.js';
+import { ActionExecutorService } from '../execution/action-executor.service.js';
 import { MediaService } from '../media/media.service.js';
 import { RulesService } from '../rules/rules.service.js';
 import { SnapshotService } from '../snapshot/snapshot.service.js';
@@ -24,6 +25,7 @@ export class EvaluationService {
     private readonly rulesService: RulesService,
     private readonly snapshotService: SnapshotService,
     private readonly stateService: StateService,
+    private readonly actionExecutor: ActionExecutorService,
   ) {}
 
   /**
@@ -145,11 +147,20 @@ export class EvaluationService {
         run.dry_run,
       );
 
-      // Step 3: Update run with results
+      // Step 5: Execute actions (no-op in dry-run mode)
+      const { results: executedResults, executionSummary } =
+        await this.actionExecutor.execute(results, enrichedItems, run.dry_run);
+
+      if (executionSummary) {
+        summary.actions_executed = executionSummary.actions_executed;
+        summary.actions_failed = executionSummary.actions_failed;
+      }
+
+      // Step 6: Update run with results
       run.status = 'completed';
       run.completed_at = new Date().toISOString();
       run.summary = summary;
-      run.results = results.filter(r => r.resolved_action !== null);
+      run.results = executedResults.filter(r => r.resolved_action !== null);
 
       this.logger.log({
         msg: `Evaluation ${run.run_id} completed`,

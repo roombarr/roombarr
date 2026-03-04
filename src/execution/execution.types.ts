@@ -1,0 +1,6 @@
+import type { Action } from '../config/config.schema.js';
+
+export interface ExecutionSummary {
+  actions_executed: Record<Action, number>;
+  actions_failed: number;
+}

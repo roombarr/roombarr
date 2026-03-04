@@ -83,6 +83,7 @@ describe('EvaluationService', () => {
   let rulesService: { evaluate: ReturnType<typeof mock> };
   let snapshotService: { snapshot: ReturnType<typeof mock> };
   let stateService: { enrich: ReturnType<typeof mock> };
+  let actionExecutor: { execute: ReturnType<typeof mock> };
   let service: EvaluationService;
 
   beforeEach(() => {
@@ -104,6 +105,9 @@ describe('EvaluationService', () => {
     stateService = {
       enrich: mock((items: any) => items),
     };
+    actionExecutor = {
+      execute: mock((results: any) => Promise.resolve({ results })),
+    };
 
     service = new EvaluationService(
       configService as any,
@@ -111,6 +115,7 @@ describe('EvaluationService', () => {
       rulesService as any,
       snapshotService as any,
       stateService as any,
+      actionExecutor as any,
     );
   });
 
