@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/roombarr/roombarr/compare/v0.1.0...v0.1.1) (2026-03-04)
+
+
+### Features
+
+* enable live action execution and add has_file fields ([#9](https://github.com/roombarr/roombarr/issues/9)) ([14c841a](https://github.com/roombarr/roombarr/commit/14c841a92bb28d82d4992d219c2fc856509ce523))
+
 ## [0.1.0](https://github.com/roombarr/roombarr/compare/v1.0.0...v0.1.0) (2026-03-04)
 
 
