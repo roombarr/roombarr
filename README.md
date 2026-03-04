@@ -90,6 +90,16 @@ Roombarr is configured through a single YAML file. The config file is resolved i
 1. Path set by the `CONFIG_PATH` environment variable
 2. `/config/roombarr.yml`
 
+### `dry_run`
+
+Controls whether Roombarr executes actions against Radarr/Sonarr or just logs what it would do. Defaults to `true`.
+
+```yaml
+dry_run: false  # Set to false to enable live execution
+```
+
+When `dry_run: true` (the default), evaluations run normally and log results, but no media is deleted or unmonitored. When `dry_run: false`, Roombarr will call Radarr/Sonarr APIs to perform the resolved actions after each evaluation.
+
 ### `services`
 
 Connections to your *arr stack. At least one of `sonarr` or `radarr` must be configured.
@@ -136,7 +146,7 @@ performance:
 
 ### `audit`
 
-Destructive actions are logged to daily-rotated JSONL files at `/config/logs/`. In v1, all entries are tagged `dry_run: true`.
+Destructive actions are logged to daily-rotated JSONL files. Each entry is tagged with `dry_run: true` or `dry_run: false` reflecting the mode at evaluation time.
 
 ```yaml
 audit:
