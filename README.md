@@ -36,7 +36,7 @@ services:
 schedule: "0 3 * * *"
 
 rules:
-  - name: Delete old movies with files
+  - name: Delete old unmonitored movies
     target: radarr
     action: delete
     conditions:
@@ -45,9 +45,9 @@ rules:
         - field: radarr.added
           operator: older_than
           value: 1y
-        - field: radarr.has_file
+        - field: radarr.monitored
           operator: equals
-          value: true
+          value: false
 ```
 
 ### 3. Create your Docker Compose file
@@ -219,9 +219,9 @@ conditions:
     - field: radarr.added
       operator: older_than
       value: 6m
-    - field: radarr.has_file
+    - field: radarr.on_import_list
       operator: equals
-      value: true
+      value: false
 ```
 
 Nested groups — combine AND and OR logic:
@@ -251,8 +251,8 @@ This matches movies added over 3 months ago that have either been watched by eve
 |---|---|---|---|
 | `equals` | string, number, boolean | Same as field type | Strict equality |
 | `not_equals` | string, number, boolean | Same as field type | Strict inequality |
-| `greater_than` | number | number | Greater than comparison |
-| `less_than` | number | number | Less than comparison |
+| `greater_than` | number | number | Greater than comparison. Null fields never match. |
+| `less_than` | number | number | Less than comparison. Null fields never match. |
 | `older_than` | date | Duration string | True if the date is further in the past than the duration. Null dates always match. |
 | `newer_than` | date | Duration string | True if the date is within the duration. Null dates never match. |
 | `includes` | array | string | Array contains the value |
@@ -380,7 +380,6 @@ Available on rules with `target: radarr`.
 | `radarr.physical_release` | date | Physical release date | Can be null. Same null behavior as above. |
 | `radarr.size_on_disk` | number | File size in bytes | |
 | `radarr.monitored` | boolean | Whether the movie is monitored | |
-| `radarr.has_file` | boolean | Whether a file exists on disk | |
 | `radarr.on_import_list` | boolean | Whether the movie is on any import list | |
 | `radarr.status` | string | Release status (e.g., `released`, `announced`) | |
 | `radarr.year` | number | Release year | |
