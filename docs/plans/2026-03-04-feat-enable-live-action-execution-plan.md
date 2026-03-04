@@ -96,25 +96,28 @@ A new NestJS injectable service in the `evaluation` module (or a new `execution`
 
 ```
 ActionExecutorService
-├── execute(results: EvaluationItemResult[], dryRun: boolean): Promise<ExecutionResult[]>
-│   ├── if dryRun → return results unchanged (no-op)
-│   ├── filter to items with resolved_action !== null and resolved_action !== 'keep'
-│   ├── for each item (sequential, concurrency=1 for safety in v1):
-│   │   ├── resolve internal ID from result
-│   │   ├── call appropriate mutation API
+├── execute(results: EvaluationItemResult[], items: UnifiedMedia[], dryRun: boolean)
+│   │   → Promise<{ results: EvaluationItemResult[]; executionSummary?: ExecutionSummary }>
+│   ├── if dryRun → mark every result with execution_status: 'skipped' (no API calls)
+│   ├── build itemsByInternalId map from items using buildInternalId()
+│   ├── for each result (sequential, concurrency=1 for safety in v1):
+│   │   ├── skip non-actionable items (resolved_action null or 'keep') → execution_status: 'skipped'
+│   │   ├── look up hydrated item by internal_id (composite string, e.g. 'movie:42')
+│   │   ├── call executeAction(item, resolved_action)
 │   │   ├── record success/failure per item
-│   │   └── write audit entry AFTER execution attempt
-│   └── return results with execution status
-├── deleteRadarrMovie(radarrId: number): Promise<void>
-├── unmonitorRadarrMovie(radarrId: number): Promise<void>
-├── deleteSonarrSeasonFiles(seriesId: number, seasonNumber: number): Promise<void>
-└── unmonitorSonarrSeason(seriesId: number, seasonNumber: number): Promise<void>
+│   │   └── 404 responses are logged as warnings (item already removed externally)
+│   └── return results with execution status + executionSummary counts
+├── executeAction(item: UnifiedMedia, action: Action): Promise<void>
+├── deleteMovie(movie: UnifiedMovie): Promise<void>
+├── unmonitorMovie(movie: UnifiedMovie): Promise<void>
+├── deleteSeasonFiles(season: UnifiedSeason): Promise<void>
+└── unmonitorSeason(season: UnifiedSeason): Promise<void>
 ```
 
 **Key design decisions:**
 - **Sequential execution** (no parallelism) for v1. Mutations are dangerous; sequential makes debugging and audit trails predictable.
 - **Continue on failure.** If item 4 of 10 fails, items 5-10 still execute. Per-item status tracking reports what happened.
-- **404 = success with warning.** If Radarr returns 404 on a delete, the desired state is achieved — someone else already removed it.
+- **404 = warning only.** If Radarr/Sonarr returns 404, it is logged as a warning (item already removed externally) but not counted as a successful execution. Per-file 404s during season file deletion are handled individually — the remaining files still execute.
 - **Audit after execution.** Move audit logging from `RulesService.evaluate()` to after execution completes. In dry-run mode, audit still logs during evaluation (preserving v1 behavior). In live mode, audit logs after each action attempt with the execution outcome.
 
 **Files to create:**
@@ -135,9 +138,9 @@ export interface EvaluationItemResult {
   matched_rules: string[];
   resolved_action: Action | null;
   dry_run: boolean;
-  /** Internal ID needed for API calls. Radarr movie ID or Sonarr series ID. */
-  internal_id: number;
-  /** Present only when dry_run is false and an action was attempted. */
+  /** Composite key unique per item (e.g. "movie:42", "season:10:1"). */
+  internal_id: string;
+  /** Set during execution. Present when dry_run is true ('skipped') or when an action was attempted in live mode. */
   execution_status?: 'success' | 'failed' | 'skipped';
   /** Error message if execution_status is 'failed'. */
   execution_error?: string;
@@ -196,7 +199,7 @@ This goes in `main.ts` or `EvaluationModule.onModuleInit()`.
 - [x]`keep` actions are never executed (they are protective, no mutation needed)
 - [x]Per-item execution status tracked (`success`, `failed`, `skipped`)
 - [x]Partial failures do not abort remaining items — continue and report
-- [x]404 from Radarr/Sonarr during delete treated as success (desired state achieved)
+- [x]404 from Radarr/Sonarr during delete logged as warning (item already removed); not counted as success or failure
 - [x]Audit log entries include execution outcome when in live mode
 - [x]Startup banner indicates whether system is in dry-run or live mode
 - [x]Evaluation API response includes `dry_run: boolean` reflecting actual mode
@@ -355,64 +358,73 @@ export class ActionExecutorService {
   constructor(
     private readonly radarrClient: RadarrClient,
     private readonly sonarrClient: SonarrClient,
-    private readonly auditService: AuditService,
   ) {}
 
   /**
    * Execute resolved actions against Radarr/Sonarr.
-   * In dry-run mode, this is a no-op — results pass through unchanged.
+   * In dry-run mode, every result is marked as 'skipped' with no API calls.
    * In live mode, each actionable item is executed sequentially.
    */
   async execute(
     results: EvaluationItemResult[],
     items: UnifiedMedia[],
     dryRun: boolean,
-    evaluationId: string,
-    reasoningCache: Map<string, string>,
-  ): Promise<EvaluationItemResult[]> {
-    if (dryRun) return results;
+  ): Promise<{
+    results: EvaluationItemResult[];
+    executionSummary?: ExecutionSummary;
+  }> {
+    if (dryRun)
+      return {
+        results: results.map(r => ({ ...r, execution_status: 'skipped' as const })),
+      };
 
-    const itemsByExternalId = new Map(
-      items.map(i => [i.type === 'movie' ? i.tmdb_id : i.tvdb_id, i]),
+    const itemsByInternalId = new Map(
+      items.map(item => [buildInternalId(item), item]),
     );
 
     const executed: EvaluationItemResult[] = [];
+    const counts: Record<Action, number> = { keep: 0, unmonitor: 0, delete: 0 };
+    let failedCount = 0;
 
     for (const result of results) {
       if (!result.resolved_action || result.resolved_action === 'keep') {
-        executed.push(result);
+        executed.push({ ...result, execution_status: 'skipped' });
         continue;
       }
 
-      const item = itemsByExternalId.get(result.external_id);
+      const item = itemsByInternalId.get(result.internal_id);
       if (!item) {
         executed.push({
           ...result,
           execution_status: 'failed',
           execution_error: 'Item not found in hydrated data',
         });
+        failedCount++;
         continue;
       }
 
       try {
         await this.executeAction(item, result.resolved_action);
         executed.push({ ...result, execution_status: 'success' });
+        counts[result.resolved_action]++;
       } catch (error) {
-        const is404 = /* check for 404 status */;
-        if (is404) {
-          this.logger.warn(`${result.resolved_action} ${result.title}: 404 — already removed`);
-          executed.push({ ...result, execution_status: 'success' });
+        if (this.isNotFound(error)) {
+          this.logger.warn(
+            `${result.resolved_action} "${result.title}": 404 — already removed`,
+          );
         } else {
-          executed.push({
-            ...result,
-            execution_status: 'failed',
-            execution_error: error instanceof Error ? error.message : 'Unknown error',
-          });
+          const message = error instanceof Error ? error.message : 'Unknown error';
+          this.logger.error(`Failed to ${result.resolved_action} "${result.title}": ${message}`);
+          executed.push({ ...result, execution_status: 'failed', execution_error: message });
+          failedCount++;
         }
       }
     }
 
-    return executed;
+    return {
+      results: executed,
+      executionSummary: { actions_executed: counts, actions_failed: failedCount },
+    };
   }
 }
 ```

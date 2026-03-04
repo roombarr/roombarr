@@ -297,7 +297,7 @@ describe('ActionExecutorService', () => {
   });
 
   describe('error handling', () => {
-    test('treats 404 as success', async () => {
+    test('logs 404 as warning without counting as success or failure', async () => {
       radarrClient.deleteMovie = mock(() => Promise.reject(make404Error()));
       const movie = makeMovie();
       const result = makeResult(movie, 'delete');
@@ -308,8 +308,8 @@ describe('ActionExecutorService', () => {
         false,
       );
 
-      expect(results[0].execution_status).toBe('success');
-      expect(executionSummary?.actions_executed.delete).toBe(1);
+      expect(results).toHaveLength(0);
+      expect(executionSummary?.actions_executed.delete).toBe(0);
       expect(executionSummary?.actions_failed).toBe(0);
     });
 

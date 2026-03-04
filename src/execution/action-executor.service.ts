@@ -76,8 +76,6 @@ export class ActionExecutorService {
           this.logger.warn(
             `${result.resolved_action} "${result.title}": 404 — already removed`,
           );
-          executed.push({ ...result, execution_status: 'success' });
-          counts[result.resolved_action]++;
         } else {
           const message =
             error instanceof Error ? error.message : 'Unknown error';
@@ -161,7 +159,17 @@ export class ActionExecutorService {
     }
 
     for (const file of seasonFiles) {
-      await this.sonarrClient.deleteEpisodeFile(file.id);
+      try {
+        await this.sonarrClient.deleteEpisodeFile(file.id);
+      } catch (error) {
+        if (this.isNotFound(error)) {
+          this.logger.warn(
+            `Episode file ${file.id} for "${season.title}" S${String(seasonNumber).padStart(2, '0')}: 404 — already removed`,
+          );
+          continue;
+        }
+        throw error;
+      }
     }
 
     this.logger.log(

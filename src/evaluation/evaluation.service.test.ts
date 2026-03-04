@@ -133,6 +133,12 @@ describe('EvaluationService', () => {
       expect(run.results[0].title).toBe('The Matrix (1999)');
       expect(mediaService.hydrate).toHaveBeenCalledTimes(1);
       expect(rulesService.evaluate).toHaveBeenCalledTimes(1);
+      expect(actionExecutor.execute).toHaveBeenCalledTimes(1);
+      expect(actionExecutor.execute).toHaveBeenCalledWith(
+        [testEvaluationResult],
+        [testMovie],
+        testConfig.dry_run,
+      );
     });
 
     test('filters out unmatched items from results', async () => {

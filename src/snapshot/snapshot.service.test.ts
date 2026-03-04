@@ -7,10 +7,12 @@ import { DatabaseService } from '../database/database.service.js';
 import type { UnifiedMovie } from '../shared/types.js';
 import { SnapshotService } from './snapshot.service.js';
 
+let nextRadarrId = 101;
+
 function makeMovie(overrides: Record<string, any> = {}): UnifiedMovie {
   return {
     type: 'movie',
-    radarr_id: 101,
+    radarr_id: nextRadarrId++,
     tmdb_id: 1,
     imdb_id: 'tt0000001',
     title: 'Test Movie',

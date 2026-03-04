@@ -165,10 +165,13 @@ export class EvaluationService {
       this.logger.log({
         msg: `Evaluation ${run.run_id} completed`,
         run_id: run.run_id,
+        dry_run: run.dry_run,
         items_evaluated: summary.items_evaluated,
         items_matched: summary.items_matched,
         actions: summary.actions,
         rules_skipped_missing_data: summary.rules_skipped_missing_data,
+        actions_executed: summary.actions_executed ?? null,
+        actions_failed: summary.actions_failed ?? null,
       });
     } catch (error) {
       run.status = 'failed';

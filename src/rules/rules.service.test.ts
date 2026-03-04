@@ -613,4 +613,30 @@ describe('RulesService.evaluate', () => {
       expect(result.dry_run).toBe(true);
     }
   });
+
+  test('all results have dry_run: false when evaluated with false', () => {
+    const items: UnifiedMedia[] = [makeMovie()];
+    const rules = makeRules([
+      {
+        name: 'Any rule',
+        target: 'radarr',
+        conditions: {
+          operator: 'AND',
+          children: [
+            {
+              field: 'radarr.size_on_disk',
+              operator: 'greater_than',
+              value: 0,
+            },
+          ],
+        },
+        action: 'delete',
+      },
+    ]);
+
+    const { results } = service.evaluate(items, rules, 'test-eval-id', false);
+    for (const result of results) {
+      expect(result.dry_run).toBe(false);
+    }
+  });
 });
