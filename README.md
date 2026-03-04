@@ -2,7 +2,7 @@
 
 Roombarr is a rule-based media cleanup engine for Sonarr, Radarr, Jellyfin, and Jellyseerr. Define declarative YAML rules that decide what to keep, unmonitor, or delete — and let Roombarr evaluate them on a schedule.
 
-> **Early Development (v0.x)** — Roombarr is under active development. Breaking changes are expected between minor versions. Currently dry-run only: no media is deleted or unmonitored. Feedback and bug reports are welcome via [GitHub Issues](https://github.com/jacksonblankenship/roombarr/issues).
+> **Early Development (v0.x)** — Roombarr is under active development. Breaking changes are expected between minor versions. Currently dry-run only: no media is deleted or unmonitored. Feedback and bug reports are welcome via [GitHub Issues](https://github.com/roombarr/roombarr/issues).
 
 ## Features
 
@@ -49,7 +49,7 @@ rules:
 ```yaml
 services:
   roombarr:
-    image: ghcr.io/jacksonblankenship/roombarr:latest
+    image: ghcr.io/roombarr/roombarr:latest
     container_name: roombarr
     restart: unless-stopped
     ports:

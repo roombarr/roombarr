@@ -16,12 +16,12 @@ LABEL org.opencontainers.image.title="Roombarr"
 LABEL org.opencontainers.image.description="Rule-based media cleanup engine"
 LABEL org.opencontainers.image.version="${VERSION}"
 LABEL org.opencontainers.image.created="${BUILD_DATE}"
-LABEL org.opencontainers.image.source="https://github.com/jacksonblankenship/roombarr"
-LABEL org.opencontainers.image.url="https://github.com/jacksonblankenship/roombarr"
+LABEL org.opencontainers.image.source="https://github.com/roombarr/roombarr"
+LABEL org.opencontainers.image.url="https://github.com/roombarr/roombarr"
 LABEL org.opencontainers.image.licenses="GPL-2.0-only"
-LABEL org.opencontainers.image.authors="jacksonblankenship"
-LABEL org.opencontainers.image.vendor="jacksonblankenship"
-LABEL org.opencontainers.image.documentation="https://github.com/jacksonblankenship/roombarr"
+LABEL org.opencontainers.image.authors="roombarr"
+LABEL org.opencontainers.image.vendor="roombarr"
+LABEL org.opencontainers.image.documentation="https://github.com/roombarr/roombarr"
 
 RUN set -eux; \
     ARCH="$(uname -m)"; \
