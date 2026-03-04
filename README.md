@@ -2,7 +2,7 @@
 
 Roombarr is a rule-based media cleanup engine for Sonarr, Radarr, Jellyfin, and Jellyseerr. Define declarative YAML rules that decide what to keep, unmonitor, or delete — and let Roombarr evaluate them on a schedule.
 
-> **Roombarr v1 is dry-run only.** No media is deleted or unmonitored. Every evaluation logs what _would_ happen, so you can safely experiment with your rules and see exactly what they'd do before committing to any actions. Live execution is planned for a future release.
+> **Roombarr v1.0.0 is dry-run only.** No media is deleted or unmonitored. Every evaluation logs what _would_ happen, so you can safely experiment with your rules and see exactly what they'd do before committing to any actions. Live execution is planned for a future release.
 
 ## Features
 
@@ -17,15 +17,9 @@ Roombarr is a rule-based media cleanup engine for Sonarr, Radarr, Jellyfin, and 
 
 ## Quick Start
 
-### 1. Create a config directory
+### 1. Create your configuration
 
-```bash
-mkdir config
-```
-
-### 2. Create your configuration
-
-Create `config/roombarr.yml` with your service connections and rules. Here's a minimal example using Radarr only:
+Create a `roombarr.yml` with your service connections and rules. This file will be mounted into the container at `/config`. Here's a minimal example using Radarr only:
 
 ```yaml
 services:
@@ -50,12 +44,12 @@ rules:
           value: false
 ```
 
-### 3. Create your Docker Compose file
+### 2. Create a `docker-compose.yml`
 
 ```yaml
 services:
   roombarr:
-    build: .
+    image: ghcr.io/jacksonblankenship/roombarr:latest
     container_name: roombarr
     restart: unless-stopped
     ports:
@@ -64,23 +58,25 @@ services:
       - ./config:/config:ro
       - roombarr-data:/data
     environment:
+      - PUID=1000
+      - PGID=1000
       - TZ=America/New_York
 
 volumes:
   roombarr-data:
 ```
 
-### 4. Start Roombarr
+### 3. Start Roombarr
 
 ```bash
 docker compose up -d
 ```
 
-### 5. Verify it's running
+### 4. Verify it's running
 
 ```bash
 curl http://localhost:3000/health
-# → { "status": "ok", "version": "0.1.0" }
+# → { "status": "ok", "version": "1.0.0" }
 ```
 
 If the container exits immediately, check the logs for configuration errors:
@@ -448,7 +444,7 @@ HTTP/1.1 200 OK
 
 {
   "status": "ok",
-  "version": "0.1.0"
+  "version": "1.0.0"
 }
 ```
 
@@ -538,6 +534,8 @@ HTTP/1.1 200 OK
 
 | Variable | Default | Description |
 |---|---|---|
+| `PUID` | `1000` | User ID for file permissions — see [Understanding PUID and PGID](https://docs.linuxserver.io/general/understanding-puid-and-pgid/) |
+| `PGID` | `1000` | Group ID for file permissions |
 | `CONFIG_PATH` | `/config/roombarr.yml` | Path to the YAML config file |
 | `DATA_PATH` | `/data` | Root directory for SQLite database and audit logs |
 | `PORT` | `3000` | HTTP server listen port |
@@ -557,15 +555,3 @@ HTTP/1.1 200 OK
 **Old run ID returns 404:** Only the last 10 evaluation runs are kept in memory. Older runs are evicted.
 
 **Schedule fires at the wrong time:** The cron expression evaluates in the timezone set by the `TZ` environment variable. If `TZ` is not set, it defaults to UTC.
-
-## Development
-
-Roombarr is built with [NestJS](https://nestjs.com) and [TypeScript](https://www.typescriptlang.org), running on [Bun](https://bun.sh).
-
-```bash
-bun install          # Install dependencies
-bun run dev          # Start dev server with hot reload
-bun test             # Run tests
-bun run lint         # Lint with Biome
-bun run typecheck    # Type-check without emitting
-```
