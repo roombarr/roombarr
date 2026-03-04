@@ -1,0 +1,5 @@
+#!/usr/bin/with-contenv bash
+# shellcheck shell=bash
+
+cd /app || exit 1
+exec s6-setuidgid abc /usr/local/bin/bun run dist/main.js

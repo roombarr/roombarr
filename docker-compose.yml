@@ -1,6 +1,7 @@
 services:
   roombarr:
-    build: .
+    image: ghcr.io/jacksonblankenship/roombarr:latest
+    # build: .
     container_name: roombarr
     restart: unless-stopped
     ports:
@@ -9,6 +10,8 @@ services:
       - ./config:/config:ro
       - roombarr-data:/data
     environment:
+      - PUID=1000
+      - PGID=1000
       - TZ=America/New_York
       - CONFIG_PATH=/config/roombarr.yml
 

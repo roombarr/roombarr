@@ -1,0 +1,6 @@
+#!/usr/bin/with-contenv bash
+# shellcheck shell=bash
+
+mkdir -p /data
+lsiown -R abc:abc /data
+lsiown abc:abc /app
