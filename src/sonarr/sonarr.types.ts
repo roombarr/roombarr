@@ -36,3 +36,11 @@ export interface SonarrTag {
   id: number;
   label: string;
 }
+
+export interface SonarrEpisodeFile {
+  id: number;
+  seriesId: number;
+  seasonNumber: number;
+  path: string;
+  size: number;
+}

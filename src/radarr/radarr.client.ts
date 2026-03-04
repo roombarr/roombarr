@@ -31,6 +31,30 @@ export class RadarrClient {
     return data;
   }
 
+  async fetchMovie(movieId: number): Promise<RadarrMovie> {
+    this.logger.debug(`Fetching movie ${movieId} from Radarr`);
+    const { data } = await firstValueFrom(
+      this.http.get<RadarrMovie>(`/api/v3/movie/${movieId}`),
+    );
+    return data;
+  }
+
+  async deleteMovie(movieId: number, deleteFiles = true): Promise<void> {
+    this.logger.debug(
+      `Deleting movie ${movieId} (deleteFiles: ${deleteFiles})`,
+    );
+    await firstValueFrom(
+      this.http.delete(`/api/v3/movie/${movieId}`, {
+        params: { deleteFiles },
+      }),
+    );
+  }
+
+  async updateMovie(movieId: number, body: RadarrMovie): Promise<void> {
+    this.logger.debug(`Updating movie ${movieId}`);
+    await firstValueFrom(this.http.put(`/api/v3/movie/${movieId}`, body));
+  }
+
   async fetchImportListMovies(): Promise<RadarrImportListMovie[]> {
     this.logger.debug('Fetching import list movies from Radarr');
     const { data } = await firstValueFrom(

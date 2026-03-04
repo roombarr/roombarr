@@ -19,6 +19,6 @@ import { SonarrService } from './sonarr.service.js';
     }),
   ],
   providers: [SonarrClient, SonarrService],
-  exports: [SonarrService],
+  exports: [SonarrClient, SonarrService],
 })
 export class SonarrModule {}

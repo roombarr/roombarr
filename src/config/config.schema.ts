@@ -56,6 +56,7 @@ export interface ServiceConfig {
 }
 
 export interface RoombarrConfig {
+  dry_run: boolean;
   services: {
     sonarr?: ServiceConfig;
     radarr?: ServiceConfig;
@@ -129,6 +130,7 @@ const servicesSchema = z.object({
 });
 
 export const configSchema = z.object({
+  dry_run: z.boolean().default(true),
   services: servicesSchema,
   schedule: z.string().min(1),
   performance: performanceSchema,

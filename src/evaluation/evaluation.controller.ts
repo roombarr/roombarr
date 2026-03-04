@@ -66,7 +66,7 @@ export class EvaluationController {
       completed_at: run.completed_at,
       summary: run.summary,
       results: run.results,
-      dry_run: true,
+      dry_run: run.dry_run,
     });
   }
 }

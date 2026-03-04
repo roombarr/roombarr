@@ -5,6 +5,7 @@ import { resolveField } from './field-resolver.js';
 function makeMovie(overrides: Record<string, any> = {}): UnifiedMedia {
   return {
     type: 'movie',
+    radarr_id: 501,
     tmdb_id: 12345,
     imdb_id: 'tt1234567',
     title: 'Test Movie',
@@ -42,6 +43,7 @@ function makeMovie(overrides: Record<string, any> = {}): UnifiedMedia {
 function makeSeason(overrides: Record<string, any> = {}): UnifiedMedia {
   return {
     type: 'season',
+    sonarr_series_id: 601,
     tvdb_id: 54321,
     title: 'Test Show',
     year: 2023,

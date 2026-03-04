@@ -53,6 +53,7 @@ export interface StateData {
 
 export interface UnifiedMovie {
   type: 'movie';
+  radarr_id: number;
   tmdb_id: number;
   imdb_id: string | null;
   title: string;
@@ -65,6 +66,7 @@ export interface UnifiedMovie {
 
 export interface UnifiedSeason {
   type: 'season';
+  sonarr_series_id: number;
   tvdb_id: number;
   title: string;
   year: number;

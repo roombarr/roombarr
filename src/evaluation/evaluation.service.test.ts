@@ -8,6 +8,7 @@ import type { UnifiedMovie } from '../shared/types.js';
 import { EvaluationService } from './evaluation.service.js';
 
 const testConfig: RoombarrConfig = {
+  dry_run: true,
   services: {
     radarr: { base_url: 'http://radarr:7878', api_key: 'test' },
   },
@@ -31,6 +32,7 @@ const testConfig: RoombarrConfig = {
 
 const testMovie: UnifiedMovie = {
   type: 'movie',
+  radarr_id: 42,
   tmdb_id: 603,
   imdb_id: 'tt0133093',
   title: 'The Matrix (1999)',

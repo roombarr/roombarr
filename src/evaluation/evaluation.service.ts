@@ -67,9 +67,11 @@ export class EvaluationService {
    * The evaluation continues asynchronously.
    */
   startEvaluation(): EvaluationRun {
+    const config = this.configService.getConfig();
     const run: EvaluationRun = {
       run_id: randomUUID(),
       status: 'running',
+      dry_run: config.dry_run,
       started_at: new Date().toISOString(),
       completed_at: null,
       summary: null,
@@ -96,9 +98,11 @@ export class EvaluationService {
    * Returns when complete.
    */
   async runEvaluation(): Promise<EvaluationRun> {
+    const config = this.configService.getConfig();
     const run: EvaluationRun = {
       run_id: randomUUID(),
       status: 'running',
+      dry_run: config.dry_run,
       started_at: new Date().toISOString(),
       completed_at: null,
       summary: null,
@@ -138,6 +142,7 @@ export class EvaluationService {
         enrichedItems,
         rules,
         run.run_id,
+        run.dry_run,
       );
 
       // Step 3: Update run with results

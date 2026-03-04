@@ -8,6 +8,7 @@ export type EvaluationStatus = 'running' | 'completed' | 'failed';
 export interface EvaluationRun {
   run_id: string;
   status: EvaluationStatus;
+  dry_run: boolean;
   started_at: string;
   completed_at: string | null;
   summary: EvaluationSummary | null;

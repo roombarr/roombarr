@@ -30,6 +30,7 @@ export class RulesService {
     items: UnifiedMedia[],
     rules: RoombarrConfig['rules'],
     evaluationId: string,
+    dryRun: boolean,
   ): { results: EvaluationItemResult[]; summary: EvaluationSummary } {
     const results: EvaluationItemResult[] = [];
     let skippedCount = 0;
@@ -82,7 +83,7 @@ export class RulesService {
               matchedRules: matchedRuleNames,
               reasoning: reasoningCache.get(winningRule.rule_name) ?? '',
               evaluationId,
-              dryRun: true, // v1 is always dry-run
+              dryRun,
             });
           }
         }
@@ -94,7 +95,7 @@ export class RulesService {
         external_id: externalId,
         matched_rules: matchedRuleNames,
         resolved_action: resolvedAction,
-        dry_run: true,
+        dry_run: dryRun,
       });
     }
 

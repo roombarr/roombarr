@@ -34,6 +34,7 @@ export class RadarrService {
 
     const unified = movies.map(movie => ({
       type: 'movie' as const,
+      radarr_id: movie.id,
       tmdb_id: movie.tmdbId,
       imdb_id: movie.imdbId,
       title: movie.title,

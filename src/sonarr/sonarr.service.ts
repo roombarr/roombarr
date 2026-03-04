@@ -33,6 +33,7 @@ export class SonarrService {
 
         seasons.push({
           type: 'season',
+          sonarr_series_id: s.id,
           tvdb_id: s.tvdbId,
           title: `${s.title} - S${String(season.seasonNumber).padStart(2, '0')}`,
           year: s.year,

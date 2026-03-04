@@ -11,6 +11,7 @@ import { StateService } from './state.service.js';
 function makeMovie(overrides: Record<string, any> = {}): UnifiedMovie {
   return {
     type: 'movie',
+    radarr_id: 101,
     tmdb_id: 1,
     imdb_id: 'tt0000001',
     title: 'Test Movie',
@@ -193,6 +194,7 @@ describe('StateService', () => {
   test('returns seasons unchanged when no registry fields target sonarr', async () => {
     const season: UnifiedSeason = {
       type: 'season',
+      sonarr_series_id: 201,
       tvdb_id: 100,
       title: 'Test Show - S01',
       year: 2024,

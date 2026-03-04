@@ -11,6 +11,7 @@ import { MediaService } from './media.service.js';
 function makeMovie(tmdbId: number): UnifiedMovie {
   return {
     type: 'movie',
+    radarr_id: tmdbId + 1000,
     tmdb_id: tmdbId,
     imdb_id: `tt${tmdbId}`,
     title: `Movie ${tmdbId}`,
@@ -38,6 +39,7 @@ function makeMovie(tmdbId: number): UnifiedMovie {
 function makeSeason(tvdbId: number, seasonNumber: number): UnifiedSeason {
   return {
     type: 'season',
+    sonarr_series_id: tvdbId + 2000,
     tvdb_id: tvdbId,
     title: `Series ${tvdbId} - S${String(seasonNumber).padStart(2, '0')}`,
     year: 2024,
