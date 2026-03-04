@@ -13,7 +13,7 @@ ARG VERSION
 
 LABEL build_version="Roombarr version: ${VERSION} build-date: ${BUILD_DATE}"
 LABEL org.opencontainers.image.title="Roombarr"
-LABEL org.opencontainers.image.description="Rule-based media cleanup engine"
+LABEL org.opencontainers.image.description="A rule-based media cleanup engine for the *arr stack"
 LABEL org.opencontainers.image.version="${VERSION}"
 LABEL org.opencontainers.image.created="${BUILD_DATE}"
 LABEL org.opencontainers.image.source="https://github.com/roombarr/roombarr"

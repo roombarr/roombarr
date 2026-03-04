@@ -41,7 +41,7 @@ performance:
 # Actions: delete | unmonitor | keep
 # Conflict resolution: keep > unmonitor > delete (least destructive wins).
 #
-# v1 is dry-run only — actions are logged but never executed.
+# Tip: set dry_run: false at the top level when you're ready for live execution.
 
 rules:
   # Delete movies that everyone has watched and were added over 6 months ago
