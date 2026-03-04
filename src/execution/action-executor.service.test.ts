@@ -347,6 +347,32 @@ describe('ActionExecutorService', () => {
       expect(executionSummary?.actions_failed).toBe(1);
     });
 
+    test('includes not_found alongside successful items in mixed batch', async () => {
+      const movie1 = makeMovie({ radarr_id: 1, tmdb_id: 100 });
+      const movie2 = makeMovie({ radarr_id: 2, tmdb_id: 200 });
+
+      // First call returns 404, second succeeds
+      let callCount = 0;
+      radarrClient.deleteMovie = mock(() => {
+        callCount++;
+        if (callCount === 1) return Promise.reject(make404Error());
+        return Promise.resolve();
+      });
+
+      const { results: executed, executionSummary } = await service.execute(
+        [makeResult(movie1, 'delete'), makeResult(movie2, 'delete')],
+        [movie1, movie2],
+        false,
+      );
+
+      expect(executed).toHaveLength(2);
+      expect(executed[0].execution_status).toBe('not_found');
+      expect(executed[0].execution_error).toBeUndefined();
+      expect(executed[1].execution_status).toBe('success');
+      expect(executionSummary?.actions_executed.delete).toBe(1);
+      expect(executionSummary?.actions_failed).toBe(0);
+    });
+
     test('reports failure when item not found in hydrated data', async () => {
       const movie = makeMovie();
       const result = makeResult(movie, 'delete');
