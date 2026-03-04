@@ -89,7 +89,6 @@ Roombarr is configured through a single YAML file. The config file is resolved i
 
 1. Path set by the `CONFIG_PATH` environment variable
 2. `/config/roombarr.yml`
-3. `./roombarr.yml`
 
 ### `services`
 

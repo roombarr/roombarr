@@ -6,15 +6,12 @@ coverage/
 .DS_Store
 *.log
 *.jsonl
-config/logs/
-config/roombarr.sqlite*
+/config/
 
 .env
 .env.*
 !.env.example
 
 todos/
-
-roombarr.yml
 
 pnpm-lock.yaml
