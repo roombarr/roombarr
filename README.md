@@ -1,8 +1,23 @@
-# Roombarr
+<h1 align="center">
+  <br>
+  <img src=".github/logo.png" alt="Roombarr" width="200">
+  <br>
+  Roombarr
+  <br>
+</h1>
 
-Roombarr is a rule-based media cleanup engine for Sonarr, Radarr, Jellyfin, and Jellyseerr. Define declarative YAML rules that decide what to keep, unmonitor, or delete — and let Roombarr evaluate them on a schedule.
+<h4 align="center">A rule-based media cleanup engine for the <a href="https://wiki.servarr.com">*arr stack</a>.</h4>
 
-> **Early Development (v0.x)** — Roombarr is under active development. Breaking changes are expected between minor versions. Currently dry-run only: no media is deleted or unmonitored. Feedback and bug reports are welcome via [GitHub Issues](https://github.com/roombarr/roombarr/issues).
+<p align="center">
+  <a href="#features">Features</a> •
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#configuration">Configuration</a> •
+  <a href="#writing-rules">Writing Rules</a> •
+  <a href="#available-fields">Available Fields</a> •
+  <a href="#api">API</a>
+</p>
+
+> **🚨 Early Development (v0.x)** — Breaking changes may occur between minor versions. Pin your Docker image to a specific version tag (e.g., `ghcr.io/roombarr/roombarr:v0.1.1`) instead of using `:latest` to avoid unexpected behavior. All breaking changes are documented in the [changelog](https://github.com/roombarr/roombarr/releases).
 
 ## Features
 
@@ -49,7 +64,7 @@ rules:
 ```yaml
 services:
   roombarr:
-    image: ghcr.io/roombarr/roombarr:latest
+    image: ghcr.io/roombarr/roombarr:latest # pin to a version tag for production
     container_name: roombarr
     restart: unless-stopped
     ports:
@@ -72,7 +87,7 @@ docker compose up -d
 
 ```bash
 curl http://localhost:3000/health
-# → { "status": "ok", "version": "0.1.0" }
+# → { "status": "ok", "version": "x.y.z" }
 ```
 
 If the container exits immediately, check the logs for configuration errors:
