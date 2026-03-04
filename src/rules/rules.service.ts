@@ -8,7 +8,7 @@ import type {
   RoombarrConfig,
 } from '../config/config.schema.js';
 import { getServiceFromField } from '../config/field-registry.js';
-import type { UnifiedMedia } from '../shared/types.js';
+import { buildInternalId, type UnifiedMedia } from '../shared/types.js';
 import { resolveField } from './field-resolver.js';
 import { operators } from './operators.js';
 import {
@@ -92,6 +92,7 @@ export class RulesService {
       results.push({
         title: item.title,
         type: item.type,
+        internal_id: buildInternalId(item),
         external_id: externalId,
         matched_rules: matchedRuleNames,
         resolved_action: resolvedAction,

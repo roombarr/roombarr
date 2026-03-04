@@ -77,3 +77,12 @@ export interface UnifiedSeason {
 }
 
 export type UnifiedMedia = UnifiedMovie | UnifiedSeason;
+
+/**
+ * Builds a stable, unique key for any unified media item using internal IDs.
+ * Movies key on radarr_id; seasons key on sonarr_series_id + season_number.
+ */
+export function buildInternalId(item: UnifiedMedia): string {
+  if (item.type === 'movie') return `movie:${item.radarr_id}`;
+  return `season:${item.sonarr_series_id}:${item.sonarr.season.season_number}`;
+}

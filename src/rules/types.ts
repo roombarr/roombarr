@@ -10,6 +10,8 @@ export type ExecutionStatus = 'success' | 'failed' | 'skipped';
 export interface EvaluationItemResult {
   title: string;
   type: 'movie' | 'season';
+  /** Composite key unique per item (e.g. "movie:42", "season:10:1"). */
+  internal_id: string;
   external_id: number;
   matched_rules: string[];
   resolved_action: Action | null;

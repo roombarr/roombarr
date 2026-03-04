@@ -59,6 +59,7 @@ const testMovie: UnifiedMovie = {
 const testEvaluationResult: EvaluationItemResult = {
   title: 'The Matrix (1999)',
   type: 'movie',
+  internal_id: 'movie:42',
   external_id: 603,
   matched_rules: ['Delete old movies'],
   resolved_action: 'delete',
@@ -138,6 +139,7 @@ describe('EvaluationService', () => {
       const unmatchedResult: EvaluationItemResult = {
         title: 'Unmatched Movie',
         type: 'movie',
+        internal_id: 'movie:999',
         external_id: 999,
         matched_rules: [],
         resolved_action: null,

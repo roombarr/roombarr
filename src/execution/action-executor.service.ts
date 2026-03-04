@@ -3,10 +3,11 @@ import { AxiosError } from 'axios';
 import type { Action } from '../config/config.schema.js';
 import { RadarrClient } from '../radarr/radarr.client.js';
 import type { EvaluationItemResult } from '../rules/types.js';
-import type {
-  UnifiedMedia,
-  UnifiedMovie,
-  UnifiedSeason,
+import {
+  buildInternalId,
+  type UnifiedMedia,
+  type UnifiedMovie,
+  type UnifiedSeason,
 } from '../shared/types.js';
 import { SonarrClient } from '../sonarr/sonarr.client.js';
 import type { ExecutionSummary } from './execution.types.js';
@@ -22,7 +23,7 @@ export class ActionExecutorService {
 
   /**
    * Execute resolved actions against Radarr/Sonarr.
-   * In dry-run mode, this is a no-op — results pass through unchanged.
+   * In dry-run mode, every result is marked as 'skipped' with no API calls.
    * In live mode, each actionable item is executed sequentially.
    */
   async execute(
@@ -33,13 +34,16 @@ export class ActionExecutorService {
     results: EvaluationItemResult[];
     executionSummary?: ExecutionSummary;
   }> {
-    if (dryRun) return { results };
+    if (dryRun)
+      return {
+        results: results.map(r => ({
+          ...r,
+          execution_status: 'skipped' as const,
+        })),
+      };
 
-    const itemsByExternalId = new Map(
-      items.map(item => [
-        item.type === 'movie' ? item.tmdb_id : item.tvdb_id,
-        item,
-      ]),
+    const itemsByInternalId = new Map(
+      items.map(item => [buildInternalId(item), item]),
     );
 
     const executed: EvaluationItemResult[] = [];
@@ -48,11 +52,11 @@ export class ActionExecutorService {
 
     for (const result of results) {
       if (!result.resolved_action || result.resolved_action === 'keep') {
-        executed.push(result);
+        executed.push({ ...result, execution_status: 'skipped' });
         continue;
       }
 
-      const item = itemsByExternalId.get(result.external_id);
+      const item = itemsByInternalId.get(result.internal_id);
       if (!item) {
         executed.push({
           ...result,

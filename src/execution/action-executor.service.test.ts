@@ -2,10 +2,11 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import { AxiosError } from 'axios';
 import type { RadarrClient } from '../radarr/radarr.client.js';
 import type { EvaluationItemResult } from '../rules/types.js';
-import type {
-  UnifiedMedia,
-  UnifiedMovie,
-  UnifiedSeason,
+import {
+  buildInternalId,
+  type UnifiedMedia,
+  type UnifiedMovie,
+  type UnifiedSeason,
 } from '../shared/types.js';
 import type { SonarrClient } from '../sonarr/sonarr.client.js';
 import { ActionExecutorService } from './action-executor.service.js';
@@ -74,6 +75,7 @@ function makeResult(
   return {
     title: item.title,
     type: item.type,
+    internal_id: buildInternalId(item),
     external_id: item.type === 'movie' ? item.tmdb_id : item.tvdb_id,
     matched_rules: action ? ['test-rule'] : [],
     resolved_action: action,
@@ -185,7 +187,7 @@ describe('ActionExecutorService', () => {
   });
 
   describe('dry-run mode', () => {
-    test('returns results unchanged when dry_run is true', async () => {
+    test('marks all results as skipped when dry_run is true', async () => {
       const movie = makeMovie();
       const result = makeResult(movie, 'delete');
 
@@ -195,7 +197,7 @@ describe('ActionExecutorService', () => {
         true,
       );
 
-      expect(results).toEqual([result]);
+      expect(results[0].execution_status).toBe('skipped');
       expect(executionSummary).toBeUndefined();
       expect(radarrClient.deleteMovie).not.toHaveBeenCalled();
     });
@@ -280,8 +282,7 @@ describe('ActionExecutorService', () => {
 
       expect(radarrClient.deleteMovie).not.toHaveBeenCalled();
       expect(radarrClient.fetchMovie).not.toHaveBeenCalled();
-      expect(results[0]).toEqual(result);
-      expect(results[0].execution_status).toBeUndefined();
+      expect(results[0].execution_status).toBe('skipped');
     });
 
     test('skips execution for null actions', async () => {
@@ -291,7 +292,7 @@ describe('ActionExecutorService', () => {
       const { results } = await service.execute([result], [movie], false);
 
       expect(radarrClient.deleteMovie).not.toHaveBeenCalled();
-      expect(results[0]).toEqual(result);
+      expect(results[0].execution_status).toBe('skipped');
     });
   });
 
