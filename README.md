@@ -276,7 +276,7 @@ This matches movies added over 3 months ago that have either been watched by eve
 | `is_empty` | array | _(none)_ | Array has zero elements. Do not include a `value` key. |
 | `is_not_empty` | array | _(none)_ | Array has one or more elements. Do not include a `value` key. |
 
-**Duration format:** Durations are parsed by [`parse-duration`](https://github.com/jkroso/parse-duration). Common units: `d` (days), `w` (weeks), `mo` (months), `y` (years), `h` (hours), `m` (minutes), `s` (seconds). Compound expressions like `1w 3d` are also supported. See the [parse-duration README](https://github.com/jkroso/parse-duration#readme) for the full syntax reference.
+**Duration format:** Durations are parsed by [`parse-duration`](https://github.com/jkroso/parse-duration). Common examples: `30d` (30 days), `2w` (2 weeks), `6mo` (6 months), `1y` (1 year), `12h` (12 hours), `45m` (45 minutes), `30s` (30 seconds). Compound expressions like `1w 3d` are also supported. See the [parse-duration README](https://github.com/jkroso/parse-duration#readme) for the full syntax reference.
 
 > **Note:** `m` means **minutes**, not months. Use `mo` for months (e.g., `6mo`). Months are treated as ~30.44 days and years as 365.25 days rather than calendar-aware subtraction.
 
