@@ -537,6 +537,32 @@ describe('validateConfig (cross-validation)', () => {
     );
   });
 
+  test('fails for suspiciously short duration on temporal operator', () => {
+    const config = parse({
+      rules: [
+        {
+          name: 'Short duration',
+          target: 'radarr',
+          conditions: {
+            operator: 'AND',
+            children: [
+              {
+                field: 'radarr.added',
+                operator: 'older_than',
+                value: '6m',
+              },
+            ],
+          },
+          action: 'delete',
+        },
+      ],
+    });
+    const errors = validateConfig(config);
+    expect(errors).toContainEqual(
+      expect.stringContaining('resolves to less than 1 day'),
+    );
+  });
+
   test('fails for invalid duration string', () => {
     const config = parse({
       rules: [

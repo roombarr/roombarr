@@ -270,6 +270,10 @@ function validateLeafCondition(
       errors.push(
         `Rule "${ruleName}": invalid duration "${value}" for operator "${operator}". Common formats: 30d, 6mo, 1w, 2h, 45m. See https://github.com/jkroso/parse-duration for full syntax`,
       );
+    } else if (ms < 86_400_000) {
+      errors.push(
+        `Rule "${ruleName}": duration "${value}" for "${operator}" resolves to less than 1 day. Note: "m" means minutes, not months. Use "mo" for months (e.g., "6mo")`,
+      );
     }
   }
 

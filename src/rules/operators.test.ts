@@ -107,6 +107,11 @@ describe('operators', () => {
       expect(operators.older_than('2024-01-01T00:00:00Z', '1y')).toBe(true);
     });
 
+    test('works with compound duration expressions', () => {
+      // 2026-01-01 is ~24 weeks before 2026-06-15, so older_than 1w 3d = true
+      expect(operators.older_than('2026-01-01T00:00:00Z', '1w 3d')).toBe(true);
+    });
+
     test('throws on invalid duration string', () => {
       expect(() =>
         operators.older_than('2026-01-01T00:00:00Z', 'notaduration'),
