@@ -9,7 +9,8 @@
     "enabled": true
   },
   "files": {
-    "ignoreUnknown": true
+    "ignoreUnknown": true,
+    "includes": ["**", "!website"]
   },
   "formatter": {
     "enabled": true,

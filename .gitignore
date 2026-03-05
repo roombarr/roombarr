@@ -15,3 +15,5 @@ coverage/
 todos/
 
 pnpm-lock.yaml
+
+website/.astro/

@@ -14,7 +14,10 @@
     "test:watch": "bun test --watch",
     "test:coverage": "bun test --coverage",
     "prepare": "husky",
-    "commit": "cz"
+    "commit": "cz",
+    "docs:dev": "bun --cwd website run dev",
+    "docs:build": "bun --cwd website run build",
+    "docs:preview": "bun --cwd website run preview"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",
