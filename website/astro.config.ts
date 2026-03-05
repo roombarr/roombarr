@@ -7,6 +7,11 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'Roombarr',
+      logo: {
+        src: './src/assets/logo-transparent.png',
+      },
+      favicon: '/favicon.png',
+      customCss: ['./src/styles/custom.css'],
       social: [
         {
           icon: 'github',
