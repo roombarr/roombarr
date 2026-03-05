@@ -100,11 +100,22 @@ describe('operators', () => {
     });
 
     test('works with month units', () => {
-      expect(operators.older_than('2025-01-01T00:00:00Z', '6m')).toBe(true);
+      expect(operators.older_than('2025-01-01T00:00:00Z', '6mo')).toBe(true);
     });
 
     test('works with year units', () => {
       expect(operators.older_than('2024-01-01T00:00:00Z', '1y')).toBe(true);
+    });
+
+    test('works with compound duration expressions', () => {
+      // 2026-01-01 is ~24 weeks before 2026-06-15, so older_than 1w 3d = true
+      expect(operators.older_than('2026-01-01T00:00:00Z', '1w 3d')).toBe(true);
+    });
+
+    test('throws on invalid duration string', () => {
+      expect(() =>
+        operators.older_than('2026-01-01T00:00:00Z', 'notaduration'),
+      ).toThrow('Invalid duration');
     });
   });
 
@@ -131,6 +142,12 @@ describe('operators', () => {
     test('null date = never played = never newer', () => {
       expect(operators.newer_than(null, '30d')).toBe(false);
       expect(operators.newer_than(undefined, '30d')).toBe(false);
+    });
+
+    test('throws on invalid duration string', () => {
+      expect(() =>
+        operators.newer_than('2026-06-10T00:00:00Z', 'notaduration'),
+      ).toThrow('Invalid duration');
     });
   });
 

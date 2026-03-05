@@ -183,7 +183,7 @@ rules:
       children:
         - field: radarr.added
           operator: older_than
-          value: 6m
+          value: 6mo
 ```
 
 ## Writing Rules
@@ -204,7 +204,7 @@ Rules are the core of Roombarr. Each rule defines a target, an action, and a set
         value: true
       - field: radarr.added
         operator: older_than
-        value: 6m
+        value: 6mo
 ```
 
 ### Targets
@@ -234,7 +234,7 @@ conditions:
   children:
     - field: radarr.added
       operator: older_than
-      value: 6m
+      value: 6mo
     - field: radarr.on_import_list
       operator: equals
       value: false
@@ -248,7 +248,7 @@ conditions:
   children:
     - field: radarr.added
       operator: older_than
-      value: 3m
+      value: 3mo
     - operator: OR
       children:
         - field: jellyfin.watched_by_all
@@ -277,16 +277,9 @@ This matches movies added over 3 months ago that have either been watched by eve
 | `is_empty` | array | _(none)_ | Array has zero elements. Do not include a `value` key. |
 | `is_not_empty` | array | _(none)_ | Array has one or more elements. Do not include a `value` key. |
 
-**Duration format:** `<number><unit>` where the unit is one of:
+**Duration format:** Durations are parsed by [`parse-duration`](https://github.com/jkroso/parse-duration). Common examples: `30d` (30 days), `2w` (2 weeks), `6mo` (6 months), `1y` (1 year), `12h` (12 hours), `45m` (45 minutes), `30s` (30 seconds). Compound expressions like `1w 3d` are also supported. See the [parse-duration README](https://github.com/jkroso/parse-duration#readme) for the full syntax reference.
 
-| Unit | Suffix | Example |
-|---|---|---|
-| Days | `d` | `30d` |
-| Weeks | `w` | `2w` |
-| Months | `m` | `6m` |
-| Years | `y` | `1y` |
-
-Duration strings are case-sensitive. `6m` means 6 months — `6M` is not valid.
+> **Note:** `m` means **minutes**, not months. Use `mo` for months (e.g., `6mo`). Months are treated as ~30.44 days and years as 365.25 days rather than calendar-aware subtraction.
 
 ### Conflict Resolution
 
@@ -326,7 +319,7 @@ Understanding when rules are skipped helps you debug unexpected results:
         value: true
       - field: radarr.added
         operator: older_than
-        value: 6m
+        value: 6mo
 ```
 
 **Unmonitor ended, watched seasons** — Stop monitoring seasons of completed series that everyone has watched:

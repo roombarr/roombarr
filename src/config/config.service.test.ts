@@ -537,6 +537,32 @@ describe('validateConfig (cross-validation)', () => {
     );
   });
 
+  test('fails when temporal operator value is not a string', () => {
+    const config = parse({
+      rules: [
+        {
+          name: 'Numeric duration',
+          target: 'radarr',
+          conditions: {
+            operator: 'AND',
+            children: [
+              {
+                field: 'radarr.added',
+                operator: 'older_than',
+                value: 30,
+              },
+            ],
+          },
+          action: 'delete',
+        },
+      ],
+    });
+    const errors = validateConfig(config);
+    expect(errors).toContainEqual(
+      expect.stringContaining('requires a duration string, got number'),
+    );
+  });
+
   test('fails for invalid duration string', () => {
     const config = parse({
       rules: [
@@ -549,7 +575,7 @@ describe('validateConfig (cross-validation)', () => {
               {
                 field: 'radarr.added',
                 operator: 'older_than',
-                value: '30hours',
+                value: 'notaduration',
               },
             ],
           },
@@ -559,7 +585,7 @@ describe('validateConfig (cross-validation)', () => {
     });
     const errors = validateConfig(config);
     expect(errors).toContainEqual(
-      expect.stringContaining('invalid duration "30hours"'),
+      expect.stringContaining('invalid duration "notaduration"'),
     );
   });
 
