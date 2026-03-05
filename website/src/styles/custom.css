@@ -9,3 +9,15 @@
   --sl-color-accent: #fff;
   --sl-color-accent-high: #fff;
 }
+
+.hero > img {
+  width: 150px;
+  height: auto;
+}
+
+@media (min-width: 800px) {
+  .hero > img {
+    width: 250px;
+    height: auto;
+  }
+}
