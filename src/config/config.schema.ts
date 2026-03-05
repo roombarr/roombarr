@@ -1,5 +1,5 @@
+import parse from 'parse-duration';
 import { z } from 'zod';
-import { isValidDuration } from '../shared/duration.js';
 import {
   type FieldDefinition,
   getFieldDefinition,
@@ -260,15 +260,17 @@ function validateLeafCondition(
     errors.push(`Rule "${ruleName}": operator "${operator}" requires a value`);
   }
 
-  // older_than/newer_than values must be valid duration strings
+  // older_than/newer_than values must be valid, positive duration strings
   if (
     (operator === 'older_than' || operator === 'newer_than') &&
-    typeof value === 'string' &&
-    !isValidDuration(value)
+    typeof value === 'string'
   ) {
-    errors.push(
-      `Rule "${ruleName}": invalid duration "${value}" for operator "${operator}". Expected format: <number><unit> (d/w/m/y)`,
-    );
+    const ms = parse(value);
+    if (ms === null || ms <= 0) {
+      errors.push(
+        `Rule "${ruleName}": invalid duration "${value}" for operator "${operator}". Common formats: 30d, 6mo, 1w, 2h, 45m. See https://github.com/jkroso/parse-duration for full syntax`,
+      );
+    }
   }
 
   return errors;

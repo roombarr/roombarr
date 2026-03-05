@@ -1,4 +1,4 @@
-import { parseDuration, subtractDuration } from '../shared/duration.js';
+import parse from 'parse-duration';
 
 type OperatorFn = (fieldValue: unknown, conditionValue: unknown) => boolean;
 
@@ -20,16 +20,18 @@ export const operators: Record<string, OperatorFn> = {
   older_than: (field, value) => {
     // null dates = infinitely old = always matches older_than
     if (field === null || field === undefined) return true;
-    const now = new Date(Date.now());
-    const threshold = subtractDuration(now, parseDuration(value as string));
+    const ms = parse(value as string);
+    if (ms === null) throw new Error(`Invalid duration: "${value}"`);
+    const threshold = new Date(Date.now() - ms);
     return new Date(field as string) < threshold;
   },
 
   newer_than: (field, value) => {
     // null dates can't be newer than anything
     if (field === null || field === undefined) return false;
-    const now = new Date(Date.now());
-    const threshold = subtractDuration(now, parseDuration(value as string));
+    const ms = parse(value as string);
+    if (ms === null) throw new Error(`Invalid duration: "${value}"`);
+    const threshold = new Date(Date.now() - ms);
     return new Date(field as string) > threshold;
   },
 
