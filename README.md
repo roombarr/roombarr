@@ -366,9 +366,9 @@ Because `keep` always wins over `delete` and `unmonitor`, this rule protects any
       - field: state.ever_on_import_list
         operator: equals
         value: true
-      - field: state.days_off_import_list
-        operator: greater_than
-        value: 30
+      - field: state.import_list_removed_at
+        operator: older_than
+        value: "30d"
 ```
 
 > **Note:** State fields (`state.*`) require at least two evaluation runs to populate. On the first run, these fields return null and rules using them will not match. This is expected — Roombarr needs historical data from previous evaluations to compute how long something has been off an import list.
@@ -440,7 +440,7 @@ Computed locally from Roombarr's evaluation history. Available on `target: radar
 
 | Field | Type | Description | Notes |
 |---|---|---|---|
-| `state.days_off_import_list` | number | Days since the item left all import lists | Null if the item is currently on an import list, or on the first evaluation run. |
+| `state.import_list_removed_at` | date | When the item was last removed from all import lists | Null if the item has never been removed from an import list, or on the first evaluation run. |
 | `state.ever_on_import_list` | boolean | Whether the item was ever on an import list | False on the first evaluation run. |
 
 > State fields require at least two evaluation runs spaced apart to produce meaningful values. On the first run, Roombarr has no historical data to compute these fields.

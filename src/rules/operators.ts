@@ -21,7 +21,8 @@ export const operators: Record<string, OperatorFn> = {
     // null dates = infinitely old = always matches older_than
     if (field === null || field === undefined) return true;
     const ms = parse(value as string);
-    if (ms === null || ms <= 0) throw new Error(`Invalid duration: "${value}"`);
+    if (ms === null || ms <= 0 || !Number.isFinite(ms))
+      throw new Error(`Invalid duration: "${value}"`);
     const threshold = new Date(Date.now() - ms);
     return new Date(field as string) < threshold;
   },
@@ -30,7 +31,8 @@ export const operators: Record<string, OperatorFn> = {
     // null dates can't be newer than anything
     if (field === null || field === undefined) return false;
     const ms = parse(value as string);
-    if (ms === null || ms <= 0) throw new Error(`Invalid duration: "${value}"`);
+    if (ms === null || ms <= 0 || !Number.isFinite(ms))
+      throw new Error(`Invalid duration: "${value}"`);
     const threshold = new Date(Date.now() - ms);
     return new Date(field as string) > threshold;
   },

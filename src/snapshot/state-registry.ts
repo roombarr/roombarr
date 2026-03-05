@@ -6,18 +6,13 @@
  * no SQL mining methods or service code changes needed.
  */
 
-/** Computes "days since field_path last changed to value." */
-interface DaysSinceValuePattern {
-  type: 'days_since_value';
+/** Computes the ISO date when field_path last changed to value. */
+interface DateSinceValuePattern {
+  type: 'date_since_value';
   /** The field_changes field_path to query. */
   tracks: string;
   /** The value that starts the clock (JSON-serialized). */
   value: string;
-  /**
-   * When the current live value does NOT match `value`, return null.
-   * e.g., if on_import_list is currently true, days_off_import_list = null.
-   */
-  nullWhenCurrentNot: boolean;
   /** Target types this pattern applies to. */
   targets: Array<'radarr' | 'sonarr'>;
 }
@@ -31,14 +26,13 @@ interface EverWasValuePattern {
   targets: Array<'radarr' | 'sonarr'>;
 }
 
-export type StateFieldPattern = DaysSinceValuePattern | EverWasValuePattern;
+export type StateFieldPattern = DateSinceValuePattern | EverWasValuePattern;
 
 export const stateFieldRegistry = {
-  'state.days_off_import_list': {
-    type: 'days_since_value',
+  'state.import_list_removed_at': {
+    type: 'date_since_value',
     tracks: 'radarr.on_import_list',
     value: 'false',
-    nullWhenCurrentNot: true,
     targets: ['radarr'],
   },
   'state.ever_on_import_list': {

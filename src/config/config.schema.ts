@@ -268,7 +268,7 @@ function validateLeafCondition(
       );
     } else {
       const ms = parse(value);
-      if (ms === null || ms <= 0) {
+      if (ms === null || ms <= 0 || !Number.isFinite(ms)) {
         errors.push(
           `Rule "${ruleName}": invalid duration "${value}" for operator "${operator}". Examples: 30d, 2w, 6mo, 1y. See https://github.com/jkroso/parse-duration for full syntax`,
         );

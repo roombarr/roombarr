@@ -60,7 +60,7 @@ const jellyseerrFields: Record<string, FieldDefinition> = {
 };
 
 const stateFields: Record<string, FieldDefinition> = {
-  'state.days_off_import_list': { type: 'number', service: 'state' },
+  'state.import_list_removed_at': { type: 'date', service: 'state' },
   'state.ever_on_import_list': { type: 'boolean', service: 'state' },
 };
 

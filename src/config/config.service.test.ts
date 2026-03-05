@@ -653,9 +653,9 @@ describe('validateConfig (cross-validation)', () => {
             operator: 'AND',
             children: [
               {
-                field: 'state.days_off_import_list',
-                operator: 'greater_than',
-                value: 30,
+                field: 'state.import_list_removed_at',
+                operator: 'older_than',
+                value: '30d',
               },
             ],
           },
@@ -680,9 +680,9 @@ describe('validateConfig (cross-validation)', () => {
             operator: 'AND',
             children: [
               {
-                field: 'state.days_off_import_list',
-                operator: 'greater_than',
-                value: 30,
+                field: 'state.import_list_removed_at',
+                operator: 'older_than',
+                value: '30d',
               },
             ],
           },

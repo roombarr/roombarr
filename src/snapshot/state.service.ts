@@ -165,12 +165,8 @@ export class StateService {
       const pathChanges = itemChanges?.get(pattern.tracks) ?? [];
 
       switch (pattern.type) {
-        case 'days_since_value':
-          result[fieldName] = this.computeDaysSinceValue(
-            item,
-            pattern,
-            pathChanges,
-          );
+        case 'date_since_value':
+          result[fieldName] = this.computeDateSinceValue(pattern, pathChanges);
           break;
         case 'ever_was_value':
           result[fieldName] = this.computeEverWasValue(
@@ -183,42 +179,26 @@ export class StateService {
     }
 
     return {
-      days_off_import_list:
-        (result['state.days_off_import_list'] as number | null) ?? null,
+      import_list_removed_at:
+        (result['state.import_list_removed_at'] as string | null) ?? null,
       ever_on_import_list:
         (result['state.ever_on_import_list'] as boolean) ?? false,
     };
   }
 
   /**
-   * Compute days since a field last changed to a specific value.
-   * Returns null if the current value doesn't match the trigger condition.
+   * Compute the ISO date when a field last changed to a specific value.
+   * Returns null if no matching change exists in history.
    */
-  private computeDaysSinceValue(
-    item: UnifiedMedia,
-    pattern: Extract<StateFieldPattern, { type: 'days_since_value' }>,
+  private computeDateSinceValue(
+    pattern: Extract<StateFieldPattern, { type: 'date_since_value' }>,
     changes: FieldChangeRow[],
-  ): number | null {
-    // Check the live value against nullWhenCurrentNot
-    if (pattern.nullWhenCurrentNot) {
-      const { value: currentValue, resolved } = resolveField(
-        item,
-        pattern.tracks,
-      );
-      if (!resolved) return null;
-
-      const currentSerialized = JSON.stringify(currentValue);
-      if (currentSerialized !== pattern.value) return null;
-    }
-
+  ): string | null {
     // Find the most recent change where new_value matches the target value
     const match = changes.find(c => c.newValue === pattern.value);
     if (!match) return null;
 
-    const changedAt = new Date(match.changedAt);
-    const now = new Date();
-    const diffMs = now.getTime() - changedAt.getTime();
-    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    return match.changedAt;
   }
 
   /**

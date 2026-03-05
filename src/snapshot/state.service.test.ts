@@ -84,12 +84,12 @@ describe('StateService', () => {
     const enrichedMovie = enriched[0] as UnifiedMovie;
 
     expect(enrichedMovie.state).toBeTruthy();
-    // Currently on import list
-    expect(enrichedMovie.state!.days_off_import_list).toBeNull();
+    // Currently on import list — no removal history
+    expect(enrichedMovie.state!.import_list_removed_at).toBeNull();
     expect(enrichedMovie.state!.ever_on_import_list).toBe(true);
   });
 
-  test('days_off_import_list is null when currently on a list', async () => {
+  test('import_list_removed_at is null when no removal history exists', async () => {
     const movie = makeMovie({
       radarr: { ...makeMovie().radarr, on_import_list: true },
     });
@@ -98,10 +98,10 @@ describe('StateService', () => {
     const enriched = stateService.enrich([movie]);
     const state = (enriched[0] as UnifiedMovie).state!;
 
-    expect(state.days_off_import_list).toBeNull();
+    expect(state.import_list_removed_at).toBeNull();
   });
 
-  test('days_off_import_list computes from change history', async () => {
+  test('import_list_removed_at returns ISO date from change history', async () => {
     const movieOn = makeMovie();
     await snapshotService.snapshot([movieOn], new Set(['radarr']));
 
@@ -125,10 +125,15 @@ describe('StateService', () => {
     const enriched = stateService.enrich([movieOff]);
     const state = (enriched[0] as UnifiedMovie).state!;
 
-    expect(state.days_off_import_list).toBe(5);
+    // Should be a valid ISO date string approximately 5 days in the past
+    expect(state.import_list_removed_at).toBeString();
+    const removedAt = new Date(state.import_list_removed_at!);
+    const fiveDaysAgoMs = Date.now() - 5 * 24 * 60 * 60 * 1000;
+    // Allow 1 minute tolerance for test execution time
+    expect(Math.abs(removedAt.getTime() - fiveDaysAgoMs)).toBeLessThan(60_000);
   });
 
-  test('days_off_import_list is null when never on a list', async () => {
+  test('import_list_removed_at is null when never on a list', async () => {
     const movie = makeMovie({
       radarr: {
         ...makeMovie().radarr,
@@ -142,7 +147,7 @@ describe('StateService', () => {
     const state = (enriched[0] as UnifiedMovie).state!;
 
     // Never was on a list, no change history for on_import_list
-    expect(state.days_off_import_list).toBeNull();
+    expect(state.import_list_removed_at).toBeNull();
   });
 
   test('ever_on_import_list is true when currently on list', async () => {
