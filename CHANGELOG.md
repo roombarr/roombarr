@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.0](https://github.com/roombarr/roombarr/compare/v0.1.1...v0.2.0) (2026-03-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* replace custom duration parsing with parse-duration ([#21](https://github.com/roombarr/roombarr/issues/21))
+
+### Features
+
+* replace custom duration parsing with parse-duration ([#21](https://github.com/roombarr/roombarr/issues/21)) ([589cb4e](https://github.com/roombarr/roombarr/commit/589cb4eb088ea15e3c7d6ac6983867a4bc838245))
+
 ## [0.1.1](https://github.com/roombarr/roombarr/compare/v0.1.0...v0.1.1) (2026-03-04)
 
 

@@ -1,6 +1,7 @@
 <h1 align="center">
   <br>
-  <img src=".github/logo.png" alt="Roombarr" width="200">
+  <img src="website/src/assets/logo-transparent.png" alt="Roombarr" width="200">
+  <br>
   <br>
   Roombarr
   <br>
