@@ -2,6 +2,7 @@
   <br>
   <img src="website/src/assets/logo-transparent.png" alt="Roombarr" width="200">
   <br>
+  <br>
   Roombarr
   <br>
 </h1>
