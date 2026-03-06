@@ -23,6 +23,8 @@ services:
 If you see connection errors in the logs, verify that Roombarr can reach Sonarr from inside the container. See [Docker > Verifying connectivity](/roombarr/deployment/docker/#verifying-connectivity) for how to test.
 :::
 
+Roombarr validates your config at startup. If any rule references a `sonarr.*` field but `services.sonarr` is missing, Roombarr will refuse to start.
+
 ## Per-season evaluation
 
 Unlike Radarr, which evaluates each movie as a single item, Sonarr rules evaluate **per-season**. Each season of a series becomes its own evaluation item, and every rule condition is checked independently against that season.
@@ -43,6 +45,7 @@ These fields are available in rule conditions when `target` is `sonarr`. Use the
 |---|---|---|---|
 | `sonarr.status` | string | Series status (e.g., `ended`, `continuing`) | Series-level |
 | `sonarr.year` | number | First air year | Series-level |
+| `sonarr.path` | string | Filesystem path to the series folder | Series-level |
 | `sonarr.tags` | array | Tag names applied in Sonarr | Series-level — lowercased |
 | `sonarr.genres` | array | Genre strings | Series-level |
 | `sonarr.season.monitored` | boolean | Whether this season is monitored | Season-level |
@@ -55,26 +58,20 @@ These fields are available in rule conditions when `target` is `sonarr`. Use the
 Sonarr rules can also use enrichment fields (`jellyfin.*`, `jellyseerr.*`) when those services are configured. See [Fields](/roombarr/reference/fields/) for the complete list.
 
 :::note
-State fields (`state.*`) are currently **Radarr-only** and cannot be used in Sonarr rules. See [Fields > State](/roombarr/reference/fields/#state) for details.
+The state tracking system is generic and supports any target, but the only state fields defined today (`state.days_off_import_list`, `state.ever_on_import_list`) track Radarr-specific data. See [Fields > State](/roombarr/reference/fields/#state) for details.
 :::
 
 ### Tags
 
-Tag names are lowercased — use `keep`, not `Keep`, in your conditions:
+Tag names are lowercased — use `keep`, not `Keep`, in your conditions. See [Fields > Service notes](/roombarr/reference/fields/#service-notes) for details.
 
-```yaml
-- field: sonarr.tags
-  operator: includes
-  value: keep       # Not "Keep" — tags are lowercased
-```
+## Compatible operators
+
+Each field type determines which operators you can use. See [Fields > Operator compatibility](/roombarr/reference/fields/#operator-compatibility) for the full compatibility matrix and [Operators](/roombarr/reference/operators/) for operator details and duration syntax.
 
 ## Actions
 
 All three actions operate at the **season level** — `delete` removes only that season's episode files, `unmonitor` affects only that season, and `keep` protects only that season. The series itself and other seasons are left untouched. See [Actions](/roombarr/configuration/actions/) for full details.
-
-## Compatible operators
-
-Each field type determines which operators you can use. See [Operators](/roombarr/reference/operators/) for the full compatibility matrix and duration syntax.
 
 ## Example rules
 
@@ -117,6 +114,22 @@ Stop monitoring seasons that have zero episode files — they may have been manu
       - field: sonarr.season.monitored
         operator: equals
         value: true
+```
+
+### Keep tagged seasons
+
+Protect any season of a series tagged `keep` from being deleted or unmonitored by other rules. Because `keep` wins [conflict resolution](/roombarr/configuration/actions/#conflict-resolution), this overrides any `delete` or `unmonitor` rules that match the same season.
+
+```yaml
+- name: Protect tagged series seasons
+  target: sonarr
+  action: keep
+  conditions:
+    operator: AND
+    children:
+      - field: sonarr.tags
+        operator: includes
+        value: keep
 ```
 
 ## Related pages

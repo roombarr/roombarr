@@ -1,4 +1,5 @@
 ## Codebase Patterns
+- Example config (roombarr.example.yml) must stay in sync with configSchema in config.schema.ts — verify all fields, defaults, and ranges match
 - Controller at src/evaluation/evaluation.controller.ts explicitly picks serialized fields — `EvaluationRun` has more fields than the API exposes
 - `execution_status` and `execution_error` are optional (`?`) on `EvaluationItemResult` in src/rules/types.ts
 - `keep` actions are skipped before execution counting in src/execution/action-executor.service.ts (line 54)
@@ -12,7 +13,56 @@
 - `schedule` field is `z.string().min(1)` — no cron validation at config load; invalid cron fails at runtime
 - `name` field on rules is `z.string().min(1)` — no uniqueness constraint
 - Leaf condition `field` path is validated with regex `/^[a-z][a-z0-9_.]*$/` — must start with lowercase letter
+- Removing headings from integration pages breaks anchor links in fields.md Service notes — always check fields.md when restructuring integration pages
+- Integration page standard section order: Setup → Evaluation model → Fields → Tags → Operators → Actions → Example rules → Related pages
+- Startup validation warning pattern: "Roombarr validates your config at startup. If any rule references a `X.*` field but `services.X` is missing, Roombarr will refuse to start."
 
+---
+
+## 2026-03-05 - US-008
+- Added `sonarr.path` (string, Series-level) to the field table
+- Added `keep` rule example (Protect tagged series seasons) — page previously only had delete and unmonitor examples
+- Replaced full Tags subsection (with code example) with one-line note + link to fields.md Service notes
+- Replaced Compatible operators link to operators.md with link to fields.md Operator compatibility (canonical home), matching Radarr
+- Added startup validation warning after Setup section
+- Updated state fields note: replaced "currently **Radarr-only**" with nuanced framing matching US-003/US-005
+- Reordered sections to match standard: Setup → Per-season evaluation → Fields → Tags → Operators → Actions → Example rules → Related pages
+- Files changed: website/src/content/docs/integrations/sonarr.md
+- **Learnings for future iterations:**
+  - The Sonarr page's Tags section had a full code example that Radarr's didn't (after US-007) — consistency requires checking both pages
+  - The state fields note needed the same "generic system, Radarr-specific data" framing applied in US-003 and US-005
+  - No anchor links in fields.md pointed to sonarr.md section headings that changed, so no cross-reference fixes were needed this time
+---
+
+## 2026-03-05 - US-007
+- Changed `radarr.status` field description from exhaustive list to 'e.g.' phrasing (matching Sonarr's approach)
+- Added `radarr.path` (string) to the field table
+- Replaced full Tags subsection with one-line note + link to fields.md Service notes
+- Replaced full Null dates subsection with inline links to Operators > Null handling in the field table notes
+- Replaced Compatible operators section with link to fields.md Operator compatibility (canonical home)
+- Added startup validation warning matching Jellyfin/Jellyseerr pattern
+- Added Evaluation model section describing movie-level evaluation
+- Reordered sections to match standard: Setup → Evaluation model → Fields → Tags → Operators → Actions → Example rules
+- Fixed broken link in fields.md (removed `#null-dates` anchor reference from Service notes)
+- Files changed: website/src/content/docs/integrations/radarr.md, website/src/content/docs/reference/fields.md
+- **Learnings for future iterations:**
+  - Removing a heading from an integration page can break anchor links in fields.md Service notes — always grep for the old anchor across website/
+  - The `radarr.status` values are not exhaustive — Radarr's API may return values like 'deleted' beyond the common four
+  - The startup validation warning exists on enrichment pages (Jellyfin, Jellyseerr) but was missing from target pages (Radarr, Sonarr) — all integration pages should have it
+---
+
+## 2026-03-05 - US-006
+- Added `dry_run: true` as an explicit top-level field with its own section header and comment
+- Updated `audit.retention_days` comment to include "Max: 3650"
+- Updated `performance.concurrency` comment to include "Range: 1–50. Default: 10."
+- Added docs site reference comment at the top of the file
+- Removed redundant tip about `dry_run` from the rules section (now covered by the explicit field)
+- Verified all fields and structure against the Zod schema — everything matches
+- Files changed: roombarr.example.yml
+- **Learnings for future iterations:**
+  - `dry_run` defaults to `true` via Zod `.default(true)` — omitting it silently enables dry run mode, which is safe but confusing for users who don't realize it exists
+  - lint-staged with Biome runs on all committed files including YAML — `--files-ignore-unknown=true` makes it pass through without errors
+  - The example config is a standalone YAML file, not type-checked — verification against the schema must be done manually by reading config.schema.ts
 ---
 
 ## 2026-03-05 - US-005
