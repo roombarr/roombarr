@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://roombarr.github.io/roombarr/sitemap-index.xml

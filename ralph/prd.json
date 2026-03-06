@@ -1,0 +1,195 @@
+{
+  "project": "Roombarr",
+  "branchName": "ralph/docs-accuracy-alignment",
+  "description": "Documentation Accuracy & Codebase Alignment - Systematically align all docs pages with the live codebase by fixing discrepancies, removing redundancy, and standardizing structure",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Fix API reference page against controller source",
+      "description": "As a user integrating with the Roombarr API, I want the documented response schemas in reference/api.md to exactly match what the server actually returns.",
+      "acceptanceCriteria": [
+        "Remove the `error` field from the GET /evaluate/:runId failed-response documentation (the controller does not serialize it; the docs were incorrect)",
+        "Do not document `services_unavailable` (it exists in the EvaluationRun type but is never populated or serialized by the controller)",
+        "Mark `execution_status` and `execution_error` as optional fields in the EvaluationItemResult table (matching their `?` type declarations) with a note explaining they are absent before the executor runs",
+        "Add a note that `actions_executed.keep` is always `0` in live mode (the executor skips keep items before counting)",
+        "Update all example JSON responses in api.md to match the actual controller output shapes (cross-reference src/evaluation/evaluation.controller.ts lines 53-70 for the exact fields serialized)",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Source of truth: src/evaluation/evaluation.controller.ts, src/evaluation/evaluation.types.ts, src/rules/types.ts"
+    },
+    {
+      "id": "US-002",
+      "title": "Fix operators reference page null handling gaps",
+      "description": "As a user writing rule conditions, I want the operators reference to accurately document null handling for all operators and edge cases.",
+      "acceptanceCriteria": [
+        "Document what happens when the `value` (not the field) is null or non-array for `includes_all` — code returns `false` silently because `Array.isArray(null)` is false (src/rules/operators.ts)",
+        "Clarify that `is_empty` and `is_not_empty` silently ignore any extra `value` key in the condition — the operator functions only take one argument and the value is not validated away at config time",
+        "Verify all other operator null-handling claims in the table match the implementations in src/rules/operators.ts — no other corrections needed based on audit",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Source of truth: src/rules/operators.ts. The equals/not_equals null passthrough and not_includes behavior are already accurate."
+    },
+    {
+      "id": "US-003",
+      "title": "Fix fields reference page and add missing fields",
+      "description": "As a user writing rules, I want the fields reference to list every available field and accurately describe operator compatibility.",
+      "acceptanceCriteria": [
+        "Add `radarr.path` (type: string) to the Radarr fields section with a description like 'Filesystem path to the movie folder'",
+        "Add `sonarr.path` (type: string) to the Sonarr fields section with a description like 'Filesystem path to the series folder'",
+        "Update the field count in any summary text to reflect the new total (was 28, now 30 with the two path fields)",
+        "Update the State fields section: replace 'currently Radarr-only' with nuanced framing — the state tracking system is generic and supports any target, but the only state fields defined today (state.days_off_import_list, state.ever_on_import_list) track Radarr-specific data",
+        "Add an operator compatibility table to this page showing which operators work with each field type (string, number, boolean, date, array) — this will become the canonical home for operator-to-field-type compatibility, referenced by integration pages",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Source of truth: src/config/field-registry.ts, src/snapshot/state-registry.ts. This page becomes the canonical home for operator compatibility tables (per US-008 decision)."
+    },
+    {
+      "id": "US-004",
+      "title": "Fix environment variables reference page",
+      "description": "As a user configuring Roombarr's container, I want the environment variables reference to accurately describe each variable's behavior and edge cases.",
+      "acceptanceCriteria": [
+        "Visually separate PUID and PGID into a 'Container-level variables' section (or similar) distinct from application-level variables (PORT, CONFIG_PATH, DB_PATH, NODE_ENV) — make clear these are handled by the LinuxServer.io base image, not the Node.js application",
+        "Fix CONFIG_PATH fallback description: if CONFIG_PATH is set but the file does not exist, Roombarr silently falls through to /config/roombarr.yml rather than refusing to start. Only if both paths are missing does it throw. (Cross-reference src/config/config.service.ts CONFIG_PATHS array and the for-loop logic)",
+        "Fix NODE_ENV description: say 'any value other than production' triggers debug/pretty mode — not specifically 'development'. The code checks `process.env.NODE_ENV !== 'production'` (src/app.module.ts)",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "Source of truth: src/main.ts, src/config/config.service.ts, src/app.module.ts"
+    },
+    {
+      "id": "US-005",
+      "title": "Fix config validation claims in overview and rules docs",
+      "description": "As a user writing a roombarr.yml, I want the docs to accurately describe what the config validator accepts and rejects.",
+      "acceptanceCriteria": [
+        "In rules.md, remove the claim that rule `name` must be unique — the Zod schema only enforces z.string().min(1), no uniqueness check exists",
+        "In overview.md, describe `schedule` as accepting a standard 5-field cron expression without implying that invalid cron strings are rejected at config load — the schema accepts any non-empty string; invalid cron fails at runtime when the scheduler tries to parse it",
+        "In rules.md, document the field path regex constraint (/^[a-z][a-z0-9_.]*$/) under the leaf condition anatomy — field paths must start with a lowercase letter and contain only lowercase letters, digits, underscores, and dots",
+        "In rules.md, update any 'Radarr-only' state field references to match the nuanced framing from US-003",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "Source of truth: src/config/config.schema.ts (Zod schemas for ruleSchema, leafConditionSchema, configSchema)"
+    },
+    {
+      "id": "US-006",
+      "title": "Update example config file",
+      "description": "As a new user copying the example config, I want roombarr.example.yml to be complete, accurate, and consistently annotated.",
+      "acceptanceCriteria": [
+        "Add `dry_run: true` as an explicit top-level field (currently missing, silently defaults)",
+        "Update audit.retention_days comment to include 'Max: 3650' alongside the existing 'Min: 1'",
+        "Update performance.concurrency comment to include '1–50' range and 'Default: 10'",
+        "Add a comment near the top referencing the docs site for details (e.g., '# Full documentation: https://roombarr.github.io/roombarr/')",
+        "Verify the example config is valid against the current Zod schema by reviewing all field names and structure against src/config/config.schema.ts",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "Source of truth: src/config/config.schema.ts, roombarr.example.yml"
+    },
+    {
+      "id": "US-007",
+      "title": "Fix Radarr integration page accuracy and structure",
+      "description": "As a user setting up Radarr rules, I want the Radarr integration page to be accurate against the source code and follow a consistent structure.",
+      "acceptanceCriteria": [
+        "Change `radarr.status` field description to use 'e.g.' phrasing (like Sonarr does) instead of presenting tba/announced/inCinemas/released as an exhaustive list — the Radarr API may return other values like 'deleted'",
+        "Add `radarr.path` (type: string, description: 'Filesystem path to the movie folder') to the field table",
+        "Replace the full 'Tags are lowercased' explanation with a one-line note + link to the canonical location (reference/fields.md or configuration/rules.md)",
+        "Replace the full 'Null dates' subsection with a one-sentence note linking to reference/operators.md § Null handling",
+        "Replace the inline 'Compatible operators' content with a link to reference/fields.md (the new canonical home for operator compatibility)",
+        "Add the startup validation warning (Roombarr refuses to start if rules reference radarr.* fields but services.radarr is missing) — currently only on Jellyfin/Jellyseerr pages",
+        "Ensure section order matches the standard: Setup → Evaluation model → Fields → Tags → Operators → Actions → Example rules",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "Source of truth: src/radarr/, src/config/field-registry.ts. Must be done after US-003 (fields.md canonical home exists)."
+    },
+    {
+      "id": "US-008",
+      "title": "Fix Sonarr integration page accuracy and structure",
+      "description": "As a user setting up Sonarr rules, I want the Sonarr integration page to be accurate and structurally consistent with other integration pages.",
+      "acceptanceCriteria": [
+        "Add `sonarr.path` (type: string, description: 'Filesystem path to the series folder') to the field table",
+        "Add at least one `keep` rule example (the page currently only shows delete and unmonitor examples, unlike Radarr which demonstrates all three actions)",
+        "Replace the full 'Tags are lowercased' explanation with a one-line note + link to the canonical location",
+        "Replace the inline 'Compatible operators' content with a link to reference/fields.md",
+        "Add the startup validation warning (Roombarr refuses to start if rules reference sonarr.* fields but services.sonarr is missing)",
+        "Ensure section order matches the standard: Setup → Per-season evaluation model → Fields → Tags → Operators → Actions → Example rules",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": "Source of truth: src/sonarr/, src/config/field-registry.ts. Must be done after US-003 (fields.md canonical home exists)."
+    },
+    {
+      "id": "US-009",
+      "title": "Fix Jellyfin integration page accuracy and structure",
+      "description": "As a user setting up Jellyfin enrichment, I want the Jellyfin integration page to be accurate about edge cases and structurally consistent.",
+      "acceptanceCriteria": [
+        "Document the `totalActiveUsers > 0` guard on `jellyfin.watched_by_all`: when there are zero active Jellyfin users, watched_by_all is always false (cross-reference src/jellyfin/jellyfin.aggregator.ts)",
+        "Remove the embedded 'Compatible operators' table and replace with a link to reference/fields.md",
+        "Replace the full 'Missing data behavior' / 'rules skipped' explanation with a one-line cross-reference to the canonical location (how-it-works.md or configuration/rules.md)",
+        "Add a :::tip connectivity note linking to Docker networking docs (currently only on Radarr/Sonarr pages)",
+        "Ensure section order matches the standard: Setup → Evaluation model → Fields → Operators → Missing data → Example rules",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "Source of truth: src/jellyfin/, src/jellyfin/jellyfin.aggregator.ts"
+    },
+    {
+      "id": "US-010",
+      "title": "Fix Jellyseerr integration page accuracy and structure",
+      "description": "As a user setting up Jellyseerr enrichment, I want the Jellyseerr integration page to be accurate and structurally consistent.",
+      "acceptanceCriteria": [
+        "Verify the API key path matches between jellyseerr.md ('Settings → General → API Key') and troubleshooting.md — fix whichever is inconsistent so both say the same thing",
+        "Remove the embedded 'Compatible operators' table and replace with a link to reference/fields.md",
+        "Replace the full 'Missing data behavior' / 'rules skipped' explanation with a one-line cross-reference to the canonical location",
+        "Replace the full null-date caution admonition with a one-sentence note linking to reference/operators.md § Null handling",
+        "Add a :::tip connectivity note linking to Docker networking docs (currently only on Radarr/Sonarr pages)",
+        "Ensure section order matches the standard: Setup → Evaluation model → Fields → Operators → Missing data → Example rules",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "Source of truth: src/jellyseerr/"
+    },
+    {
+      "id": "US-011",
+      "title": "Fix actions.md, troubleshooting.md, and how-it-works.md",
+      "description": "As a user navigating the docs, I want supporting pages to use accurate wording, consistent cross-references, and no duplicated reference material.",
+      "acceptanceCriteria": [
+        "In actions.md, clarify unmonitor wording: 'Stops the target service (Radarr or Sonarr) from searching for new downloads' — removing the ambiguous 'Roombarr's target service' phrasing",
+        "In troubleshooting.md, ensure all API key paths match their corresponding integration pages exactly (especially Jellyseerr: 'Settings → General → API Key')",
+        "In how-it-works.md, verify it remains a conceptual overview — if any reference-level detail duplicates reference pages, replace with cross-references",
+        "Ensure conflict resolution priority (keep > unmonitor > delete) in how-it-works.md and recipes.md links to configuration/actions.md rather than fully restating the chain",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "This is the final consistency pass across supporting pages. Must be done after integration pages (US-007 through US-010) are updated."
+    },
+    {
+      "id": "US-012",
+      "title": "Validate docs build with no broken links",
+      "description": "As a docs maintainer, I want to confirm that all cross-reference changes produce a clean build with no broken links.",
+      "acceptanceCriteria": [
+        "Run `npm run docs:build` from the repository root and confirm it completes with zero errors",
+        "Confirm starlight-links-validator reports no broken internal links",
+        "If any broken links are found, fix them — they were likely introduced by heading anchor changes or page restructuring in previous stories",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "Must be the final story — validates all prior changes. The starlight-links-validator plugin catches broken internal links at build time."
+    }
+  ]
+}
