@@ -17,9 +17,9 @@ Operators define how a condition compares a field's value against a target value
 | `newer_than` | date | Duration string | True if the date is within the duration. Null dates **never** match. |
 | `includes` | array | string | Array contains the value. |
 | `not_includes` | array | string | Array does not contain the value. |
-| `includes_all` | array | string[] | Array contains **every** value in the list. |
-| `is_empty` | array | _(none)_ | Array has zero elements. Do not include a `value` key. |
-| `is_not_empty` | array | _(none)_ | Array has one or more elements. Do not include a `value` key. |
+| `includes_all` | array | string[] | Array contains **every** value in the list. Returns false if `value` is not an array. |
+| `is_empty` | array | _(none)_ | Array has zero elements. Any `value` key is silently ignored. |
+| `is_not_empty` | array | _(none)_ | Array has one or more elements. Any `value` key is silently ignored. |
 
 ## Type compatibility
 
@@ -49,7 +49,7 @@ When a field's value is null or undefined — for example, when an enrichment se
 | `newer_than` | **Never matches** | A null date can't be newer than anything |
 | `includes` | Never matches | Null is not an array |
 | `not_includes` | Never matches | Null is not an array |
-| `includes_all` | Never matches | Null is not an array |
+| `includes_all` | Never matches | Null is not an array; also returns false if the `value` is null or not an array |
 | `is_empty` | Never matches | Null is not an array |
 | `is_not_empty` | Never matches | Null is not an array |
 
