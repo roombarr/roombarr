@@ -23,7 +23,11 @@ services:
 
 Roombarr validates your config at startup. If any rule references a `jellyfin.*` field but `services.jellyfin` is missing, Roombarr will refuse to start.
 
-## How matching works
+:::tip
+If you see connection errors in the logs, verify that Roombarr can reach Jellyfin from inside the container. See [Docker > Verifying connectivity](/roombarr/deployment/docker/#verifying-connectivity) for how to test.
+:::
+
+## Evaluation model
 
 Roombarr matches items between your *arr instance and Jellyfin using provider IDs:
 
@@ -32,6 +36,32 @@ Roombarr matches items between your *arr instance and Jellyfin using provider ID
 
 Items that don't have the required provider IDs in both systems won't match, and their Jellyfin fields will be null. Rules referencing Jellyfin fields are [skipped](/roombarr/configuration/rules/#when-rules-are-skipped) for those items — they won't error or match incorrectly.
 
+### How fields are aggregated
+
+The way Roombarr computes these fields depends on whether the item is a movie or a season.
+
+#### Movies
+
+Straightforward — each user's watch data maps directly to the movie:
+
+- **`watched_by`** — Every user who has played the movie at least once
+- **`play_count`** — Sum of all users' play counts
+- **`last_played`** — The most recent play timestamp across all users
+- **`watched_by_all`** — `true` when every active Jellyfin user appears in `watched_by`. Always `false` when there are zero active users (prevents vacuous truth).
+
+#### Seasons
+
+Season aggregation is stricter because it rolls up from episode-level data:
+
+- **`watched_by`** — Only includes users who have watched **every episode** in the season. Watching 9 out of 10 episodes doesn't count.
+- **`play_count`** — For each user, the **minimum** play count across all episodes in the season (then summed across users). This represents complete season watches, not partial ones.
+- **`last_played`** — The most recent play timestamp across all episodes and all users.
+- **`watched_by_all`** — `true` when every active Jellyfin user has watched every episode. Always `false` when there are zero active users.
+
+:::note
+The "all episodes" requirement for seasons means `watched_by` may be empty even if users have partially watched the season. If you want to check whether *anyone* has started watching, use `jellyfin.play_count` with `greater_than` instead.
+:::
+
 ## Available fields
 
 All Jellyfin fields are available on both `radarr` and `sonarr` targets.
@@ -39,48 +69,17 @@ All Jellyfin fields are available on both `radarr` and `sonarr` targets.
 | Field | Type | Description |
 |---|---|---|
 | `jellyfin.watched_by` | array | Usernames of Jellyfin users who have watched the item |
-| `jellyfin.watched_by_all` | boolean | `true` if every active Jellyfin user has watched the item |
+| `jellyfin.watched_by_all` | boolean | `true` if every active Jellyfin user has watched the item. Always `false` when there are zero active users. |
 | `jellyfin.play_count` | number | Total play count across all users |
 | `jellyfin.last_played` | date | Most recent playback timestamp across all users |
 
-## How fields are aggregated
+## Operators
 
-The way Roombarr computes these fields depends on whether the item is a movie or a season.
+Each field type determines which operators you can use. See [Fields > Operator compatibility](/roombarr/reference/fields/#operator-compatibility) for the full compatibility table, and [Operators](/roombarr/reference/operators/) for operator details and duration syntax.
 
-### Movies
+## Missing data behavior
 
-Straightforward — each user's watch data maps directly to the movie:
-
-- **`watched_by`** — Every user who has played the movie at least once
-- **`play_count`** — Sum of all users' play counts
-- **`last_played`** — The most recent play timestamp across all users
-- **`watched_by_all`** — `true` when every active Jellyfin user appears in `watched_by`
-
-### Seasons
-
-Season aggregation is stricter because it rolls up from episode-level data:
-
-- **`watched_by`** — Only includes users who have watched **every episode** in the season. Watching 9 out of 10 episodes doesn't count.
-- **`play_count`** — For each user, the **minimum** play count across all episodes in the season (then summed across users). This represents complete season watches, not partial ones.
-- **`last_played`** — The most recent play timestamp across all episodes and all users.
-- **`watched_by_all`** — `true` when every active Jellyfin user has watched every episode.
-
-:::note
-The "all episodes" requirement for seasons means `watched_by` may be empty even if users have partially watched the season. If you want to check whether *anyone* has started watching, use `jellyfin.play_count` with `greater_than` instead.
-:::
-
-## Compatible operators
-
-Each field type determines which operators you can use with it.
-
-| Field | Type | Compatible operators |
-|---|---|---|
-| `jellyfin.watched_by` | array | `includes`, `not_includes`, `includes_all`, `is_empty`, `is_not_empty` |
-| `jellyfin.watched_by_all` | boolean | `equals`, `not_equals` |
-| `jellyfin.play_count` | number | `equals`, `not_equals`, `greater_than`, `less_than` |
-| `jellyfin.last_played` | date | `older_than`, `newer_than` |
-
-For full operator details including duration syntax for date operators, see [Operators](/roombarr/reference/operators/).
+When Jellyfin has no data for an item (not in Jellyfin, missing provider IDs, or Jellyfin unreachable), all `jellyfin.*` fields are null and rules referencing them are **skipped** for that item. See [Rules > When rules are skipped](/roombarr/configuration/rules/#when-rules-are-skipped) for details.
 
 ## Example rules
 
@@ -152,10 +151,6 @@ Target rules based on whether a particular user has (or hasn't) watched somethin
         operator: older_than
         value: 3m
 ```
-
-## Missing data behavior
-
-When Jellyfin has no data for an item (not in Jellyfin, missing provider IDs, or Jellyfin unreachable), all `jellyfin.*` fields are null and rules referencing them are **skipped** for that item. See [Rules > When rules are skipped](/roombarr/configuration/rules/#when-rules-are-skipped) for details.
 
 ## Related pages
 
