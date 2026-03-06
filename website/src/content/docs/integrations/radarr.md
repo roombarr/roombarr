@@ -23,6 +23,12 @@ services:
 If you see connection errors in the logs, verify that Roombarr can reach Radarr from inside the container. See [Docker > Verifying connectivity](/roombarr/deployment/docker/#verifying-connectivity) for how to test.
 :::
 
+Roombarr validates your config at startup. If any rule references a `radarr.*` field but `services.radarr` is missing, Roombarr will refuse to start.
+
+## Evaluation model
+
+Each movie in Radarr becomes a single evaluation item. Every rule condition is checked against the movie, and actions operate at the movie level — `delete` removes the movie and all its files, `unmonitor` stops Radarr from searching, and `keep` protects the movie from other rules.
+
 ## Available fields
 
 These fields are available in rule conditions when `target` is `radarr`. Use the `radarr.*` prefix in the `field` key of your conditions.
@@ -30,41 +36,32 @@ These fields are available in rule conditions when `target` is `radarr`. Use the
 | Field | Type | Description | Notes |
 |---|---|---|---|
 | `radarr.added` | date | When the movie was added to Radarr | |
-| `radarr.digital_release` | date | Digital release date | Can be null — see [Null dates](#null-dates) |
-| `radarr.physical_release` | date | Physical release date | Can be null — see [Null dates](#null-dates) |
+| `radarr.digital_release` | date | Digital release date | Can be null — see [Operators > Null handling](/roombarr/reference/operators/#null-handling) |
+| `radarr.physical_release` | date | Physical release date | Can be null — see [Operators > Null handling](/roombarr/reference/operators/#null-handling) |
 | `radarr.size_on_disk` | number | File size in bytes | `0` when no file exists |
 | `radarr.has_file` | boolean | Whether a file exists on disk | |
 | `radarr.monitored` | boolean | Whether the movie is monitored | |
 | `radarr.on_import_list` | boolean | Whether the movie is on any import list | |
-| `radarr.status` | string | Release status — `tba`, `announced`, `inCinemas`, or `released` | Values come from Radarr's API |
+| `radarr.status` | string | Release status (e.g., `tba`, `announced`, `inCinemas`, `released`) | Values come from Radarr's API |
 | `radarr.year` | number | Release year | |
-| `radarr.tags` | array | Tag names applied in Radarr | Lowercased — use lowercase values in conditions |
+| `radarr.path` | string | Filesystem path to the movie folder | |
+| `radarr.tags` | array | Tag names applied in Radarr | Lowercased — see [Tags](#tags) |
 | `radarr.genres` | array | Genre strings | Values retain original casing from Radarr metadata (e.g., `Horror`, not `horror`) |
 | `radarr.import_list_ids` | array | IDs of import lists containing this movie | Empty array if not on any list |
 
 Radarr rules can also use enrichment fields (`jellyfin.*`, `jellyseerr.*`) and state fields (`state.*`) when those services are configured. See [Fields](/roombarr/reference/fields/) for the complete list.
 
-### Null dates
-
-The `radarr.digital_release` and `radarr.physical_release` fields can be null when Radarr doesn't have release date information for a movie. When a date field is null, `older_than` always matches (treated as infinitely old) and `newer_than` never matches. This is a safe default for cleanup rules. See [Operators > Null handling](/roombarr/reference/operators/#null-handling) for the complete behavior table.
-
 ### Tags
 
-Tag names are lowercased — use `keep`, not `Keep`, in your conditions:
+Tag names are lowercased — use `keep`, not `Keep`, in your conditions. See [Fields > Service notes](/roombarr/reference/fields/#service-notes) for details.
 
-```yaml
-- field: radarr.tags
-  operator: includes
-  value: keep       # Not "Keep" — tags are lowercased
-```
+## Compatible operators
+
+Each field type determines which operators you can use. See [Fields > Operator compatibility](/roombarr/reference/fields/#operator-compatibility) for the full compatibility matrix and [Operators](/roombarr/reference/operators/) for operator details and duration syntax.
 
 ## Actions
 
 All three actions operate at the **movie level** — `delete` removes the movie and all its files from disk, `unmonitor` stops Radarr from searching for downloads, and `keep` protects the movie from other rules. See [Actions](/roombarr/configuration/actions/) for full details.
-
-## Compatible operators
-
-Each field type determines which operators you can use. See [Operators](/roombarr/reference/operators/) for the full compatibility matrix and duration syntax.
 
 ## Example rules
 

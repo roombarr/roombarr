@@ -97,7 +97,7 @@ Which operators can be used with which field types. This is validated at startup
 
 ## Service notes
 
-- **Radarr null dates** — `radarr.digital_release` and `radarr.physical_release` can be null. See [Radarr > Null dates](/roombarr/integrations/radarr/#null-dates) and [Operators > Null handling](/roombarr/reference/operators/#null-handling).
+- **Radarr null dates** — `radarr.digital_release` and `radarr.physical_release` can be null. See [Operators > Null handling](/roombarr/reference/operators/#null-handling).
 - **Tag lowercasing** — Radarr and Sonarr tags are lowercased. Use `keep`, not `Keep`. See [Radarr > Tags](/roombarr/integrations/radarr/#tags).
 - **Import list fields** — `radarr.on_import_list` is a boolean convenience field; `radarr.import_list_ids` gives specific list IDs.
 - **Sonarr per-season evaluation** — Each season is evaluated independently. See [Sonarr > Per-season evaluation](/roombarr/integrations/sonarr/#per-season-evaluation).
