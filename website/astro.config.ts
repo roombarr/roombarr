@@ -1,5 +1,7 @@
 import starlight from '@astrojs/starlight';
 import { defineConfig } from 'astro/config';
+import starlightLinksValidator from 'starlight-links-validator';
+import starlightLlmsTxt from 'starlight-llms-txt';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -9,6 +11,12 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'Roombarr',
+      description: 'Rule-based media cleanup engine for the *arr stack.',
+      plugins: [starlightLlmsTxt(), starlightLinksValidator()],
+      editLink: {
+        baseUrl: 'https://github.com/roombarr/roombarr/edit/main/website/',
+      },
+      lastUpdated: true,
       head: isProduction
         ? [
             {
@@ -22,9 +30,21 @@ export default defineConfig({
         src: './src/assets/logo-transparent.png',
       },
       favicon: '/favicon.png',
-      customCss: ['./src/styles/custom.css'],
+      customCss: [
+        '@fontsource-variable/inter',
+        '@fontsource-variable/jetbrains-mono',
+        './src/styles/custom.css',
+      ],
       sidebar: [
         { slug: 'getting-started' },
+        { slug: 'how-it-works' },
+        {
+          label: 'Deployment',
+          items: [
+            { slug: 'deployment/docker' },
+            { slug: 'deployment/truenas' },
+          ],
+        },
         {
           label: 'Configuration',
           items: [
@@ -51,10 +71,7 @@ export default defineConfig({
             { slug: 'reference/api' },
           ],
         },
-        {
-          label: 'Guides',
-          autogenerate: { directory: 'guides' },
-        },
+        { slug: 'recipes' },
         { slug: 'troubleshooting' },
       ],
       social: [
