@@ -43,17 +43,17 @@ This single rule combines Radarr metadata with Jellyfin watch history to delete 
 
 ## Built for the *arr Stack
 
-- **Cross-service intelligence** — combine data from Radarr, Sonarr, Jellyfin, and Jellyseerr in a single rule. One condition checks Radarr, the next checks Jellyfin — Roombarr stitches it together.
+- **Cross-service intelligence** — combine data from [Radarr](/roombarr/integrations/radarr/), [Sonarr](/roombarr/integrations/sonarr/), [Jellyfin](/roombarr/integrations/jellyfin/), and [Jellyseerr](/roombarr/integrations/jellyseerr/) in a single rule. One condition checks Radarr, the next checks Jellyfin — Roombarr stitches it together.
 - **Declarative YAML rules** — composable AND/OR condition trees that read like plain English. No scripting, no callbacks, no imperative logic.
-- **Safe by default** — dry-run mode is on out of the box. When rules conflict, the least destructive action always wins. You have to opt in to live execution.
+- **Safe by default** — [dry-run mode](/roombarr/configuration/overview/#dry_run) is on out of the box. When rules conflict, the least destructive action always wins. You have to opt in to live execution.
 - **Scheduled or on-demand** — set a cron schedule for automatic runs, or trigger evaluations manually through the HTTP API. Your call.
 - **Lazy data fetching** — Roombarr only queries the services your rules actually reference. No Jellyfin conditions? Jellyfin is never called.
-- **Audit everything** — every action decision is logged to daily-rotated JSONL files. Know exactly what happened and why.
+- **[Audit everything](/roombarr/configuration/overview/#audit)** — every action decision is logged to daily-rotated JSONL files. Know exactly what happened and why.
 
 ## How It Works
 
 1. **Connect your services** — point Roombarr at your Radarr, Sonarr, Jellyfin, and Jellyseerr instances.
-2. **Write your rules** — describe what to delete, unmonitor, or keep using declarative YAML conditions.
+2. **Write your rules** — describe what to [delete, unmonitor, or keep](/roombarr/configuration/actions/) using declarative YAML conditions.
 3. **Set a schedule** — pick a cron expression, or trigger runs manually through the API.
 4. **Roombarr handles the rest** — it evaluates every item against your rules, resolves conflicts, and takes action (or logs what it would do in dry-run mode).
 
@@ -72,11 +72,19 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=America/New_York
+      - TZ=America/New_York # see Environment Variables
 ```
 
-Drop your `roombarr.yml` config into the `./config` directory and you're up.
+Drop your `roombarr.yml` config into the `./config` directory and you're up. See [Environment Variables](/roombarr/reference/environment-variables/) for the full list including [`TZ`](/roombarr/reference/environment-variables/#tz).
 
-> **Roombarr is in early development (v0.x).** Breaking changes may occur between minor versions. Pin your Docker image to a specific version tag (e.g., `ghcr.io/roombarr/roombarr:v0.1.1`) instead of using `:latest`.
+:::caution
+Roombarr is pre-1.0 — pin to a version tag in production. See [Image tags](/roombarr/deployment/docker/#image-tags) for details.
+:::
 
-Ready to take control of your media library? Check out the [Getting Started](/roombarr/getting-started/) guide, or browse the source on [GitHub](https://github.com/roombarr/roombarr). Contributions and feedback are always welcome.
+Ready to take control of your media library?
+
+- **New here?** Start with the [Getting Started](/roombarr/getting-started/) guide — you'll be running in 5 minutes.
+- **Want to understand the flow?** Read [How It Works](/roombarr/how-it-works/) for the full evaluation lifecycle.
+- **Ready to write rules?** Jump to [Config Recipes](/roombarr/recipes/) for complete, copy-paste-ready configs.
+
+Browse the source on [GitHub](https://github.com/roombarr/roombarr). Contributions and feedback are always welcome.
