@@ -3,6 +3,8 @@ date: 2026-02-15
 topic: drizzle-persistence-layer
 ---
 
+> **Note:** `state.days_off_import_list` (`DaysSinceValuePattern`, `nullWhenCurrentNot`) was replaced by `state.import_list_removed_at` (`DateSinceValuePattern`) in PR #25. References below reflect the original design.
+
 # Drizzle ORM Persistence Layer
 
 ## What We're Building

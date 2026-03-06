@@ -50,11 +50,15 @@ export class ConfigService {
       throw new Error(`Configuration validation failed:\n${formatted}`);
     }
 
-    const crossErrors = validateConfig(result.data);
+    const { errors: crossErrors, warnings } = validateConfig(result.data);
     if (crossErrors.length > 0) {
       throw new Error(
         `Configuration validation failed:\n${crossErrors.map(e => `  - ${e}`).join('\n')}`,
       );
+    }
+
+    for (const warning of warnings) {
+      this.logger.warn(warning);
     }
 
     return result.data;

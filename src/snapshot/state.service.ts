@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { inArray, sql } from 'drizzle-orm';
+import { and, inArray, sql } from 'drizzle-orm';
 import type { BunSQLiteDatabase } from 'drizzle-orm/bun-sqlite';
 import { DatabaseService } from '../database/database.service.js';
 import type * as schema from '../database/schema.js';
@@ -80,11 +80,34 @@ export class StateService {
       ...new Set(relevantEntries.map(([, pattern]) => pattern.tracks)),
     ];
 
-    // Batch query: fetch all relevant field changes in one shot
+    // Batch-fetch all snapshotted media items to avoid per-item DB queries
+    const allSnapshots = db
+      .select({ mediaType: mediaItems.mediaType, mediaId: mediaItems.mediaId })
+      .from(mediaItems)
+      .all();
+    const snapshotKeys = new Set(
+      allSnapshots.map(r => `${r.mediaType}:${r.mediaId}`),
+    );
+
+    // Collect batch IDs for scoping the field_changes query
+    const mediaIds = items.map(item => this.getMediaId(item));
+    const mediaTypes = [
+      ...new Set(
+        items.map(item => (item.type === 'movie' ? 'movie' : 'season')),
+      ),
+    ];
+
+    // Batch query: fetch field changes scoped to current batch items
     const allChanges = db
       .select()
       .from(fieldChanges)
-      .where(inArray(fieldChanges.fieldPath, trackedPaths))
+      .where(
+        and(
+          inArray(fieldChanges.mediaType, mediaTypes),
+          inArray(fieldChanges.mediaId, mediaIds),
+          inArray(fieldChanges.fieldPath, trackedPaths),
+        ),
+      )
       .all() as FieldChangeRow[];
 
     // Index by composite key → field_path → rows (sorted by changedAt DESC)
@@ -101,6 +124,7 @@ export class StateService {
         compositeKey,
         relevantEntries,
         changeIndex,
+        snapshotKeys,
       );
 
       return { ...item, state };
@@ -145,21 +169,12 @@ export class StateService {
     compositeKey: string,
     entries: Array<[string, StateFieldPattern]>,
     changeIndex: Map<string, Map<string, FieldChangeRow[]>>,
+    snapshotKeys: Set<string>,
   ): StateData | null {
-    const db = this.getDb();
-
-    // Check if this item has been snapshotted before
+    // Check if this item has been snapshotted before (O(1) set lookup)
     const mediaType = item.type === 'movie' ? 'movie' : 'season';
     const mediaId = compositeKey.split(':')[1];
-    const snapshot = db
-      .select({ mediaId: mediaItems.mediaId })
-      .from(mediaItems)
-      .where(
-        sql`${mediaItems.mediaType} = ${mediaType} AND ${mediaItems.mediaId} = ${mediaId}`,
-      )
-      .get();
-
-    if (!snapshot) return null;
+    if (!snapshotKeys.has(`${mediaType}:${mediaId}`)) return null;
 
     const itemChanges = changeIndex.get(compositeKey);
     const result: Record<string, unknown> = {};
@@ -194,6 +209,9 @@ export class StateService {
   /**
    * Compute the ISO date when a field last changed to a specific value.
    * Returns null if no matching change exists in history.
+   *
+   * Intentionally does not check the current live value — users compose
+   * with `radarr.on_import_list` for current-state filtering (see README).
    */
   private computeDateSinceValue(
     pattern: Extract<StateFieldPattern, { type: 'date_since_value' }>,

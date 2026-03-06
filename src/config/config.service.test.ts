@@ -322,7 +322,7 @@ describe('validateConfig (cross-validation)', () => {
   }
 
   test('passes with valid full config', () => {
-    const errors = validateConfig(parse());
+    const { errors } = validateConfig(parse());
     expect(errors).toEqual([]);
   });
 
@@ -330,7 +330,7 @@ describe('validateConfig (cross-validation)', () => {
     const config = parse();
     config.services.sonarr = undefined;
     config.services.radarr = undefined;
-    const errors = validateConfig(config);
+    const { errors } = validateConfig(config);
     expect(errors).toContainEqual(
       expect.stringContaining(
         'At least one of services.sonarr or services.radarr',
@@ -359,7 +359,7 @@ describe('validateConfig (cross-validation)', () => {
       ],
     });
     config.services.sonarr = undefined;
-    const errors = validateConfig(config);
+    const { errors } = validateConfig(config);
     expect(errors).toContainEqual(
       expect.stringContaining(
         'targets sonarr but services.sonarr is not configured',
@@ -370,7 +370,7 @@ describe('validateConfig (cross-validation)', () => {
   test('fails when radarr rule targets unconfigured radarr', () => {
     const config = parse();
     config.services.radarr = undefined;
-    const errors = validateConfig(config);
+    const { errors } = validateConfig(config);
     expect(errors).toContainEqual(
       expect.stringContaining(
         'targets radarr but services.radarr is not configured',
@@ -399,7 +399,7 @@ describe('validateConfig (cross-validation)', () => {
       ],
     });
     config.services.jellyfin = undefined;
-    const errors = validateConfig(config);
+    const { errors } = validateConfig(config);
     expect(errors).toContainEqual(
       expect.stringContaining('requires services.jellyfin to be configured'),
     );
@@ -426,7 +426,7 @@ describe('validateConfig (cross-validation)', () => {
       ],
     });
     config.services.jellyseerr = undefined;
-    const errors = validateConfig(config);
+    const { errors } = validateConfig(config);
     expect(errors).toContainEqual(
       expect.stringContaining('requires services.jellyseerr to be configured'),
     );
@@ -452,7 +452,7 @@ describe('validateConfig (cross-validation)', () => {
         },
       ],
     });
-    const errors = validateConfig(config);
+    const { errors } = validateConfig(config);
     expect(errors).toContainEqual(
       expect.stringContaining('unknown field "radarr.nonexistent"'),
     );
@@ -478,7 +478,7 @@ describe('validateConfig (cross-validation)', () => {
         },
       ],
     });
-    const errors = validateConfig(config);
+    const { errors } = validateConfig(config);
     expect(errors).toContainEqual(
       expect.stringContaining(
         'operator "older_than" is not compatible with field "radarr.tags"',
@@ -506,7 +506,7 @@ describe('validateConfig (cross-validation)', () => {
         },
       ],
     });
-    const errors = validateConfig(config);
+    const { errors } = validateConfig(config);
     expect(errors).toContainEqual(
       expect.stringContaining('operator "is_empty" must not have a value'),
     );
@@ -531,7 +531,7 @@ describe('validateConfig (cross-validation)', () => {
         },
       ],
     });
-    const errors = validateConfig(config);
+    const { errors } = validateConfig(config);
     expect(errors).toContainEqual(
       expect.stringContaining('operator "equals" requires a value'),
     );
@@ -557,7 +557,7 @@ describe('validateConfig (cross-validation)', () => {
         },
       ],
     });
-    const errors = validateConfig(config);
+    const { errors } = validateConfig(config);
     expect(errors).toContainEqual(
       expect.stringContaining('requires a duration string, got number'),
     );
@@ -583,7 +583,7 @@ describe('validateConfig (cross-validation)', () => {
         },
       ],
     });
-    const errors = validateConfig(config);
+    const { errors } = validateConfig(config);
     expect(errors).toContainEqual(
       expect.stringContaining('invalid duration "notaduration"'),
     );
@@ -614,7 +614,7 @@ describe('validateConfig (cross-validation)', () => {
         },
       ],
     });
-    const errors = validateConfig(config);
+    const { errors } = validateConfig(config);
     expect(errors).toContainEqual(
       expect.stringContaining('unknown field "radarr.fake_field"'),
     );
@@ -639,7 +639,7 @@ describe('validateConfig (cross-validation)', () => {
         },
       ],
     });
-    const errors = validateConfig(config);
+    const { errors } = validateConfig(config);
     expect(errors).toEqual([]);
   });
 
@@ -663,8 +663,94 @@ describe('validateConfig (cross-validation)', () => {
         },
       ],
     });
-    const errors = validateConfig(config);
+    const { errors } = validateConfig(config);
     expect(errors).toEqual([]);
+  });
+
+  test('warns when state.import_list_removed_at used without guard', () => {
+    const config = parse({
+      rules: [
+        {
+          name: 'Unguarded rule',
+          target: 'radarr',
+          conditions: {
+            operator: 'AND',
+            children: [
+              {
+                field: 'state.import_list_removed_at',
+                operator: 'older_than',
+                value: '30d',
+              },
+            ],
+          },
+          action: 'delete',
+        },
+      ],
+    });
+    const { errors, warnings } = validateConfig(config);
+    expect(errors).toEqual([]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('state.ever_on_import_list');
+  });
+
+  test('no warning when state.import_list_removed_at has guard', () => {
+    const config = parse({
+      rules: [
+        {
+          name: 'Guarded rule',
+          target: 'radarr',
+          conditions: {
+            operator: 'AND',
+            children: [
+              {
+                field: 'state.ever_on_import_list',
+                operator: 'equals',
+                value: true,
+              },
+              {
+                field: 'state.import_list_removed_at',
+                operator: 'older_than',
+                value: '30d',
+              },
+            ],
+          },
+          action: 'delete',
+        },
+      ],
+    });
+    const { errors, warnings } = validateConfig(config);
+    expect(errors).toEqual([]);
+    expect(warnings).toHaveLength(0);
+  });
+
+  test('no warning when guarded by radarr.on_import_list', () => {
+    const config = parse({
+      rules: [
+        {
+          name: 'Import list guard',
+          target: 'radarr',
+          conditions: {
+            operator: 'AND',
+            children: [
+              {
+                field: 'radarr.on_import_list',
+                operator: 'equals',
+                value: false,
+              },
+              {
+                field: 'state.import_list_removed_at',
+                operator: 'older_than',
+                value: '30d',
+              },
+            ],
+          },
+          action: 'delete',
+        },
+      ],
+    });
+    const { errors, warnings } = validateConfig(config);
+    expect(errors).toEqual([]);
+    expect(warnings).toHaveLength(0);
   });
 
   test('rejects state fields on sonarr target', () => {
@@ -690,7 +776,7 @@ describe('validateConfig (cross-validation)', () => {
         },
       ],
     });
-    const errors = validateConfig(config);
+    const { errors } = validateConfig(config);
     expect(errors).toHaveLength(1);
     expect(errors[0]).toContain('state.import_list_removed_at');
   });
@@ -715,7 +801,7 @@ describe('validateConfig (cross-validation)', () => {
         },
       ],
     });
-    const errors = validateConfig(config);
+    const { errors } = validateConfig(config);
     expect(errors).toEqual([]);
   });
 
@@ -743,7 +829,7 @@ describe('validateConfig (cross-validation)', () => {
       ],
     });
     // No services.state config needed — state is computed locally
-    const errors = validateConfig(config);
+    const { errors } = validateConfig(config);
     expect(errors).toEqual([]);
   });
 
@@ -767,7 +853,7 @@ describe('validateConfig (cross-validation)', () => {
         },
       ],
     });
-    const errors = validateConfig(config);
+    const { errors } = validateConfig(config);
     expect(errors).toEqual([]);
   });
 
@@ -794,7 +880,7 @@ describe('validateConfig (cross-validation)', () => {
         },
       ],
     });
-    const errors = validateConfig(config);
+    const { errors } = validateConfig(config);
     expect(errors).toEqual([]);
   });
 
@@ -821,7 +907,7 @@ describe('validateConfig (cross-validation)', () => {
         },
       ],
     });
-    const errors = validateConfig(config);
+    const { errors } = validateConfig(config);
     expect(errors).toEqual([]);
   });
 });

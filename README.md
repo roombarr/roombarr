@@ -367,6 +367,9 @@ Because `keep` always wins over `delete` and `unmonitor`, this rule protects any
       - field: state.ever_on_import_list
         operator: equals
         value: true
+      - field: radarr.on_import_list
+        operator: equals
+        value: false
       - field: state.import_list_removed_at
         operator: older_than
         value: "30d"
