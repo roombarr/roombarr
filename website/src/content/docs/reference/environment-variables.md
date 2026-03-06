@@ -7,15 +7,24 @@ Roombarr is configured primarily through its [YAML config file](/roombarr/config
 
 ## Quick Reference
 
+### Application Variables
+
 | Variable | Default | Description |
 |---|---|---|
-| `PUID` | `1000` | User ID for file ownership inside the container |
-| `PGID` | `1000` | Group ID for file ownership inside the container |
 | `TZ` | `UTC` | Timezone for cron scheduling and log timestamps |
 | `CONFIG_PATH` | `/config/roombarr.yml` | Path to the YAML config file |
 | `DB_PATH` | `/config/roombarr.sqlite` | Path to the SQLite database file |
 | `PORT` | `3000` | HTTP port the API listens on |
-| `NODE_ENV` | `production` | Node environment (`production` or `development`) |
+| `NODE_ENV` | `production` | Node environment — any value other than `production` enables debug mode |
+
+### Container Variables
+
+These are handled by the [LinuxServer.io base image](https://docs.linuxserver.io/general/understanding-puid-and-pgid/), not the Node.js application.
+
+| Variable | Default | Description |
+|---|---|---|
+| `PUID` | `1000` | User ID for file ownership inside the container |
+| `PGID` | `1000` | Group ID for file ownership inside the container |
 
 ## Full Example
 
@@ -47,26 +56,6 @@ Most users only need to set `PUID`, `PGID`, and `TZ`. The remaining variables ha
 
 ## Variable Details
 
-### `PUID`
-
-| | |
-|---|---|
-| **Default** | `1000` |
-| **Example** | `PUID=1000` |
-
-Sets the user ID that Roombarr runs as inside the container. This comes from the [LinuxServer.io base image](https://docs.linuxserver.io/general/understanding-puid-and-pgid/) and ensures files written to the `/config` volume (database, audit logs) are owned by the correct user on your host system.
-
-Run `id` on your host to find your user ID, then set `PUID` to match.
-
-### `PGID`
-
-| | |
-|---|---|
-| **Default** | `1000` |
-| **Example** | `PGID=1000` |
-
-Sets the group ID that Roombarr runs as inside the container. Works the same way as `PUID` — match it to your host group ID to avoid file permission issues.
-
 ### `TZ`
 
 | | |
@@ -93,10 +82,10 @@ The absolute path inside the container where Roombarr looks for its YAML config 
 
 Roombarr resolves the config path in this order:
 
-1. The path set by `CONFIG_PATH`
+1. The path set by `CONFIG_PATH` (if set **and** the file exists on disk)
 2. `/config/roombarr.yml` (fallback default)
 
-If the file is missing or invalid at the resolved path, Roombarr refuses to start and prints a clear error message. See [Configuration Overview](/roombarr/configuration/overview/) for the full config file reference.
+If `CONFIG_PATH` is set but the file does not exist at that path, Roombarr silently falls through to the default `/config/roombarr.yml`. Only if **neither** path contains a valid file does Roombarr refuse to start. See [Configuration Overview](/roombarr/configuration/overview/) for the full config file reference.
 
 ### `DB_PATH`
 
@@ -136,11 +125,31 @@ services:
 | **Default** | `production` |
 | **Example** | `NODE_ENV=production` |
 
-Controls the runtime environment. In `production` mode, Roombarr uses structured JSON logging at the `info` level. In `development` mode, it switches to pretty-printed `debug`-level logging.
+Controls the runtime environment. When set to `production`, Roombarr uses structured JSON logging at the `info` level. Any other value (or unset) switches to pretty-printed `debug`-level logging — the code checks `process.env.NODE_ENV !== 'production'`, so there is no special `development` value.
 
 :::caution
 This is set automatically in the Docker image. You should not need to change it unless you're developing Roombarr itself.
 :::
+
+### `PUID`
+
+| | |
+|---|---|
+| **Default** | `1000` |
+| **Example** | `PUID=1000` |
+
+Sets the user ID that Roombarr runs as inside the container. This is handled by the [LinuxServer.io base image](https://docs.linuxserver.io/general/understanding-puid-and-pgid/), not the Node.js application, and ensures files written to the `/config` volume (database, audit logs) are owned by the correct user on your host system.
+
+Run `id` on your host to find your user ID, then set `PUID` to match.
+
+### `PGID`
+
+| | |
+|---|---|
+| **Default** | `1000` |
+| **Example** | `PGID=1000` |
+
+Sets the group ID that Roombarr runs as inside the container. Works the same way as `PUID` — match it to your host group ID to avoid file permission issues. Also handled by the [LinuxServer.io base image](https://docs.linuxserver.io/general/understanding-puid-and-pgid/).
 
 ## Related pages
 
