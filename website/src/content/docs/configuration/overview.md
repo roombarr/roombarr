@@ -78,6 +78,10 @@ The `schedule` field accepts a standard 5-field cron expression (minute hour day
 schedule: "0 3 * * *" # Daily at 3:00 AM
 ```
 
+:::note
+At config load, Roombarr only checks that `schedule` is a non-empty string. An invalid cron expression (e.g., `"not a cron"`) will pass config validation but fail at runtime when the scheduler tries to parse it.
+:::
+
 The schedule evaluates in the timezone set by the [`TZ` environment variable](/roombarr/reference/environment-variables/#tz). If `TZ` is not set, it defaults to UTC.
 
 You can also trigger evaluations manually through the HTTP API without waiting for the next scheduled run. See the [API Reference](/roombarr/reference/api/) for details.

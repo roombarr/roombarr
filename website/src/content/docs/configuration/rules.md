@@ -13,7 +13,7 @@ Every rule has four top-level keys:
 
 ```yaml
 rules:
-  - name: Delete fully watched old movies  # Human-readable label (must be unique)
+  - name: Delete fully watched old movies  # Human-readable label
     target: radarr                          # Which service to evaluate against
     action: delete                          # What to do when conditions match
     conditions:                             # AND/OR condition tree
@@ -27,7 +27,7 @@ rules:
           value: 6m
 ```
 
-- **`name`** — A unique, human-readable label. It appears in logs and the audit trail.
+- **`name`** — A human-readable label. It appears in logs and the audit trail. Must be a non-empty string.
 - **`target`** — Either `radarr` or `sonarr`. Determines what items the rule evaluates and which fields are valid.
 - **`action`** — One of `delete`, `unmonitor`, or `keep`. See [Actions](/roombarr/configuration/actions/) for full details.
 - **`conditions`** — A condition group (AND/OR tree) that determines whether the rule matches a given item.
@@ -43,7 +43,7 @@ A rule's `target` determines what Roombarr iterates over during evaluation.
 
 The sonarr target evaluates at the season level, not the series level. A delete action on a sonarr rule removes that season's files — the series itself and all other seasons are left untouched.
 
-The target also constrains which fields are valid in conditions. Radarr rules can use `radarr.*` fields, and sonarr rules can use `sonarr.*` fields. Both targets can use enrichment fields (`jellyfin.*`, `jellyseerr.*`). State fields (`state.*`) are currently **Radarr-only** — see [Fields > State](/roombarr/reference/fields/#state) for details.
+The target also constrains which fields are valid in conditions. Radarr rules can use `radarr.*` fields, and sonarr rules can use `sonarr.*` fields. Both targets can use enrichment fields (`jellyfin.*`, `jellyseerr.*`). State fields (`state.*`) use a generic tracking system that supports any target, but the fields defined today (`state.days_off_import_list`, `state.ever_on_import_list`) track Radarr-specific data — see [Fields > State](/roombarr/reference/fields/#state) for details.
 
 ```yaml
 # Sonarr rules can mix series-level and season-level fields
@@ -107,7 +107,7 @@ A leaf condition checks a single field against a value using an operator.
   value: 2010                # Value to compare against
 ```
 
-- **`field`** — A dotted path referencing a field from the target or an enrichment service.
+- **`field`** — A dotted path referencing a field from the target or an enrichment service. Must start with a lowercase letter and contain only lowercase letters, digits, underscores, and dots (validated against `/^[a-z][a-z0-9_.]*$/`).
 - **`operator`** — The comparison to perform. Must be compatible with the field's type.
 - **`value`** — The value to compare against. Omit this for `is_empty` and `is_not_empty`.
 
