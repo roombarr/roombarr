@@ -155,7 +155,7 @@ The top-level response object returned by `GET /evaluate/:runId` for a completed
 | `summary` | `EvaluationSummary` | Aggregate counts (absent while running) |
 | `results` | `EvaluationItemResult[]` | Per-item detail (absent while running) |
 
-When `status` is `"failed"`, the response includes an `error` field with a human-readable message describing what went wrong. Partial results may or may not be present depending on when the failure occurred.
+When `status` is `"failed"`, the `summary` and `results` fields may or may not be present depending on when the failure occurred.
 
 :::note
 The `results` array only includes items that matched at least one rule. Items that were evaluated but matched no rules are not included. Use `summary.items_evaluated` minus `summary.items_matched` to determine how many items were evaluated but didn't match.
@@ -175,7 +175,7 @@ A high-level overview of the evaluation run, returned in the `summary` field of 
 | `actions_failed` | `number` | Number of actions that failed during execution (**live mode only**) |
 
 :::note
-`actions_executed` and `actions_failed` only appear when `dry_run` is `false`. In dry-run mode, no actions are executed so these fields are omitted.
+`actions_executed` and `actions_failed` only appear when `dry_run` is `false`. In dry-run mode, no actions are executed so these fields are omitted. In live mode, `actions_executed.keep` is always `0` because `keep` items are skipped before execution — the keep action protects an item by doing nothing.
 :::
 
 ### `EvaluationItemResult`
@@ -191,8 +191,8 @@ Per-item detail returned in the `results` array of a completed run.
 | `matched_rules` | `string[]` | Names of all rules that matched this item |
 | `resolved_action` | `Action \| null` | The winning action after [conflict resolution](/roombarr/configuration/actions/#conflict-resolution), or `null` if no rules matched |
 | `dry_run` | `boolean` | Whether this item was evaluated in dry-run mode |
-| `execution_status` | `ExecutionStatus` | Outcome of executing the resolved action (see below) |
-| `execution_error` | `string` | Error message when `execution_status` is `"failed"` |
+| `execution_status` | `ExecutionStatus` | Outcome of executing the resolved action (see below). Absent before the executor runs. |
+| `execution_error` | `string` | Error message when `execution_status` is `"failed"`. Absent unless execution failed. |
 
 ### `Action`
 
