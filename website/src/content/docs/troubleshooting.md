@@ -20,7 +20,7 @@ Roombarr validates your entire configuration at startup and refuses to start if 
 - **Missing required service** — Your rules reference a target (`radarr` or `sonarr`) that isn't configured under `services`. Every rule's `target` must have a matching service.
 - **Missing enrichment service** — A rule uses `jellyfin.*` or `jellyseerr.*` fields, but the corresponding service isn't configured. Add it to `services` or remove the field from your rule.
 - **Invalid YAML syntax** — Indentation errors, missing colons, or unquoted special characters. See [common YAML mistakes](#common-yaml-mistakes) below.
-- **Incompatible operator** — An operator paired with the wrong field type (e.g., `older_than` on a boolean field). See the [type compatibility matrix](/roombarr/reference/fields/#type-to-operator-compatibility).
+- **Incompatible operator** — An operator paired with the wrong field type (e.g., `older_than` on a boolean field). See the [operator compatibility table](/roombarr/reference/fields/#operator-compatibility).
 - **Unknown field path** — A typo in a field name like `radarr.add` instead of `radarr.added`.
 - **Bad cron expression** — The `schedule` value must be a valid 5-field cron expression.
 

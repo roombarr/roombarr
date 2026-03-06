@@ -5,7 +5,7 @@ description: Consolidated cheat-sheet of all available fields across integration
 
 Fields are the data points that rule conditions evaluate against. Every field uses **dot-notation** where the first segment identifies the source service — `radarr.added`, `jellyfin.play_count`, `state.days_off_import_list`, etc.
 
-Which fields are available depends on the rule's `target`. Radarr rules can use `radarr.*` fields, and Sonarr rules can use `sonarr.*` fields. Both targets can also use enrichment fields ([`jellyfin.*`](/roombarr/integrations/jellyfin/), [`jellyseerr.*`](/roombarr/integrations/jellyseerr/)) when those services are configured. State fields (`state.*`) are currently [Radarr-only](#state).
+Which fields are available depends on the rule's `target`. Radarr rules can use `radarr.*` fields, and Sonarr rules can use `sonarr.*` fields. Both targets can also use enrichment fields ([`jellyfin.*`](/roombarr/integrations/jellyfin/), [`jellyseerr.*`](/roombarr/integrations/jellyseerr/)) when those services are configured. [State fields](#state) (`state.*`) are available on both targets, though the only state fields defined today track Radarr-specific data.
 
 For the full rule syntax, see [Rules](/roombarr/configuration/rules/). For operator details and duration syntax, see [Operators](/roombarr/reference/operators/).
 
@@ -26,6 +26,7 @@ Available when `target: radarr`. See [Radarr](/roombarr/integrations/radarr/) fo
 | `radarr.on_import_list` | boolean |
 | `radarr.status` | string |
 | `radarr.year` | number |
+| `radarr.path` | string |
 | `radarr.tags` | array |
 | `radarr.genres` | array |
 | `radarr.import_list_ids` | array |
@@ -38,6 +39,7 @@ Available when `target: sonarr`. See [Sonarr](/roombarr/integrations/sonarr/) fo
 |---|---|---|
 | `sonarr.status` | string | Series |
 | `sonarr.year` | number | Series |
+| `sonarr.path` | string | Series |
 | `sonarr.tags` | array | Series |
 | `sonarr.genres` | array | Series |
 | `sonarr.season.monitored` | boolean | Season |
@@ -70,7 +72,7 @@ Available on both targets when `services.jellyseerr` is configured. See [Jellyse
 
 ### State
 
-Computed locally from Roombarr's own history. Currently **Radarr-only**. State fields require at least 2 runs to produce values — on the first run, they are null for all items. See [Rules > When rules are skipped](/roombarr/configuration/rules/#when-rules-are-skipped) for how null state values are handled.
+Computed locally from Roombarr's own history. The state tracking system is generic and supports any target, but the only state fields defined today (`state.days_off_import_list`, `state.ever_on_import_list`) track Radarr-specific data. State fields require at least 2 runs to produce values — on the first run, they are null for all items. See [Rules > When rules are skipped](/roombarr/configuration/rules/#when-rules-are-skipped) for how null state values are handled.
 
 | Field | Type | Description |
 |---|---|---|
@@ -81,9 +83,17 @@ Computed locally from Roombarr's own history. Currently **Radarr-only**. State f
 Unlike enrichment fields (`jellyfin.*`, `jellyseerr.*`), null state values do **not** cause a rule to be skipped. A null state value means the item has no recorded history — it's meaningful data, not missing data. See [Rules > When rules are skipped](/roombarr/configuration/rules/#when-rules-are-skipped) for details.
 :::
 
-## Type-to-operator compatibility
+## Operator compatibility
 
-See [Operators > Type compatibility](/roombarr/reference/operators/#type-compatibility) for the full matrix of which operators work with each field type.
+Which operators can be used with which field types. This is validated at startup — an incompatible pairing will prevent Roombarr from starting. See [Operators](/roombarr/reference/operators/) for full operator descriptions and duration syntax.
+
+| Field type | Compatible operators |
+|---|---|
+| `string` | `equals`, `not_equals` |
+| `number` | `equals`, `not_equals`, `greater_than`, `less_than` |
+| `boolean` | `equals`, `not_equals` |
+| `date` | `older_than`, `newer_than` |
+| `array` | `includes`, `not_includes`, `includes_all`, `is_empty`, `is_not_empty` |
 
 ## Service notes
 
@@ -92,7 +102,7 @@ See [Operators > Type compatibility](/roombarr/reference/operators/#type-compati
 - **Import list fields** — `radarr.on_import_list` is a boolean convenience field; `radarr.import_list_ids` gives specific list IDs.
 - **Sonarr per-season evaluation** — Each season is evaluated independently. See [Sonarr > Per-season evaluation](/roombarr/integrations/sonarr/#per-season-evaluation).
 - **Jellyfin / Jellyseerr enrichment** — These are enrichment services available on both targets. Null fields cause rules to be skipped for that item. See integration pages for details.
-- **State fields** — Computed locally, Radarr-only, require 2+ runs. Null values do **not** cause rules to be skipped.
+- **State fields** — Computed locally, require 2+ runs. Currently all state fields track Radarr-specific data. Null values do **not** cause rules to be skipped.
 
 ## Related pages
 
