@@ -667,7 +667,7 @@ describe('validateConfig (cross-validation)', () => {
     expect(errors).toEqual([]);
   });
 
-  test('passes with state fields on sonarr target', () => {
+  test('rejects state fields on sonarr target', () => {
     const config = parse({
       services: {
         sonarr: { base_url: 'http://localhost:8989', api_key: 'key' },
@@ -691,7 +691,8 @@ describe('validateConfig (cross-validation)', () => {
       ],
     });
     const errors = validateConfig(config);
-    expect(errors).toHaveLength(0);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('state.import_list_removed_at');
   });
 
   test('passes with new radarr import list fields', () => {

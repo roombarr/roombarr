@@ -11,6 +11,11 @@ import {
   stateFieldRegistry,
 } from './state-registry.js';
 
+const IMPORT_LIST_REMOVED_AT_KEY =
+  'state.import_list_removed_at' as const satisfies keyof typeof stateFieldRegistry;
+const EVER_ON_IMPORT_LIST_KEY =
+  'state.ever_on_import_list' as const satisfies keyof typeof stateFieldRegistry;
+
 interface FieldChangeRow {
   mediaType: string;
   mediaId: string;
@@ -180,9 +185,9 @@ export class StateService {
 
     return {
       import_list_removed_at:
-        (result['state.import_list_removed_at'] as string | null) ?? null,
+        (result[IMPORT_LIST_REMOVED_AT_KEY] as string | null) ?? null,
       ever_on_import_list:
-        (result['state.ever_on_import_list'] as boolean) ?? false,
+        (result[EVER_ON_IMPORT_LIST_KEY] as boolean) ?? false,
     };
   }
 
