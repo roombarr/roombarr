@@ -206,7 +206,7 @@ If Roombarr can't reach Radarr, Sonarr, Jellyfin, or Jellyseerr, you'll see conn
 
 ### Bad API key
 
-Double-check that you've copied the correct API key. In Radarr and Sonarr, find it under **Settings → General → API Key**. In Jellyfin, generate one under **Dashboard → API Keys**. Jellyseerr's API key is in **Settings → General**.
+Double-check that you've copied the correct API key. In Radarr and Sonarr, find it under **Settings → General → API Key**. In Jellyfin, generate one under **Dashboard → API Keys**. Jellyseerr's API key is in **Settings → General → API Key**.
 
 A bad API key typically results in a `401 Unauthorized` error in the logs.
 

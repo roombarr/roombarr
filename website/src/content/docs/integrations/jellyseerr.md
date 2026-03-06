@@ -23,7 +23,11 @@ services:
 
 Roombarr validates your config at startup. If any rule references a `jellyseerr.*` field but `services.jellyseerr` is missing, Roombarr will refuse to start.
 
-## How matching works
+:::tip
+If you see connection errors in the logs, verify that Roombarr can reach Jellyseerr from inside the container. See [Docker > Verifying connectivity](/roombarr/deployment/docker/#verifying-connectivity) for how to test.
+:::
+
+## Evaluation model
 
 Roombarr matches items between your *arr instance and Jellyseerr using provider IDs:
 
@@ -43,22 +47,18 @@ All Jellyseerr fields are available on both `radarr` and `sonarr` targets.
 | Field | Type | Description |
 |---|---|---|
 | `jellyseerr.requested_by` | string | Username of the Jellyseerr user who requested the media |
-| `jellyseerr.requested_at` | date | When the request was created |
+| `jellyseerr.requested_at` | date | When the request was created. Null dates match `older_than` — see [Operators > Null handling](/roombarr/reference/operators/#null-handling). |
 | `jellyseerr.request_status` | string | `pending`, `approved`, `declined`, or `unknown` |
 
 The `request_status` values map directly from Jellyseerr's internal status codes. Items with an unrecognized status code will show `unknown`.
 
-## Compatible operators
+## Operators
 
-Each field type determines which operators you can use with it.
+Each field type determines which operators you can use. See [Fields > Operator compatibility](/roombarr/reference/fields/#operator-compatibility) for the full compatibility table, and [Operators](/roombarr/reference/operators/) for operator details and duration syntax.
 
-| Field | Type | Compatible operators |
-|---|---|---|
-| `jellyseerr.requested_by` | string | `equals`, `not_equals` |
-| `jellyseerr.requested_at` | date | `older_than`, `newer_than` |
-| `jellyseerr.request_status` | string | `equals`, `not_equals` |
+## Missing data behavior
 
-For full operator details including duration syntax for date operators, see [Operators](/roombarr/reference/operators/).
+When Jellyseerr has no data for an item (no matching request, missing provider IDs, or Jellyseerr unreachable), all `jellyseerr.*` fields are null and rules referencing them are **skipped** for that item. See [Rules > When rules are skipped](/roombarr/configuration/rules/#when-rules-are-skipped) for details.
 
 ## Example rules
 
@@ -98,14 +98,6 @@ Protect media that's still awaiting approval from being deleted by other rules. 
         operator: equals
         value: pending
 ```
-
-:::caution
-The `older_than` operator matches null dates. If you use `jellyseerr.requested_at older_than` without a guard condition (like `request_status equals approved`), items with no Jellyseerr request data will also match. See [Operators > Null handling](/roombarr/reference/operators/#null-handling) for details.
-:::
-
-## Missing data behavior
-
-When Jellyseerr has no data for an item (no matching request, missing provider IDs, or Jellyseerr unreachable), all `jellyseerr.*` fields are null and rules referencing them are **skipped** for that item. See [Rules > When rules are skipped](/roombarr/configuration/rules/#when-rules-are-skipped) for details.
 
 ## Related pages
 
