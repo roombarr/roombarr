@@ -56,9 +56,9 @@ describe('buildReasoning', () => {
           children: [
             { field: 'jellyfin.play_count', operator: 'equals', value: 0 },
             {
-              field: 'state.days_off_import_list',
-              operator: 'greater_than',
-              value: 90,
+              field: 'state.import_list_removed_at',
+              operator: 'older_than',
+              value: '90d',
             },
           ],
         },
@@ -66,7 +66,7 @@ describe('buildReasoning', () => {
     };
 
     expect(buildReasoning(conditions)).toBe(
-      '(radarr.monitored equals true AND (jellyfin.play_count equals 0 OR state.days_off_import_list greater than 90))',
+      '(radarr.monitored equals true AND (jellyfin.play_count equals 0 OR state.import_list_removed_at older than "90d"))',
     );
   });
 

@@ -49,7 +49,7 @@ export interface JellyseerrData {
 }
 
 export interface StateData {
-  days_off_import_list: number | null;
+  import_list_removed_at: string | null;
   ever_on_import_list: boolean;
 }
 

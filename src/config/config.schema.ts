@@ -1,5 +1,7 @@
 import parse from 'parse-duration';
 import { z } from 'zod';
+
+import { isValidDuration } from '../shared/duration.js';
 import {
   type FieldDefinition,
   getFieldDefinition,
@@ -140,12 +142,18 @@ export const configSchema = z.object({
 
 export { conditionSchema, leafConditionSchema, conditionGroupSchema };
 
+export interface ValidationResult {
+  errors: string[];
+  warnings: string[];
+}
+
 /**
  * Cross-validation errors that Zod schemas alone can't express.
  * Called after schema validation succeeds.
  */
-export function validateConfig(config: RoombarrConfig): string[] {
+export function validateConfig(config: RoombarrConfig): ValidationResult {
   const errors: string[] = [];
+  const warnings: string[] = [];
 
   if (!config.services.sonarr && !config.services.radarr) {
     errors.push(
@@ -174,9 +182,12 @@ export function validateConfig(config: RoombarrConfig): string[] {
       config.services,
     );
     errors.push(...conditionErrors);
+
+    // Warn about unguarded older_than/newer_than on nullable state fields
+    warnings.push(...warnUnguardedStateFields(rule));
   }
 
-  return errors;
+  return { errors, warnings };
 }
 
 function validateConditions(
@@ -268,7 +279,7 @@ function validateLeafCondition(
       );
     } else {
       const ms = parse(value);
-      if (ms === null || ms <= 0) {
+      if (!isValidDuration(ms)) {
         errors.push(
           `Rule "${ruleName}": invalid duration "${value}" for operator "${operator}". Examples: 30d, 2w, 6mo, 1y. See https://github.com/jkroso/parse-duration for full syntax`,
         );
@@ -277,4 +288,50 @@ function validateLeafCondition(
   }
 
   return errors;
+}
+
+/** Fields where null + older_than = always matches, creating a false-positive risk. */
+const NULLABLE_DATE_STATE_FIELDS = ['state.import_list_removed_at'];
+
+/** Guard fields that indicate the item has relevant history. */
+const STATE_GUARD_FIELDS = [
+  'state.ever_on_import_list',
+  'radarr.on_import_list',
+];
+
+/**
+ * Warns when a nullable state date field uses older_than/newer_than
+ * without a sibling guard condition in the same rule.
+ *
+ * Because older_than treats null as "infinitely old", an unguarded rule
+ * like `state.import_list_removed_at older_than "30d"` would match items
+ * that were never on an import list.
+ */
+function warnUnguardedStateFields(rule: RuleConfig): string[] {
+  const leaves = collectLeafConditions(rule.conditions);
+  const fields = new Set(leaves.map(l => l.field));
+
+  const warnings: string[] = [];
+  for (const stateField of NULLABLE_DATE_STATE_FIELDS) {
+    const usesStateField = leaves.some(
+      l =>
+        l.field === stateField &&
+        (l.operator === 'older_than' || l.operator === 'newer_than'),
+    );
+    if (!usesStateField) continue;
+
+    const hasGuard = STATE_GUARD_FIELDS.some(g => fields.has(g));
+    if (!hasGuard) {
+      warnings.push(
+        `Rule "${rule.name}": "${stateField}" with older_than/newer_than may match items that were never on an import list (null = infinitely old). Add a guard condition like "state.ever_on_import_list equals true" to prevent false positives.`,
+      );
+    }
+  }
+  return warnings;
+}
+
+/** Recursively collect all leaf conditions from a condition tree. */
+function collectLeafConditions(condition: Condition): LeafCondition[] {
+  if ('field' in condition) return [condition];
+  return condition.children.flatMap(collectLeafConditions);
 }

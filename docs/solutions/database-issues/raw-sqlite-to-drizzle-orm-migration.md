@@ -13,6 +13,8 @@ lines_removed: ~330
 test_coverage: "229 passing tests"
 ---
 
+> **Note:** `state.days_off_import_list` (`DaysSinceValuePattern`, `nullWhenCurrentNot`) was replaced by `state.import_list_removed_at` (`DateSinceValuePattern`) in PR #25. References below reflect the original design.
+
 # Migrate Persistence Layer from Raw bun:sqlite to Drizzle ORM
 
 ## Problem

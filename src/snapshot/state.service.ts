@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { inArray, sql } from 'drizzle-orm';
+import { and, inArray, sql } from 'drizzle-orm';
 import type { BunSQLiteDatabase } from 'drizzle-orm/bun-sqlite';
 import { DatabaseService } from '../database/database.service.js';
 import type * as schema from '../database/schema.js';
@@ -10,6 +10,11 @@ import {
   type StateFieldPattern,
   stateFieldRegistry,
 } from './state-registry.js';
+
+const IMPORT_LIST_REMOVED_AT_KEY =
+  'state.import_list_removed_at' as const satisfies keyof typeof stateFieldRegistry;
+const EVER_ON_IMPORT_LIST_KEY =
+  'state.ever_on_import_list' as const satisfies keyof typeof stateFieldRegistry;
 
 interface FieldChangeRow {
   mediaType: string;
@@ -75,11 +80,34 @@ export class StateService {
       ...new Set(relevantEntries.map(([, pattern]) => pattern.tracks)),
     ];
 
-    // Batch query: fetch all relevant field changes in one shot
+    // Batch-fetch all snapshotted media items to avoid per-item DB queries
+    const allSnapshots = db
+      .select({ mediaType: mediaItems.mediaType, mediaId: mediaItems.mediaId })
+      .from(mediaItems)
+      .all();
+    const snapshotKeys = new Set(
+      allSnapshots.map(r => `${r.mediaType}:${r.mediaId}`),
+    );
+
+    // Collect batch IDs for scoping the field_changes query
+    const mediaIds = items.map(item => this.getMediaId(item));
+    const mediaTypes = [
+      ...new Set(
+        items.map(item => (item.type === 'movie' ? 'movie' : 'season')),
+      ),
+    ];
+
+    // Batch query: fetch field changes scoped to current batch items
     const allChanges = db
       .select()
       .from(fieldChanges)
-      .where(inArray(fieldChanges.fieldPath, trackedPaths))
+      .where(
+        and(
+          inArray(fieldChanges.mediaType, mediaTypes),
+          inArray(fieldChanges.mediaId, mediaIds),
+          inArray(fieldChanges.fieldPath, trackedPaths),
+        ),
+      )
       .all() as FieldChangeRow[];
 
     // Index by composite key → field_path → rows (sorted by changedAt DESC)
@@ -96,6 +124,7 @@ export class StateService {
         compositeKey,
         relevantEntries,
         changeIndex,
+        snapshotKeys,
       );
 
       return { ...item, state };
@@ -140,21 +169,12 @@ export class StateService {
     compositeKey: string,
     entries: Array<[string, StateFieldPattern]>,
     changeIndex: Map<string, Map<string, FieldChangeRow[]>>,
+    snapshotKeys: Set<string>,
   ): StateData | null {
-    const db = this.getDb();
-
-    // Check if this item has been snapshotted before
+    // Check if this item has been snapshotted before (O(1) set lookup)
     const mediaType = item.type === 'movie' ? 'movie' : 'season';
     const mediaId = compositeKey.split(':')[1];
-    const snapshot = db
-      .select({ mediaId: mediaItems.mediaId })
-      .from(mediaItems)
-      .where(
-        sql`${mediaItems.mediaType} = ${mediaType} AND ${mediaItems.mediaId} = ${mediaId}`,
-      )
-      .get();
-
-    if (!snapshot) return null;
+    if (!snapshotKeys.has(`${mediaType}:${mediaId}`)) return null;
 
     const itemChanges = changeIndex.get(compositeKey);
     const result: Record<string, unknown> = {};
@@ -165,12 +185,8 @@ export class StateService {
       const pathChanges = itemChanges?.get(pattern.tracks) ?? [];
 
       switch (pattern.type) {
-        case 'days_since_value':
-          result[fieldName] = this.computeDaysSinceValue(
-            item,
-            pattern,
-            pathChanges,
-          );
+        case 'date_since_value':
+          result[fieldName] = this.computeDateSinceValue(pattern, pathChanges);
           break;
         case 'ever_was_value':
           result[fieldName] = this.computeEverWasValue(
@@ -183,42 +199,29 @@ export class StateService {
     }
 
     return {
-      days_off_import_list:
-        (result['state.days_off_import_list'] as number | null) ?? null,
+      import_list_removed_at:
+        (result[IMPORT_LIST_REMOVED_AT_KEY] as string | null) ?? null,
       ever_on_import_list:
-        (result['state.ever_on_import_list'] as boolean) ?? false,
+        (result[EVER_ON_IMPORT_LIST_KEY] as boolean) ?? false,
     };
   }
 
   /**
-   * Compute days since a field last changed to a specific value.
-   * Returns null if the current value doesn't match the trigger condition.
+   * Compute the ISO date when a field last changed to a specific value.
+   * Returns null if no matching change exists in history.
+   *
+   * Intentionally does not check the current live value — users compose
+   * with `radarr.on_import_list` for current-state filtering (see README).
    */
-  private computeDaysSinceValue(
-    item: UnifiedMedia,
-    pattern: Extract<StateFieldPattern, { type: 'days_since_value' }>,
+  private computeDateSinceValue(
+    pattern: Extract<StateFieldPattern, { type: 'date_since_value' }>,
     changes: FieldChangeRow[],
-  ): number | null {
-    // Check the live value against nullWhenCurrentNot
-    if (pattern.nullWhenCurrentNot) {
-      const { value: currentValue, resolved } = resolveField(
-        item,
-        pattern.tracks,
-      );
-      if (!resolved) return null;
-
-      const currentSerialized = JSON.stringify(currentValue);
-      if (currentSerialized !== pattern.value) return null;
-    }
-
+  ): string | null {
     // Find the most recent change where new_value matches the target value
     const match = changes.find(c => c.newValue === pattern.value);
     if (!match) return null;
 
-    const changedAt = new Date(match.changedAt);
-    const now = new Date();
-    const diffMs = now.getTime() - changedAt.getTime();
-    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    return match.changedAt;
   }
 
   /**

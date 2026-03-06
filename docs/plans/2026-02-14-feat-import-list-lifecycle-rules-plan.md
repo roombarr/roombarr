@@ -6,6 +6,8 @@ date: 2026-02-14
 deepened: 2026-02-14
 ---
 
+> **Note:** `state.days_off_import_list` (`DaysSinceValuePattern`, `nullWhenCurrentNot`) was replaced by `state.import_list_removed_at` (`DateSinceValuePattern`) in PR #25. References below reflect the original design.
+
 # Import List Lifecycle Rules with Persistence Layer
 
 ## Enhancement Summary
