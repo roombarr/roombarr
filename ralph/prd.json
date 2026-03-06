@@ -91,7 +91,7 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Source of truth: src/config/config.schema.ts, roombarr.example.yml"
     },
     {
@@ -109,7 +109,7 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Source of truth: src/radarr/, src/config/field-registry.ts. Must be done after US-003 (fields.md canonical home exists)."
     },
     {
@@ -126,7 +126,7 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "Source of truth: src/sonarr/, src/config/field-registry.ts. Must be done after US-003 (fields.md canonical home exists)."
     },
     {
