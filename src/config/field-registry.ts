@@ -29,6 +29,7 @@ const radarrFields: Record<string, FieldDefinition> = {
   'radarr.genres': { type: 'array', service: 'radarr' },
   'radarr.status': { type: 'string', service: 'radarr' },
   'radarr.year': { type: 'number', service: 'radarr' },
+  'radarr.path': { type: 'string', service: 'radarr' },
   'radarr.on_import_list': { type: 'boolean', service: 'radarr' },
   'radarr.import_list_ids': { type: 'array', service: 'radarr' },
 };
@@ -38,6 +39,7 @@ const sonarrFields: Record<string, FieldDefinition> = {
   'sonarr.genres': { type: 'array', service: 'sonarr' },
   'sonarr.status': { type: 'string', service: 'sonarr' },
   'sonarr.year': { type: 'number', service: 'sonarr' },
+  'sonarr.path': { type: 'string', service: 'sonarr' },
   'sonarr.season.monitored': { type: 'boolean', service: 'sonarr' },
   'sonarr.season.season_number': { type: 'number', service: 'sonarr' },
   'sonarr.season.episode_count': { type: 'number', service: 'sonarr' },
