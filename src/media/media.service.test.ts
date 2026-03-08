@@ -6,6 +6,7 @@ import type {
   UnifiedMovie,
   UnifiedSeason,
 } from '../shared/types.js';
+import { makeRule } from '../test/index.js';
 import { MediaService } from './media.service.js';
 
 function makeMovie(tmdbId: number): UnifiedMovie {
@@ -85,21 +86,6 @@ const jellyseerrIndexes: JellyseerrIndexes = {
   ]),
   byTvdbId: new Map(),
 };
-
-function makeRule(overrides: Partial<RuleConfig> = {}): RuleConfig {
-  return {
-    name: 'Test rule',
-    target: 'radarr',
-    action: 'delete',
-    conditions: {
-      operator: 'AND',
-      children: [
-        { field: 'radarr.monitored', operator: 'equals', value: true },
-      ],
-    },
-    ...overrides,
-  };
-}
 
 describe('MediaService', () => {
   let radarrService: { fetchMovies: ReturnType<typeof mock> };

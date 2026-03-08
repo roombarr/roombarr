@@ -1,20 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import { HttpModule, HttpService } from '@nestjs/axios';
 import { Test } from '@nestjs/testing';
-import type { AxiosResponse } from 'axios';
 import { of } from 'rxjs';
+import { axiosResponse } from '../test/index.js';
 import { JellyfinClient } from './jellyfin.client.js';
 import type { JellyfinItemsResponse, JellyfinUser } from './jellyfin.types.js';
-
-function axiosResponse<T>(data: T): AxiosResponse<T> {
-  return {
-    data,
-    status: 200,
-    statusText: 'OK',
-    headers: {},
-    config: {} as any,
-  };
-}
 
 describe('JellyfinClient', () => {
   async function setup() {

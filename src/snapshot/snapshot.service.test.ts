@@ -1,67 +1,26 @@
 import type { Database } from 'bun:sqlite';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { existsSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { DatabaseService } from '../database/database.service.js';
-import type { UnifiedMovie } from '../shared/types.js';
+import { createTestDatabase, makeMovie } from '../test/index.js';
 import { SnapshotService } from './snapshot.service.js';
-
-let nextRadarrId = 101;
-
-function makeMovie(overrides: Record<string, any> = {}): UnifiedMovie {
-  return {
-    type: 'movie',
-    radarr_id: nextRadarrId++,
-    tmdb_id: 1,
-    imdb_id: 'tt0000001',
-    title: 'Test Movie',
-    year: 2024,
-    radarr: {
-      added: '2024-01-01T00:00:00Z',
-      size_on_disk: 5_000_000_000,
-      has_file: true,
-      monitored: true,
-      tags: [],
-      genres: ['Action'],
-      status: 'released',
-      year: 2024,
-      digital_release: null,
-      physical_release: null,
-      path: '/movies/test',
-      on_import_list: true,
-      import_list_ids: [1, 3],
-    },
-    state: null,
-    jellyfin: null,
-    jellyseerr: null,
-    ...overrides,
-  };
-}
 
 describe('SnapshotService', () => {
   let dbService: DatabaseService;
   let snapshotService: SnapshotService;
   let db: Database;
-  let testDir: string;
+  let cleanup: () => void;
 
   beforeEach(() => {
-    testDir = join(tmpdir(), `roombarr-snapshot-test-${Date.now()}`);
-    process.env.DB_PATH = join(testDir, 'roombarr.sqlite');
-
-    dbService = new DatabaseService();
-    dbService.onModuleInit();
+    const testDb = createTestDatabase();
+    dbService = testDb.dbService;
+    cleanup = testDb.cleanup;
     db = dbService.getDatabase();
 
     snapshotService = new SnapshotService(dbService);
   });
 
   afterEach(() => {
-    dbService.onModuleDestroy();
-    if (existsSync(testDir)) {
-      rmSync(testDir, { recursive: true });
-    }
-    delete process.env.DB_PATH;
+    cleanup();
   });
 
   test('creates snapshot for new items', async () => {
@@ -89,17 +48,12 @@ describe('SnapshotService', () => {
   });
 
   test('detects field value changes on subsequent snapshots', async () => {
-    const movie1 = makeMovie();
-    await snapshotService.snapshot([movie1], new Set(['radarr']));
+    const movie = makeMovie();
+    await snapshotService.snapshot([movie], new Set(['radarr']));
 
     // Change monitored from true to false
-    const movie2 = makeMovie({
-      radarr: {
-        ...movie1.radarr,
-        monitored: false,
-      },
-    });
-    await snapshotService.snapshot([movie2], new Set(['radarr']));
+    const updatedMovie = makeMovie({ radarr: { monitored: false } });
+    await snapshotService.snapshot([updatedMovie], new Set(['radarr']));
 
     const changes = db
       .query<{ field_path: string; old_value: string; new_value: string }, []>(
@@ -168,8 +122,8 @@ describe('SnapshotService', () => {
     await snapshotService.snapshot([movie], new Set(['radarr', 'jellyfin']));
 
     // Second snapshot with only radarr hydrated (jellyfin API was down)
-    const movie2 = makeMovie({ jellyfin: null });
-    await snapshotService.snapshot([movie2], new Set(['radarr']));
+    const movieNoJellyfin = makeMovie();
+    await snapshotService.snapshot([movieNoJellyfin], new Set(['radarr']));
 
     const row = db
       .query<{ data: string }, []>('SELECT data FROM media_items')
@@ -231,22 +185,14 @@ describe('SnapshotService', () => {
   });
 
   test('sorts arrays before diffing to avoid phantom changes', async () => {
-    const movie1 = makeMovie({
-      radarr: {
-        ...makeMovie().radarr,
-        tags: ['action', 'sci-fi'],
-      },
-    });
-    await snapshotService.snapshot([movie1], new Set(['radarr']));
+    const movie = makeMovie({ radarr: { tags: ['action', 'sci-fi'] } });
+    await snapshotService.snapshot([movie], new Set(['radarr']));
 
     // Same tags in different order — should NOT produce a change
-    const movie2 = makeMovie({
-      radarr: {
-        ...makeMovie().radarr,
-        tags: ['sci-fi', 'action'],
-      },
+    const reorderedMovie = makeMovie({
+      radarr: { tags: ['sci-fi', 'action'] },
     });
-    await snapshotService.snapshot([movie2], new Set(['radarr']));
+    await snapshotService.snapshot([reorderedMovie], new Set(['radarr']));
 
     const changes = db
       .query<{ field_path: string }, []>(
@@ -257,8 +203,8 @@ describe('SnapshotService', () => {
   });
 
   test('handles multiple items in single snapshot', async () => {
-    const movie1 = makeMovie({ tmdb_id: 1, title: 'Movie 1' });
-    const movie2 = makeMovie({ tmdb_id: 2, title: 'Movie 2' });
+    const movie1 = makeMovie({ radarr_id: 1, tmdb_id: 1, title: 'Movie 1' });
+    const movie2 = makeMovie({ radarr_id: 2, tmdb_id: 2, title: 'Movie 2' });
     await snapshotService.snapshot([movie1, movie2], new Set(['radarr']));
 
     const count = db

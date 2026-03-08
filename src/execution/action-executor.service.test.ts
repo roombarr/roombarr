@@ -2,73 +2,10 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import { AxiosError } from 'axios';
 import type { RadarrClient } from '../radarr/radarr.client.js';
 import type { EvaluationItemResult } from '../rules/types.js';
-import {
-  buildInternalId,
-  type UnifiedMedia,
-  type UnifiedMovie,
-  type UnifiedSeason,
-} from '../shared/types.js';
+import { buildInternalId, type UnifiedMedia } from '../shared/types.js';
 import type { SonarrClient } from '../sonarr/sonarr.client.js';
+import { makeMovie, makeSeason } from '../test/index.js';
 import { ActionExecutorService } from './action-executor.service.js';
-
-function makeMovie(overrides: Record<string, any> = {}): UnifiedMovie {
-  return {
-    type: 'movie',
-    radarr_id: 42,
-    tmdb_id: 603,
-    imdb_id: 'tt0133093',
-    title: 'The Matrix',
-    year: 1999,
-    radarr: {
-      added: '2024-01-01T00:00:00Z',
-      size_on_disk: 8_500_000_000,
-      has_file: true,
-      monitored: true,
-      tags: [],
-      genres: ['action'],
-      status: 'released',
-      year: 1999,
-      digital_release: null,
-      physical_release: null,
-      path: '/movies/The Matrix',
-      on_import_list: false,
-      import_list_ids: [],
-    },
-    state: null,
-    jellyfin: null,
-    jellyseerr: null,
-    ...overrides,
-  };
-}
-
-function makeSeason(overrides: Record<string, any> = {}): UnifiedSeason {
-  return {
-    type: 'season',
-    sonarr_series_id: 10,
-    tvdb_id: 100,
-    title: 'Breaking Bad - S01',
-    year: 2008,
-    sonarr: {
-      tags: [],
-      genres: ['drama'],
-      status: 'ended',
-      year: 2008,
-      path: '/tv/Breaking Bad',
-      season: {
-        season_number: 1,
-        monitored: true,
-        episode_count: 7,
-        episode_file_count: 7,
-        has_file: true,
-        size_on_disk: 10_000_000_000,
-      },
-    },
-    state: null,
-    jellyfin: null,
-    jellyseerr: null,
-    ...overrides,
-  };
-}
 
 function makeResult(
   item: UnifiedMedia,
@@ -116,17 +53,17 @@ describe('ActionExecutorService', () => {
       deleteMovie: mock(() => Promise.resolve()),
       fetchMovie: mock(() =>
         Promise.resolve({
-          id: 42,
-          title: 'The Matrix',
-          tmdbId: 603,
-          imdbId: 'tt0133093',
-          year: 1999,
-          path: '/movies/The Matrix',
+          id: 101,
+          title: 'Test Movie',
+          tmdbId: 1,
+          imdbId: 'tt0000001',
+          year: 2024,
+          path: '/movies/test',
           status: 'released',
-          genres: ['action'],
+          genres: ['Action'],
           tags: [],
           monitored: true,
-          sizeOnDisk: 8_500_000_000,
+          sizeOnDisk: 5_000_000_000,
           added: '2024-01-01T00:00:00Z',
           digitalRelease: null,
           physicalRelease: null,
@@ -139,21 +76,21 @@ describe('ActionExecutorService', () => {
         Promise.resolve([
           {
             id: 1,
-            seriesId: 10,
+            seriesId: 201,
             seasonNumber: 1,
             path: '/ep1.mkv',
             size: 1_000_000_000,
           },
           {
             id: 2,
-            seriesId: 10,
+            seriesId: 201,
             seasonNumber: 1,
             path: '/ep2.mkv',
             size: 1_000_000_000,
           },
           {
             id: 3,
-            seriesId: 10,
+            seriesId: 201,
             seasonNumber: 2,
             path: '/ep3.mkv',
             size: 1_000_000_000,
@@ -163,14 +100,14 @@ describe('ActionExecutorService', () => {
       deleteEpisodeFile: mock(() => Promise.resolve()),
       fetchSeriesById: mock(() =>
         Promise.resolve({
-          id: 10,
-          title: 'Breaking Bad',
+          id: 201,
+          title: 'Test Show - S01',
           tvdbId: 100,
           imdbId: null,
-          year: 2008,
-          path: '/tv/Breaking Bad',
+          year: 2023,
+          path: '/tv/test',
           status: 'ended',
-          genres: ['drama'],
+          genres: ['Drama'],
           tags: [],
           monitored: true,
           seasons: [
@@ -212,7 +149,7 @@ describe('ActionExecutorService', () => {
 
       const { results } = await service.execute([result], [movie], false);
 
-      expect(radarrClient.deleteMovie).toHaveBeenCalledWith(42);
+      expect(radarrClient.deleteMovie).toHaveBeenCalledWith(101);
       expect(results[0].execution_status).toBe('success');
     });
   });
@@ -224,7 +161,7 @@ describe('ActionExecutorService', () => {
 
       const { results } = await service.execute([result], [movie], false);
 
-      expect(radarrClient.fetchMovie).toHaveBeenCalledWith(42);
+      expect(radarrClient.fetchMovie).toHaveBeenCalledWith(101);
       expect(radarrClient.updateMovie).toHaveBeenCalledTimes(1);
       const putBody = radarrClient.updateMovie.mock.calls[0][1];
       expect(putBody.monitored).toBe(false);
@@ -239,7 +176,7 @@ describe('ActionExecutorService', () => {
 
       const { results } = await service.execute([result], [season], false);
 
-      expect(sonarrClient.fetchEpisodeFiles).toHaveBeenCalledWith(10);
+      expect(sonarrClient.fetchEpisodeFiles).toHaveBeenCalledWith(201);
       // Only season 1 files (ids 1 and 2), not season 2 (id 3)
       expect(sonarrClient.deleteEpisodeFile).toHaveBeenCalledTimes(2);
       expect(sonarrClient.deleteEpisodeFile).toHaveBeenCalledWith(1);
@@ -285,7 +222,7 @@ describe('ActionExecutorService', () => {
 
       const { results } = await service.execute([result], [season], false);
 
-      expect(sonarrClient.fetchSeriesById).toHaveBeenCalledWith(10);
+      expect(sonarrClient.fetchSeriesById).toHaveBeenCalledWith(201);
       expect(sonarrClient.updateSeries).toHaveBeenCalledTimes(1);
       const putBody = sonarrClient.updateSeries.mock.calls[0][1];
       expect(putBody.seasons[0].monitored).toBe(false);

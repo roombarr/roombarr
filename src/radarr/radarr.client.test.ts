@@ -1,20 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import { HttpModule, HttpService } from '@nestjs/axios';
 import { Test } from '@nestjs/testing';
-import type { AxiosResponse } from 'axios';
 import { of } from 'rxjs';
+import { axiosResponse } from '../test/index.js';
 import { RadarrClient } from './radarr.client.js';
 import type { RadarrMovie, RadarrTag } from './radarr.types.js';
-
-function axiosResponse<T>(data: T): AxiosResponse<T> {
-  return {
-    data,
-    status: 200,
-    statusText: 'OK',
-    headers: {},
-    config: {} as any,
-  };
-}
 
 describe('RadarrClient', () => {
   async function setup() {

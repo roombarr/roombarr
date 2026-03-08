@@ -1,85 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import type { AuditService } from '../audit/audit.service.js';
 import type { RoombarrConfig } from '../config/config.schema.js';
-import type {
-  UnifiedMedia,
-  UnifiedMovie,
-  UnifiedSeason,
-} from '../shared/types.js';
+import type { UnifiedMedia } from '../shared/types.js';
+import { makeMovie, makeSeason } from '../test/index.js';
 import { RulesService } from './rules.service.js';
-
-function makeMovie(overrides: Record<string, any> = {}): UnifiedMovie {
-  return {
-    type: 'movie',
-    radarr_id: 101,
-    tmdb_id: 1,
-    imdb_id: 'tt0000001',
-    title: 'Test Movie',
-    year: 2024,
-    radarr: {
-      added: '2024-01-01T00:00:00Z',
-      size_on_disk: 5_000_000_000,
-      has_file: true,
-      monitored: true,
-      tags: [],
-      genres: ['Action'],
-      status: 'released',
-      year: 2024,
-      digital_release: null,
-      physical_release: null,
-      path: '/movies/test',
-      on_import_list: false,
-      import_list_ids: [],
-    },
-    state: null,
-    jellyfin: {
-      watched_by: ['Alice', 'Bob'],
-      watched_by_all: true,
-      last_played: '2024-06-01T00:00:00Z',
-      play_count: 3,
-    },
-    jellyseerr: {
-      requested_by: 'Alice',
-      requested_at: '2024-01-15T00:00:00Z',
-      request_status: 'available',
-    },
-    ...overrides,
-  };
-}
-
-function makeSeason(overrides: Record<string, any> = {}): UnifiedSeason {
-  return {
-    type: 'season',
-    sonarr_series_id: 201,
-    tvdb_id: 100,
-    title: 'Test Show',
-    year: 2023,
-    sonarr: {
-      tags: [],
-      genres: ['Drama'],
-      status: 'ended',
-      year: 2023,
-      path: '/tv/test',
-      season: {
-        season_number: 1,
-        monitored: true,
-        episode_count: 10,
-        episode_file_count: 10,
-        has_file: true,
-        size_on_disk: 10_000_000_000,
-      },
-    },
-    jellyfin: {
-      watched_by: ['Alice'],
-      watched_by_all: false,
-      last_played: '2024-05-01T00:00:00Z',
-      play_count: 1,
-    },
-    jellyseerr: null,
-    state: null,
-    ...overrides,
-  };
-}
 
 function makeRules(rules: RoombarrConfig['rules']): RoombarrConfig['rules'] {
   return rules;
@@ -94,12 +18,7 @@ const service = new RulesService(mockAuditService);
 describe('RulesService.evaluate', () => {
   test('matches a simple rule', () => {
     const items: UnifiedMedia[] = [
-      makeMovie({
-        radarr: {
-          ...makeMovie().radarr,
-          tags: ['permanent'],
-        },
-      }),
+      makeMovie({ radarr: { tags: ['permanent'] } }),
     ];
 
     const rules = makeRules([
@@ -177,11 +96,7 @@ describe('RulesService.evaluate', () => {
 
   test('least-destructive-wins: keep beats delete', () => {
     const movie = makeMovie({
-      radarr: {
-        ...makeMovie().radarr,
-        tags: ['permanent'],
-        added: '2020-01-01T00:00:00Z',
-      },
+      radarr: { tags: ['permanent'], added: '2020-01-01T00:00:00Z' },
       jellyfin: {
         watched_by: ['Alice', 'Bob'],
         watched_by_all: true,
@@ -234,7 +149,6 @@ describe('RulesService.evaluate', () => {
     const items: UnifiedMedia[] = [
       makeMovie({
         radarr: {
-          ...makeMovie().radarr,
           size_on_disk: 60_000_000_000,
           added: '2020-01-01T00:00:00Z',
         },
@@ -282,7 +196,7 @@ describe('RulesService.evaluate', () => {
   });
 
   test('skips rule when referenced service data is missing', () => {
-    const items: UnifiedMedia[] = [makeMovie({ jellyfin: null })];
+    const items: UnifiedMedia[] = [makeMovie()];
 
     const rules = makeRules([
       {
@@ -314,11 +228,7 @@ describe('RulesService.evaluate', () => {
 
   test('evaluates nested AND/OR conditions', () => {
     const movie = makeMovie({
-      radarr: {
-        ...makeMovie().radarr,
-        tags: ['seasonal'],
-        added: '2020-01-01T00:00:00Z',
-      },
+      radarr: { tags: ['seasonal'], added: '2020-01-01T00:00:00Z' },
       jellyfin: {
         watched_by: ['Alice', 'Bob'],
         watched_by_all: true,
@@ -378,12 +288,7 @@ describe('RulesService.evaluate', () => {
 
   test('evaluates 3+ levels of nesting', () => {
     const movie = makeMovie({
-      radarr: {
-        ...makeMovie().radarr,
-        tags: ['seasonal'],
-        genres: ['Action', 'Comedy'],
-        status: 'released',
-      },
+      radarr: { tags: ['seasonal'], genres: ['Action', 'Comedy'] },
     });
     const items: UnifiedMedia[] = [movie];
 
@@ -431,13 +336,7 @@ describe('RulesService.evaluate', () => {
 
   test('evaluates sonarr season targets', () => {
     const season = makeSeason({
-      sonarr: {
-        ...makeSeason().sonarr,
-        season: {
-          ...makeSeason().sonarr.season,
-          episode_file_count: 5,
-        },
-      },
+      sonarr: { season: { episode_file_count: 5 } },
     });
     const items: UnifiedMedia[] = [season];
 
@@ -511,10 +410,7 @@ describe('RulesService.evaluate', () => {
           last_played: null,
           play_count: 0,
         },
-        radarr: {
-          ...makeMovie().radarr,
-          added: '2020-01-01T00:00:00Z',
-        },
+        radarr: { added: '2020-01-01T00:00:00Z' },
       }),
     ];
 
@@ -539,12 +435,27 @@ describe('RulesService.evaluate', () => {
 
   test('summary counts are correct', () => {
     const items: UnifiedMedia[] = [
-      makeMovie({ tmdb_id: 1, title: 'Movie 1', jellyfin: null }),
-      makeMovie({ tmdb_id: 2, title: 'Movie 2' }),
+      makeMovie({ tmdb_id: 1, title: 'Movie 1' }),
+      makeMovie({
+        tmdb_id: 2,
+        title: 'Movie 2',
+        jellyfin: {
+          watched_by: ['Alice', 'Bob'],
+          watched_by_all: true,
+          last_played: '2024-06-01T00:00:00Z',
+          play_count: 3,
+        },
+      }),
       makeMovie({
         tmdb_id: 3,
         title: 'Movie 3',
-        radarr: { ...makeMovie().radarr, tags: ['permanent'] },
+        radarr: { tags: ['permanent'] },
+        jellyfin: {
+          watched_by: ['Alice', 'Bob'],
+          watched_by_all: true,
+          last_played: '2024-06-01T00:00:00Z',
+          play_count: 3,
+        },
       }),
     ];
 
