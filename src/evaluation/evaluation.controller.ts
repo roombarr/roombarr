@@ -15,6 +15,12 @@ import { EvaluationService } from './evaluation.service.js';
 export class EvaluationController {
   constructor(private readonly evaluationService: EvaluationService) {}
 
+  /** Returns basic metadata for all stored evaluation runs, newest first. */
+  @Get()
+  listRuns() {
+    return this.evaluationService.listRuns();
+  }
+
   /**
    * Trigger a new evaluation run.
    * Returns 202 with run_id when started, 409 if already running.

@@ -4,9 +4,52 @@ import { existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseService } from '../database/database.service.js';
+import { FieldRegistryService } from '../integration/field-registry.service.js';
+import type { IntegrationProvider } from '../integration/integration.types.js';
+import { radarrFields } from '../radarr/radarr.fields.js';
 import type { UnifiedMovie, UnifiedSeason } from '../shared/types.js';
+import { sonarrFields } from '../sonarr/sonarr.fields.js';
 import { SnapshotService } from './snapshot.service.js';
 import { StateService } from './state.service.js';
+import type { StateFieldPattern } from './state-registry.js';
+
+/** Creates a mock provider that only contributes state field patterns. */
+function makeStateProvider(
+  patterns: Record<string, StateFieldPattern>,
+): IntegrationProvider {
+  return {
+    name: 'radarr',
+    getFieldDefinitions: () => radarrFields,
+    validateConfig: () => [],
+    fetchMedia: async () => [],
+    getStateFieldPatterns: () => patterns,
+  };
+}
+
+function makeSonarrProvider(): IntegrationProvider {
+  return {
+    name: 'sonarr',
+    getFieldDefinitions: () => sonarrFields,
+    validateConfig: () => [],
+    fetchMedia: async () => [],
+  };
+}
+
+const radarrStatePatterns: Record<string, StateFieldPattern> = {
+  'state.days_off_import_list': {
+    type: 'days_since_value',
+    tracks: 'radarr.on_import_list',
+    value: 'false',
+    nullWhenCurrentNot: true,
+    targets: ['radarr'],
+  },
+  'state.ever_on_import_list': {
+    type: 'ever_was_value',
+    tracks: 'radarr.on_import_list',
+    value: 'true',
+    targets: ['radarr'],
+  },
+};
 
 function makeMovie(overrides: Record<string, any> = {}): UnifiedMovie {
   return {
@@ -53,8 +96,11 @@ describe('StateService', () => {
     dbService.onModuleInit();
     db = dbService.getDatabase();
 
-    snapshotService = new SnapshotService(dbService);
-    stateService = new StateService(dbService);
+    const stateProvider = makeStateProvider(radarrStatePatterns);
+    const providers = [stateProvider, makeSonarrProvider()];
+    const fieldRegistryService = new FieldRegistryService(providers);
+    snapshotService = new SnapshotService(dbService, fieldRegistryService);
+    stateService = new StateService(dbService, [stateProvider]);
   });
 
   afterEach(() => {

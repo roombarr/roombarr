@@ -2,6 +2,7 @@ import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '../config/config.service.js';
 import { RadarrClient } from './radarr.client.js';
+import { RadarrProvider } from './radarr.provider.js';
 import { RadarrService } from './radarr.service.js';
 
 @Module({
@@ -18,7 +19,7 @@ import { RadarrService } from './radarr.service.js';
       },
     }),
   ],
-  providers: [RadarrClient, RadarrService],
-  exports: [RadarrClient, RadarrService],
+  providers: [RadarrClient, RadarrService, RadarrProvider],
+  exports: [RadarrClient, RadarrService, RadarrProvider],
 })
 export class RadarrModule {}

@@ -1,85 +1,81 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Condition, RuleConfig } from '../config/config.schema.js';
 import { getServiceFromField } from '../config/field-registry.js';
-import type { SeasonIdentifier } from '../jellyfin/jellyfin.service.js';
-import { JellyfinService } from '../jellyfin/jellyfin.service.js';
-import type { JellyseerrIndexes } from '../jellyseerr/jellyseerr.service.js';
-import { JellyseerrService } from '../jellyseerr/jellyseerr.service.js';
-import { RadarrService } from '../radarr/radarr.service.js';
-import type { JellyfinData, UnifiedMedia } from '../shared/types.js';
-import { SonarrService } from '../sonarr/sonarr.service.js';
-import { enrichMovies, enrichSeasons } from './media.merger.js';
+import { INTEGRATION_PROVIDER } from '../integration/integration.constants.js';
+import type { IntegrationProvider } from '../integration/integration.types.js';
+import type { UnifiedMedia } from '../shared/types.js';
 
 /**
- * Orchestrates data hydration from all configured services.
- * Analyzes rules to determine which services are needed,
- * fetches data lazily (only from referenced services),
- * and merges everything into unified models for rule evaluation.
+ * Orchestrates data hydration from all configured providers.
+ * Analyzes rules to determine which providers are needed,
+ * fetches data lazily (only from referenced providers),
+ * and enriches items through the provider pipeline.
  */
 @Injectable()
 export class MediaService {
   private readonly logger = new Logger(MediaService.name);
+  private readonly fetchProviders: IntegrationProvider[];
+  private readonly enrichProviders: IntegrationProvider[];
 
   constructor(
-    private readonly sonarrService: SonarrService | null,
-    private readonly radarrService: RadarrService | null,
-    private readonly jellyfinService: JellyfinService | null,
-    private readonly jellyseerrService: JellyseerrService | null,
-  ) {}
+    @Inject(INTEGRATION_PROVIDER)
+    readonly providers: IntegrationProvider[],
+  ) {
+    this.fetchProviders = providers.filter(p => !!p.fetchMedia);
+    this.enrichProviders = providers.filter(p => !!p.enrichMedia);
+  }
 
   /**
    * Hydrate unified media models based on the given rules.
-   * Only fetches from services that are actually referenced
-   * in rule conditions (lazy fetching).
+   * Only fetches from providers whose targets match rule targets,
+   * and only enriches from providers whose names appear in rule field prefixes.
    */
   async hydrate(rules: RuleConfig[]): Promise<UnifiedMedia[]> {
     const neededServices = this.analyzeNeededServices(rules);
-    const hasRadarrRules = rules.some(r => r.target === 'radarr');
-    const hasSonarrRules = rules.some(r => r.target === 'sonarr');
+    const ruleTargets = new Set<string>(rules.map(r => r.target));
 
     this.logger.log(
       `Hydrating media: services needed = [${[...neededServices].join(', ')}]`,
     );
 
-    // Fetch base data from Sonarr/Radarr in parallel
-    const [movies, seasons] = await Promise.all([
-      hasRadarrRules ? this.fetchMoviesSafe() : Promise.resolve([]),
-      hasSonarrRules ? this.fetchSeasonsSafe() : Promise.resolve([]),
-    ]);
-
-    // Fetch enrichment data in parallel (only if needed)
-    const [jellyfinMovieData, jellyfinSeasonData, jellyseerrData] =
-      await Promise.all([
-        neededServices.has('jellyfin') && movies.length > 0
-          ? this.fetchJellyfinMoviesSafe()
-          : Promise.resolve(null),
-        neededServices.has('jellyfin') && seasons.length > 0
-          ? this.fetchJellyfinSeasonsSafe(seasons)
-          : Promise.resolve(null),
-        neededServices.has('jellyseerr')
-          ? this.fetchJellyseerrSafe()
-          : Promise.resolve(null),
-      ]);
-
-    // Merge enrichment data into unified models
-    const enrichedMovies = enrichMovies(
-      movies,
-      jellyfinMovieData,
-      jellyseerrData,
+    // Fetch base data from all matching fetch providers in parallel
+    const fetchResults = await Promise.all(
+      this.fetchProviders
+        .filter(p => ruleTargets.has(p.name))
+        .map(async p => {
+          try {
+            return (await p.fetchMedia?.()) ?? [];
+          } catch (error) {
+            this.logger.warn(`${p.name} fetch failed, skipping: ${error}`);
+            return [];
+          }
+        }),
     );
-    const enrichedSeasons = enrichSeasons(
-      seasons,
-      jellyfinSeasonData,
-      jellyseerrData,
-    );
+    let items: UnifiedMedia[] = fetchResults.flat();
 
-    const allItems: UnifiedMedia[] = [...enrichedMovies, ...enrichedSeasons];
+    // Run enrichment providers sequentially (each sees the previous provider's output)
+    for (const provider of this.enrichProviders) {
+      if (!neededServices.has(provider.name)) continue;
+      try {
+        items = (await provider.enrichMedia?.(items)) ?? items;
+      } catch (error) {
+        this.logger.warn(
+          `${provider.name} enrichment failed, skipping: ${error}`,
+        );
+      }
+    }
 
+    let movieCount = 0;
+    let seasonCount = 0;
+    for (const item of items) {
+      if (item.type === 'movie') movieCount++;
+      else seasonCount++;
+    }
     this.logger.log(
-      `Hydration complete: ${enrichedMovies.length} movies, ${enrichedSeasons.length} seasons`,
+      `Hydration complete: ${movieCount} movies, ${seasonCount} seasons`,
     );
 
-    return allItems;
+    return items;
   }
 
   /**
@@ -106,89 +102,6 @@ export class MediaService {
       for (const child of condition.children) {
         this.collectServicePrefixes(child, services);
       }
-    }
-  }
-
-  private async fetchMoviesSafe() {
-    if (!this.radarrService) {
-      this.logger.warn('Radarr service not available, skipping movie fetch');
-      return [];
-    }
-    try {
-      return await this.radarrService.fetchMovies();
-    } catch (error) {
-      this.logger.warn(`Radarr fetch failed, skipping: ${error}`);
-      return [];
-    }
-  }
-
-  private async fetchSeasonsSafe() {
-    if (!this.sonarrService) {
-      this.logger.warn('Sonarr service not available, skipping season fetch');
-      return [];
-    }
-    try {
-      return await this.sonarrService.fetchSeasons();
-    } catch (error) {
-      this.logger.warn(`Sonarr fetch failed, skipping: ${error}`);
-      return [];
-    }
-  }
-
-  private async fetchJellyfinMoviesSafe(): Promise<Map<
-    number,
-    JellyfinData
-  > | null> {
-    if (!this.jellyfinService) {
-      this.logger.warn(
-        'Jellyfin service not available, skipping movie watch data',
-      );
-      return null;
-    }
-    try {
-      return await this.jellyfinService.fetchMovieWatchData();
-    } catch (error) {
-      this.logger.warn(`Jellyfin movie fetch failed, skipping: ${error}`);
-      return null;
-    }
-  }
-
-  private async fetchJellyfinSeasonsSafe(
-    seasons: Array<{
-      tvdb_id: number;
-      sonarr: { season: { season_number: number } };
-    }>,
-  ): Promise<Map<string, JellyfinData> | null> {
-    if (!this.jellyfinService) {
-      this.logger.warn(
-        'Jellyfin service not available, skipping season watch data',
-      );
-      return null;
-    }
-    try {
-      const identifiers: SeasonIdentifier[] = seasons.map(s => ({
-        tvdbId: s.tvdb_id,
-        seasonNumber: s.sonarr.season.season_number,
-      }));
-      return await this.jellyfinService.fetchSeasonWatchData(identifiers);
-    } catch (error) {
-      this.logger.warn(`Jellyfin season fetch failed, skipping: ${error}`);
-      return null;
-    }
-  }
-
-  private async fetchJellyseerrSafe(): Promise<JellyseerrIndexes | null> {
-    if (!this.jellyseerrService) {
-      this.logger.warn(
-        'Jellyseerr service not available, skipping request data',
-      );
-      return null;
-    }
-    try {
-      return await this.jellyseerrService.fetchRequestData();
-    } catch (error) {
-      this.logger.warn(`Jellyseerr fetch failed, skipping: ${error}`);
-      return null;
     }
   }
 }

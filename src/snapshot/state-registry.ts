@@ -32,19 +32,3 @@ interface EverWasValuePattern {
 }
 
 export type StateFieldPattern = DaysSinceValuePattern | EverWasValuePattern;
-
-export const stateFieldRegistry = {
-  'state.days_off_import_list': {
-    type: 'days_since_value',
-    tracks: 'radarr.on_import_list',
-    value: 'false',
-    nullWhenCurrentNot: true,
-    targets: ['radarr'],
-  },
-  'state.ever_on_import_list': {
-    type: 'ever_was_value',
-    tracks: 'radarr.on_import_list',
-    value: 'true',
-    targets: ['radarr'],
-  },
-} satisfies Record<string, StateFieldPattern>;

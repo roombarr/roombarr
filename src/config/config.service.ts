@@ -1,11 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { Injectable, Logger } from '@nestjs/common';
 import { parse as parseYaml } from 'yaml';
-import {
-  configSchema,
-  type RoombarrConfig,
-  validateConfig,
-} from './config.schema.js';
+import { configSchema, type RoombarrConfig } from './config.schema.js';
 
 const CONFIG_PATHS = [process.env.CONFIG_PATH, '/config/roombarr.yml'];
 
@@ -48,13 +44,6 @@ export class ConfigService {
         .map(issue => `  - ${issue.path.join('.')}: ${issue.message}`)
         .join('\n');
       throw new Error(`Configuration validation failed:\n${formatted}`);
-    }
-
-    const crossErrors = validateConfig(result.data);
-    if (crossErrors.length > 0) {
-      throw new Error(
-        `Configuration validation failed:\n${crossErrors.map(e => `  - ${e}`).join('\n')}`,
-      );
     }
 
     return result.data;

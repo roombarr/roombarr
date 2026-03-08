@@ -2,10 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { gt, sql } from 'drizzle-orm';
 import type { BunSQLiteDatabase } from 'drizzle-orm/bun-sqlite';
 import diff from 'microdiff';
-import { fieldRegistry } from '../config/field-registry.js';
 import { DatabaseService } from '../database/database.service.js';
 import type * as schema from '../database/schema.js';
 import { fieldChanges, mediaItems } from '../database/schema.js';
+import { FieldRegistryService } from '../integration/field-registry.service.js';
 import { resolveField } from '../rules/field-resolver.js';
 import type { UnifiedMedia } from '../shared/types.js';
 
@@ -51,7 +51,10 @@ export class SnapshotService {
   private readonly logger = new Logger(SnapshotService.name);
   private db!: BunSQLiteDatabase<typeof schema>;
 
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(
+    private readonly databaseService: DatabaseService,
+    private readonly fieldRegistryService: FieldRegistryService,
+  ) {}
 
   private getDb() {
     if (!this.db) {
@@ -311,7 +314,7 @@ export class SnapshotService {
     hydratedServices: Set<string>,
   ): Record<string, unknown> {
     const target = item.type === 'movie' ? 'radarr' : 'sonarr';
-    const registry = fieldRegistry[target];
+    const registry = this.fieldRegistryService.getRegistry()[target] ?? {};
     const flat: Record<string, unknown> = {};
 
     for (const fieldPath of Object.keys(registry)) {

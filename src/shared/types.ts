@@ -48,10 +48,7 @@ export interface JellyseerrData {
   request_status: string;
 }
 
-export interface StateData {
-  days_off_import_list: number | null;
-  ever_on_import_list: boolean;
-}
+export type StateData = Record<string, unknown>;
 
 export interface UnifiedMovie {
   type: 'movie';

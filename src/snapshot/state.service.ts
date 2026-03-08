@@ -1,15 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { inArray, sql } from 'drizzle-orm';
 import type { BunSQLiteDatabase } from 'drizzle-orm/bun-sqlite';
 import { DatabaseService } from '../database/database.service.js';
 import type * as schema from '../database/schema.js';
 import { fieldChanges, mediaItems } from '../database/schema.js';
+import { INTEGRATION_PROVIDER } from '../integration/integration.constants.js';
+import type { IntegrationProvider } from '../integration/integration.types.js';
 import { resolveField } from '../rules/field-resolver.js';
 import type { StateData, UnifiedMedia } from '../shared/types.js';
-import {
-  type StateFieldPattern,
-  stateFieldRegistry,
-} from './state-registry.js';
+import type { StateFieldPattern } from './state-registry.js';
 
 interface FieldChangeRow {
   mediaType: string;
@@ -28,9 +27,31 @@ interface FieldChangeRow {
 @Injectable()
 export class StateService {
   private readonly logger = new Logger(StateService.name);
+  private readonly stateFieldRegistry: Record<string, StateFieldPattern>;
   private db!: BunSQLiteDatabase<typeof schema>;
 
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(
+    private readonly databaseService: DatabaseService,
+    @Inject(INTEGRATION_PROVIDER)
+    providers: IntegrationProvider[],
+  ) {
+    this.stateFieldRegistry = this.collectStateFieldPatterns(providers);
+  }
+
+  /** Collects state field patterns from all providers that implement getStateFieldPatterns(). */
+  private collectStateFieldPatterns(
+    providers: IntegrationProvider[],
+  ): Record<string, StateFieldPattern> {
+    const registry: Record<string, StateFieldPattern> = {};
+
+    for (const provider of providers) {
+      const patterns = provider.getStateFieldPatterns?.();
+      if (!patterns) continue;
+      Object.assign(registry, patterns);
+    }
+
+    return registry;
+  }
 
   private getDb() {
     if (!this.db) {
@@ -65,7 +86,7 @@ export class StateService {
       items.map(item => (item.type === 'movie' ? 'radarr' : 'sonarr')),
     );
 
-    const relevantEntries = Object.entries(stateFieldRegistry).filter(
+    const relevantEntries = Object.entries(this.stateFieldRegistry).filter(
       ([, pattern]) => pattern.targets.some(t => targetTypes.has(t)),
     );
 
@@ -85,6 +106,9 @@ export class StateService {
     // Index by composite key → field_path → rows (sorted by changedAt DESC)
     const changeIndex = this.buildChangeIndex(allChanges);
 
+    // Batch-load all known media item keys into a Set to avoid N+1 queries
+    const knownMediaKeys = this.loadKnownMediaKeys();
+
     return items.map(item => {
       const target = item.type === 'movie' ? 'radarr' : 'sonarr';
       const mediaId = this.getMediaId(item);
@@ -96,6 +120,7 @@ export class StateService {
         compositeKey,
         relevantEntries,
         changeIndex,
+        knownMediaKeys,
       );
 
       return { ...item, state };
@@ -126,11 +151,28 @@ export class StateService {
     // Sort each group by changedAt DESC (in-memory sort is cheaper than SQL ORDER BY)
     for (const pathMap of index.values()) {
       for (const rows of pathMap.values()) {
-        rows.sort((a, b) => b.changedAt.localeCompare(a.changedAt));
+        rows.sort((a, b) =>
+          b.changedAt > a.changedAt ? 1 : b.changedAt < a.changedAt ? -1 : 0,
+        );
       }
     }
 
     return index;
+  }
+
+  /** Batch-load all known media item composite keys (mediaType:mediaId) into a Set. */
+  private loadKnownMediaKeys(): Set<string> {
+    const db = this.getDb();
+    const rows = db
+      .select({ mediaType: mediaItems.mediaType, mediaId: mediaItems.mediaId })
+      .from(mediaItems)
+      .all();
+
+    const keys = new Set<string>();
+    for (const row of rows) {
+      keys.add(`${row.mediaType}:${row.mediaId}`);
+    }
+    return keys;
   }
 
   /** Compute all applicable state fields for a single item. */
@@ -140,21 +182,12 @@ export class StateService {
     compositeKey: string,
     entries: Array<[string, StateFieldPattern]>,
     changeIndex: Map<string, Map<string, FieldChangeRow[]>>,
+    knownMediaKeys: Set<string>,
   ): StateData | null {
-    const db = this.getDb();
-
-    // Check if this item has been snapshotted before
+    // Check if this item has been snapshotted before (in-memory lookup)
     const mediaType = item.type === 'movie' ? 'movie' : 'season';
     const mediaId = compositeKey.split(':')[1];
-    const snapshot = db
-      .select({ mediaId: mediaItems.mediaId })
-      .from(mediaItems)
-      .where(
-        sql`${mediaItems.mediaType} = ${mediaType} AND ${mediaItems.mediaId} = ${mediaId}`,
-      )
-      .get();
-
-    if (!snapshot) return null;
+    if (!knownMediaKeys.has(`${mediaType}:${mediaId}`)) return null;
 
     const itemChanges = changeIndex.get(compositeKey);
     const result: Record<string, unknown> = {};
@@ -182,12 +215,14 @@ export class StateService {
       }
     }
 
-    return {
-      days_off_import_list:
-        (result['state.days_off_import_list'] as number | null) ?? null,
-      ever_on_import_list:
-        (result['state.ever_on_import_list'] as boolean) ?? false,
-    };
+    // Strip the "state." prefix from field names so consumers access e.g. state.days_off_import_list
+    const state: StateData = {};
+    for (const [key, value] of Object.entries(result)) {
+      const shortKey = key.startsWith('state.') ? key.slice(6) : key;
+      state[shortKey] = value;
+    }
+
+    return Object.keys(state).length > 0 ? state : null;
   }
 
   /**

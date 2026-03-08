@@ -4,8 +4,23 @@ import { existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseService } from '../database/database.service.js';
+import { FieldRegistryService } from '../integration/field-registry.service.js';
+import type { IntegrationProvider } from '../integration/integration.types.js';
+import { jellyfinFields } from '../jellyfin/jellyfin.fields.js';
+import { radarrFields } from '../radarr/radarr.fields.js';
 import type { UnifiedMovie } from '../shared/types.js';
 import { SnapshotService } from './snapshot.service.js';
+
+function makeProvider(
+  overrides: Partial<IntegrationProvider>,
+): IntegrationProvider {
+  return {
+    name: 'test',
+    getFieldDefinitions: () => ({}),
+    validateConfig: () => [],
+    ...overrides,
+  };
+}
 
 let nextRadarrId = 101;
 
@@ -53,7 +68,20 @@ describe('SnapshotService', () => {
     dbService.onModuleInit();
     db = dbService.getDatabase();
 
-    snapshotService = new SnapshotService(dbService);
+    const providers = [
+      makeProvider({
+        name: 'radarr',
+        fetchMedia: async () => [],
+        getFieldDefinitions: () => radarrFields,
+      }),
+      makeProvider({
+        name: 'jellyfin',
+        enrichMedia: async items => items,
+        getFieldDefinitions: () => jellyfinFields,
+      }),
+    ];
+    const fieldRegistryService = new FieldRegistryService(providers);
+    snapshotService = new SnapshotService(dbService, fieldRegistryService);
   });
 
   afterEach(() => {

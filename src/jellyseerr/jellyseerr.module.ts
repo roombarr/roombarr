@@ -2,6 +2,7 @@ import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '../config/config.service.js';
 import { JellyseerrClient } from './jellyseerr.client.js';
+import { JellyseerrProvider } from './jellyseerr.provider.js';
 import { JellyseerrService } from './jellyseerr.service.js';
 
 @Module({
@@ -18,7 +19,7 @@ import { JellyseerrService } from './jellyseerr.service.js';
       },
     }),
   ],
-  providers: [JellyseerrClient, JellyseerrService],
-  exports: [JellyseerrService],
+  providers: [JellyseerrClient, JellyseerrService, JellyseerrProvider],
+  exports: [JellyseerrService, JellyseerrProvider],
 })
 export class JellyseerrModule {}

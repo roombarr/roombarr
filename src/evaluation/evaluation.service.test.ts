@@ -172,7 +172,7 @@ describe('EvaluationService', () => {
       const run = await service.runEvaluation();
 
       expect(run.status).toBe('failed');
-      expect(run.error).toBe('Sonarr connection refused');
+      expect(run.error).toBe('Evaluation failed due to an internal error');
       expect(run.completed_at).toBeTruthy();
     });
 

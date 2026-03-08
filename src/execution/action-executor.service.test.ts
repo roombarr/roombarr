@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import { AxiosError } from 'axios';
-import type { RadarrClient } from '../radarr/radarr.client.js';
+import type { FieldDefinition } from '../config/field-registry.js';
+import type { IntegrationProvider } from '../integration/integration.types.js';
 import type { EvaluationItemResult } from '../rules/types.js';
 import {
   buildInternalId,
@@ -8,7 +9,6 @@ import {
   type UnifiedMovie,
   type UnifiedSeason,
 } from '../shared/types.js';
-import type { SonarrClient } from '../sonarr/sonarr.client.js';
 import { ActionExecutorService } from './action-executor.service.js';
 
 function makeMovie(overrides: Record<string, any> = {}): UnifiedMovie {
@@ -97,95 +97,32 @@ function make404Error(): AxiosError {
   return error;
 }
 
+/** Creates a mock IntegrationProvider with executeAction capability. */
+function makeProvider(
+  name: string,
+  executeAction: ReturnType<typeof mock> = mock(() => Promise.resolve()),
+): IntegrationProvider {
+  return {
+    name,
+    getFieldDefinitions: () => ({}) as Record<string, FieldDefinition>,
+    validateConfig: () => [],
+    executeAction,
+  };
+}
+
 describe('ActionExecutorService', () => {
-  let radarrClient: {
-    deleteMovie: ReturnType<typeof mock>;
-    fetchMovie: ReturnType<typeof mock>;
-    updateMovie: ReturnType<typeof mock>;
-  };
-  let sonarrClient: {
-    fetchEpisodeFiles: ReturnType<typeof mock>;
-    deleteEpisodeFile: ReturnType<typeof mock>;
-    fetchSeriesById: ReturnType<typeof mock>;
-    updateSeries: ReturnType<typeof mock>;
-  };
+  let radarrExecuteAction: ReturnType<typeof mock>;
+  let sonarrExecuteAction: ReturnType<typeof mock>;
   let service: ActionExecutorService;
 
   beforeEach(() => {
-    radarrClient = {
-      deleteMovie: mock(() => Promise.resolve()),
-      fetchMovie: mock(() =>
-        Promise.resolve({
-          id: 42,
-          title: 'The Matrix',
-          tmdbId: 603,
-          imdbId: 'tt0133093',
-          year: 1999,
-          path: '/movies/The Matrix',
-          status: 'released',
-          genres: ['action'],
-          tags: [],
-          monitored: true,
-          sizeOnDisk: 8_500_000_000,
-          added: '2024-01-01T00:00:00Z',
-          digitalRelease: null,
-          physicalRelease: null,
-        }),
-      ),
-      updateMovie: mock(() => Promise.resolve()),
-    };
-    sonarrClient = {
-      fetchEpisodeFiles: mock(() =>
-        Promise.resolve([
-          {
-            id: 1,
-            seriesId: 10,
-            seasonNumber: 1,
-            path: '/ep1.mkv',
-            size: 1_000_000_000,
-          },
-          {
-            id: 2,
-            seriesId: 10,
-            seasonNumber: 1,
-            path: '/ep2.mkv',
-            size: 1_000_000_000,
-          },
-          {
-            id: 3,
-            seriesId: 10,
-            seasonNumber: 2,
-            path: '/ep3.mkv',
-            size: 1_000_000_000,
-          },
-        ]),
-      ),
-      deleteEpisodeFile: mock(() => Promise.resolve()),
-      fetchSeriesById: mock(() =>
-        Promise.resolve({
-          id: 10,
-          title: 'Breaking Bad',
-          tvdbId: 100,
-          imdbId: null,
-          year: 2008,
-          path: '/tv/Breaking Bad',
-          status: 'ended',
-          genres: ['drama'],
-          tags: [],
-          monitored: true,
-          seasons: [
-            { seasonNumber: 1, monitored: true },
-            { seasonNumber: 2, monitored: true },
-          ],
-        }),
-      ),
-      updateSeries: mock(() => Promise.resolve()),
-    };
+    radarrExecuteAction = mock(() => Promise.resolve());
+    sonarrExecuteAction = mock(() => Promise.resolve());
 
-    service = new ActionExecutorService(
-      radarrClient as unknown as RadarrClient,
-      sonarrClient as unknown as SonarrClient,
-    );
+    const radarrProvider = makeProvider('radarr', radarrExecuteAction);
+    const sonarrProvider = makeProvider('sonarr', sonarrExecuteAction);
+
+    service = new ActionExecutorService([radarrProvider, sonarrProvider]);
   });
 
   describe('dry-run mode', () => {
@@ -201,95 +138,50 @@ describe('ActionExecutorService', () => {
 
       expect(results[0].execution_status).toBe('skipped');
       expect(executionSummary).toBeUndefined();
-      expect(radarrClient.deleteMovie).not.toHaveBeenCalled();
+      expect(radarrExecuteAction).not.toHaveBeenCalled();
     });
   });
 
-  describe('Radarr delete', () => {
-    test('calls deleteMovie with radarr_id', async () => {
+  describe('movie actions', () => {
+    test('dispatches delete to movie provider', async () => {
       const movie = makeMovie();
       const result = makeResult(movie, 'delete');
 
       const { results } = await service.execute([result], [movie], false);
 
-      expect(radarrClient.deleteMovie).toHaveBeenCalledWith(42);
+      expect(radarrExecuteAction).toHaveBeenCalledWith(movie, 'delete');
       expect(results[0].execution_status).toBe('success');
     });
-  });
 
-  describe('Radarr unmonitor', () => {
-    test('re-fetches movie and PUTs with monitored: false', async () => {
+    test('dispatches unmonitor to movie provider', async () => {
       const movie = makeMovie();
       const result = makeResult(movie, 'unmonitor');
 
       const { results } = await service.execute([result], [movie], false);
 
-      expect(radarrClient.fetchMovie).toHaveBeenCalledWith(42);
-      expect(radarrClient.updateMovie).toHaveBeenCalledTimes(1);
-      const putBody = radarrClient.updateMovie.mock.calls[0][1];
-      expect(putBody.monitored).toBe(false);
+      expect(radarrExecuteAction).toHaveBeenCalledWith(movie, 'unmonitor');
       expect(results[0].execution_status).toBe('success');
     });
   });
 
-  describe('Sonarr season delete', () => {
-    test('fetches episode files, filters by season, deletes each', async () => {
+  describe('season actions', () => {
+    test('dispatches delete to season provider', async () => {
       const season = makeSeason();
       const result = makeResult(season, 'delete');
 
       const { results } = await service.execute([result], [season], false);
 
-      expect(sonarrClient.fetchEpisodeFiles).toHaveBeenCalledWith(10);
-      // Only season 1 files (ids 1 and 2), not season 2 (id 3)
-      expect(sonarrClient.deleteEpisodeFile).toHaveBeenCalledTimes(2);
-      expect(sonarrClient.deleteEpisodeFile).toHaveBeenCalledWith(1);
-      expect(sonarrClient.deleteEpisodeFile).toHaveBeenCalledWith(2);
+      expect(sonarrExecuteAction).toHaveBeenCalledWith(season, 'delete');
       expect(results[0].execution_status).toBe('success');
     });
 
-    test('continues deleting remaining files when individual file returns 404', async () => {
-      let callCount = 0;
-      sonarrClient.deleteEpisodeFile = mock(() => {
-        callCount++;
-        if (callCount === 1) return Promise.reject(make404Error());
-        return Promise.resolve();
-      });
-
-      const season = makeSeason();
-      const result = makeResult(season, 'delete');
-
-      const { results } = await service.execute([result], [season], false);
-
-      expect(sonarrClient.deleteEpisodeFile).toHaveBeenCalledTimes(2);
-      expect(sonarrClient.deleteEpisodeFile).toHaveBeenCalledWith(1);
-      expect(sonarrClient.deleteEpisodeFile).toHaveBeenCalledWith(2);
-      expect(results[0].execution_status).toBe('success');
-    });
-
-    test('handles season with no episode files gracefully', async () => {
-      sonarrClient.fetchEpisodeFiles = mock(() => Promise.resolve([]));
-      const season = makeSeason();
-      const result = makeResult(season, 'delete');
-
-      const { results } = await service.execute([result], [season], false);
-
-      expect(sonarrClient.deleteEpisodeFile).not.toHaveBeenCalled();
-      expect(results[0].execution_status).toBe('success');
-    });
-  });
-
-  describe('Sonarr season unmonitor', () => {
-    test('re-fetches series and PUTs with season monitored: false', async () => {
+    test('dispatches unmonitor to season provider', async () => {
       const season = makeSeason();
       const result = makeResult(season, 'unmonitor');
 
       const { results } = await service.execute([result], [season], false);
 
-      expect(sonarrClient.fetchSeriesById).toHaveBeenCalledWith(10);
-      expect(sonarrClient.updateSeries).toHaveBeenCalledTimes(1);
-      const putBody = sonarrClient.updateSeries.mock.calls[0][1];
-      expect(putBody.seasons[0].monitored).toBe(false);
-      expect(putBody.seasons[1].monitored).toBe(true); // season 2 unchanged
+      expect(sonarrExecuteAction).toHaveBeenCalledWith(season, 'unmonitor');
       expect(results[0].execution_status).toBe('success');
     });
   });
@@ -301,8 +193,7 @@ describe('ActionExecutorService', () => {
 
       const { results } = await service.execute([result], [movie], false);
 
-      expect(radarrClient.deleteMovie).not.toHaveBeenCalled();
-      expect(radarrClient.fetchMovie).not.toHaveBeenCalled();
+      expect(radarrExecuteAction).not.toHaveBeenCalled();
       expect(results[0].execution_status).toBe('skipped');
     });
 
@@ -312,14 +203,17 @@ describe('ActionExecutorService', () => {
 
       const { results } = await service.execute([result], [movie], false);
 
-      expect(radarrClient.deleteMovie).not.toHaveBeenCalled();
+      expect(radarrExecuteAction).not.toHaveBeenCalled();
       expect(results[0].execution_status).toBe('skipped');
     });
   });
 
   describe('error handling', () => {
     test('logs 404 as warning without counting as success or failure', async () => {
-      radarrClient.deleteMovie = mock(() => Promise.reject(make404Error()));
+      radarrExecuteAction = mock(() => Promise.reject(make404Error()));
+      const radarrProvider = makeProvider('radarr', radarrExecuteAction);
+      service = new ActionExecutorService([radarrProvider]);
+
       const movie = makeMovie();
       const result = makeResult(movie, 'delete');
 
@@ -339,14 +233,15 @@ describe('ActionExecutorService', () => {
       const movie1 = makeMovie({ radarr_id: 1, tmdb_id: 100 });
       const movie2 = makeMovie({ radarr_id: 2, tmdb_id: 200 });
 
-      // First call fails with 500, second succeeds
       let callCount = 0;
-      radarrClient.deleteMovie = mock(() => {
+      radarrExecuteAction = mock(() => {
         callCount++;
         if (callCount === 1)
           return Promise.reject(new Error('Internal Server Error'));
         return Promise.resolve();
       });
+      const radarrProvider = makeProvider('radarr', radarrExecuteAction);
+      service = new ActionExecutorService([radarrProvider]);
 
       const results = [
         makeResult(movie1, 'delete'),
@@ -360,7 +255,7 @@ describe('ActionExecutorService', () => {
       );
 
       expect(executed[0].execution_status).toBe('failed');
-      expect(executed[0].execution_error).toBe('Internal Server Error');
+      expect(executed[0].execution_error).toBe('Failed to delete item');
       expect(executed[1].execution_status).toBe('success');
       expect(executionSummary?.actions_executed.delete).toBe(1);
       expect(executionSummary?.actions_failed).toBe(1);
@@ -370,13 +265,14 @@ describe('ActionExecutorService', () => {
       const movie1 = makeMovie({ radarr_id: 1, tmdb_id: 100 });
       const movie2 = makeMovie({ radarr_id: 2, tmdb_id: 200 });
 
-      // First call returns 404, second succeeds
       let callCount = 0;
-      radarrClient.deleteMovie = mock(() => {
+      radarrExecuteAction = mock(() => {
         callCount++;
         if (callCount === 1) return Promise.reject(make404Error());
         return Promise.resolve();
       });
+      const radarrProvider = makeProvider('radarr', radarrExecuteAction);
+      service = new ActionExecutorService([radarrProvider]);
 
       const { results: executed, executionSummary } = await service.execute(
         [makeResult(movie1, 'delete'), makeResult(movie2, 'delete')],
@@ -396,12 +292,25 @@ describe('ActionExecutorService', () => {
       const movie = makeMovie();
       const result = makeResult(movie, 'delete');
 
-      // Pass empty items array — item won't be found
       const { results } = await service.execute([result], [], false);
 
       expect(results[0].execution_status).toBe('failed');
       expect(results[0].execution_error).toBe(
         'Item not found in hydrated data',
+      );
+    });
+
+    test('reports failure when no provider registered for item type', async () => {
+      service = new ActionExecutorService([]);
+
+      const movie = makeMovie();
+      const result = makeResult(movie, 'delete');
+
+      const { results } = await service.execute([result], [movie], false);
+
+      expect(results[0].execution_status).toBe('failed');
+      expect(results[0].execution_error).toBe(
+        'No action provider registered for target "radarr"',
       );
     });
   });

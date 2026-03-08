@@ -2,6 +2,7 @@ import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '../config/config.service.js';
 import { JellyfinClient } from './jellyfin.client.js';
+import { JellyfinProvider } from './jellyfin.provider.js';
 import { JellyfinService } from './jellyfin.service.js';
 
 @Module({
@@ -26,7 +27,8 @@ import { JellyfinService } from './jellyfin.service.js';
       useFactory: (client: JellyfinClient, config: ConfigService) =>
         new JellyfinService(client, config.getConfig().performance.concurrency),
     },
+    JellyfinProvider,
   ],
-  exports: [JellyfinService],
+  exports: [JellyfinService, JellyfinProvider],
 })
 export class JellyfinModule {}

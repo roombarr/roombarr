@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import type { RuleConfig } from '../config/config.schema.js';
-import type { JellyseerrIndexes } from '../jellyseerr/jellyseerr.service.js';
+import type { IntegrationProvider } from '../integration/integration.types.js';
 import type {
   JellyfinData,
+  UnifiedMedia,
   UnifiedMovie,
   UnifiedSeason,
 } from '../shared/types.js';
@@ -72,20 +73,6 @@ const jellyfinMovieData: JellyfinData = {
   play_count: 1,
 };
 
-const jellyseerrIndexes: JellyseerrIndexes = {
-  byTmdbId: new Map([
-    [
-      603,
-      {
-        requested_by: 'alice',
-        requested_at: '2024-01-15T12:00:00Z',
-        request_status: 'approved',
-      },
-    ],
-  ]),
-  byTvdbId: new Map(),
-};
-
 function makeRule(overrides: Partial<RuleConfig> = {}): RuleConfig {
   return {
     name: 'Test rule',
@@ -101,39 +88,84 @@ function makeRule(overrides: Partial<RuleConfig> = {}): RuleConfig {
   };
 }
 
-describe('MediaService', () => {
-  let radarrService: { fetchMovies: ReturnType<typeof mock> };
-  let sonarrService: { fetchSeasons: ReturnType<typeof mock> };
-  let jellyfinService: {
-    fetchMovieWatchData: ReturnType<typeof mock>;
-    fetchSeasonWatchData: ReturnType<typeof mock>;
+/** Creates a mock IntegrationProvider with the given overrides. */
+function makeProvider(
+  overrides: Partial<IntegrationProvider>,
+): IntegrationProvider {
+  return {
+    name: 'unknown',
+    getFieldDefinitions: () => ({}),
+    validateConfig: () => [],
+    ...overrides,
   };
-  let jellyseerrService: { fetchRequestData: ReturnType<typeof mock> };
+}
+
+describe('MediaService', () => {
+  let radarrFetchMedia: ReturnType<typeof mock>;
+  let sonarrFetchMedia: ReturnType<typeof mock>;
+  let jellyfinEnrichMedia: ReturnType<typeof mock>;
+  let jellyseerrEnrichMedia: ReturnType<typeof mock>;
   let service: MediaService;
 
   beforeEach(() => {
-    radarrService = {
-      fetchMovies: mock(() => Promise.resolve([makeMovie(603)])),
-    };
-    sonarrService = {
-      fetchSeasons: mock(() => Promise.resolve([makeSeason(100, 1)])),
-    };
-    jellyfinService = {
-      fetchMovieWatchData: mock(() =>
-        Promise.resolve(new Map([[603, jellyfinMovieData]])),
-      ),
-      fetchSeasonWatchData: mock(() => Promise.resolve(new Map())),
-    };
-    jellyseerrService = {
-      fetchRequestData: mock(() => Promise.resolve(jellyseerrIndexes)),
-    };
+    radarrFetchMedia = mock(() => Promise.resolve([makeMovie(603)]));
+    sonarrFetchMedia = mock(() => Promise.resolve([makeSeason(100, 1)]));
 
-    service = new MediaService(
-      sonarrService as any,
-      radarrService as any,
-      jellyfinService as any,
-      jellyseerrService as any,
+    jellyfinEnrichMedia = mock((items: UnifiedMedia[]) =>
+      Promise.resolve(
+        items.map(item => {
+          if (item.type === 'movie') {
+            return { ...item, jellyfin: jellyfinMovieData };
+          }
+          return item;
+        }),
+      ),
     );
+
+    jellyseerrEnrichMedia = mock((items: UnifiedMedia[]) =>
+      Promise.resolve(
+        items.map(item => {
+          if (item.type === 'movie') {
+            return {
+              ...item,
+              jellyseerr: {
+                requested_by: 'alice',
+                requested_at: '2024-01-15T12:00:00Z',
+                request_status: 'approved' as const,
+              },
+            };
+          }
+          return item;
+        }),
+      ),
+    );
+
+    const radarrProvider = makeProvider({
+      name: 'radarr',
+      fetchMedia: radarrFetchMedia,
+    });
+
+    const sonarrProvider = makeProvider({
+      name: 'sonarr',
+      fetchMedia: sonarrFetchMedia,
+    });
+
+    const jellyfinProvider = makeProvider({
+      name: 'jellyfin',
+      enrichMedia: jellyfinEnrichMedia,
+    });
+
+    const jellyseerrProvider = makeProvider({
+      name: 'jellyseerr',
+      enrichMedia: jellyseerrEnrichMedia,
+    });
+
+    service = new MediaService([
+      radarrProvider,
+      sonarrProvider,
+      jellyfinProvider,
+      jellyseerrProvider,
+    ]);
   });
 
   test('fetches and merges movies with enrichment data', async () => {
@@ -163,12 +195,12 @@ describe('MediaService', () => {
     const movie = result[0] as UnifiedMovie;
     expect(movie.jellyfin).toEqual(jellyfinMovieData);
     expect(movie.jellyseerr?.requested_by).toBe('alice');
-    expect(radarrService.fetchMovies).toHaveBeenCalledTimes(1);
-    expect(jellyfinService.fetchMovieWatchData).toHaveBeenCalledTimes(1);
-    expect(jellyseerrService.fetchRequestData).toHaveBeenCalledTimes(1);
+    expect(radarrFetchMedia).toHaveBeenCalledTimes(1);
+    expect(jellyfinEnrichMedia).toHaveBeenCalledTimes(1);
+    expect(jellyseerrEnrichMedia).toHaveBeenCalledTimes(1);
   });
 
-  test('skips Jellyfin fetch when no rules reference jellyfin fields', async () => {
+  test('skips Jellyfin enrichment when no rules reference jellyfin fields', async () => {
     const rules: RuleConfig[] = [
       makeRule({
         conditions: {
@@ -182,11 +214,10 @@ describe('MediaService', () => {
 
     await service.hydrate(rules);
 
-    expect(jellyfinService.fetchMovieWatchData).not.toHaveBeenCalled();
-    expect(jellyfinService.fetchSeasonWatchData).not.toHaveBeenCalled();
+    expect(jellyfinEnrichMedia).not.toHaveBeenCalled();
   });
 
-  test('skips Jellyseerr fetch when no rules reference jellyseerr fields', async () => {
+  test('skips Jellyseerr enrichment when no rules reference jellyseerr fields', async () => {
     const rules: RuleConfig[] = [
       makeRule({
         conditions: {
@@ -200,7 +231,7 @@ describe('MediaService', () => {
 
     await service.hydrate(rules);
 
-    expect(jellyseerrService.fetchRequestData).not.toHaveBeenCalled();
+    expect(jellyseerrEnrichMedia).not.toHaveBeenCalled();
   });
 
   test('skips Sonarr fetch when no rules target sonarr', async () => {
@@ -208,7 +239,7 @@ describe('MediaService', () => {
 
     await service.hydrate(rules);
 
-    expect(sonarrService.fetchSeasons).not.toHaveBeenCalled();
+    expect(sonarrFetchMedia).not.toHaveBeenCalled();
   });
 
   test('skips Radarr fetch when no rules target radarr', async () => {
@@ -226,33 +257,33 @@ describe('MediaService', () => {
 
     await service.hydrate(rules);
 
-    expect(radarrService.fetchMovies).not.toHaveBeenCalled();
+    expect(radarrFetchMedia).not.toHaveBeenCalled();
   });
 
-  test('handles null services gracefully', async () => {
-    const serviceWithNulls = new MediaService(null, null, null, null);
+  test('handles no providers gracefully', async () => {
+    const emptyService = new MediaService([]);
     const rules: RuleConfig[] = [makeRule()];
 
-    const result = await serviceWithNulls.hydrate(rules);
+    const result = await emptyService.hydrate(rules);
 
     expect(result).toEqual([]);
   });
 
-  test('handles service fetch failure gracefully', async () => {
-    radarrService.fetchMovies = mock(() =>
+  test('handles provider fetch failure gracefully', async () => {
+    radarrFetchMedia.mockImplementation(() =>
       Promise.reject(new Error('Connection refused')),
     );
 
     const rules: RuleConfig[] = [makeRule()];
     const result = await service.hydrate(rules);
 
-    // Should return empty instead of throwing
+    // MediaService catches fetch failures and returns [] per provider
     const movies = result.filter(r => r.type === 'movie');
     expect(movies).toHaveLength(0);
   });
 
-  test('handles Jellyfin failure gracefully while still returning base data', async () => {
-    jellyfinService.fetchMovieWatchData = mock(() =>
+  test('handles enrichment failure gracefully while still returning base data', async () => {
+    jellyfinEnrichMedia.mockImplementation(() =>
       Promise.reject(new Error('Jellyfin offline')),
     );
 
@@ -295,7 +326,7 @@ describe('MediaService', () => {
     const result = await service.hydrate(rules);
 
     expect(result).toHaveLength(2);
-    expect(radarrService.fetchMovies).toHaveBeenCalledTimes(1);
-    expect(sonarrService.fetchSeasons).toHaveBeenCalledTimes(1);
+    expect(radarrFetchMedia).toHaveBeenCalledTimes(1);
+    expect(sonarrFetchMedia).toHaveBeenCalledTimes(1);
   });
 });

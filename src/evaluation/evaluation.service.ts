@@ -44,6 +44,21 @@ export class EvaluationService {
     return this.runs.find(r => r.run_id === runId);
   }
 
+  /** Returns basic metadata for all stored evaluation runs, newest first. */
+  listRuns(): Pick<
+    EvaluationRun,
+    'run_id' | 'status' | 'started_at' | 'dry_run'
+  >[] {
+    return [...this.runs]
+      .reverse()
+      .map(({ run_id, status, started_at, dry_run }) => ({
+        run_id,
+        status,
+        started_at,
+        dry_run,
+      }));
+  }
+
   /**
    * Trigger a scheduled evaluation via cron.
    * The cron expression comes from config, but NestJS @Cron requires
@@ -176,10 +191,11 @@ export class EvaluationService {
     } catch (error) {
       run.status = 'failed';
       run.completed_at = new Date().toISOString();
-      run.error =
-        error instanceof Error ? error.message : 'Unknown error occurred';
-
-      this.logger.error(`Evaluation ${run.run_id} failed: ${run.error}`);
+      this.logger.error(
+        `Evaluation ${run.run_id} failed`,
+        error instanceof Error ? error.stack : error,
+      );
+      run.error = 'Evaluation failed due to an internal error';
     } finally {
       this.running = false;
     }

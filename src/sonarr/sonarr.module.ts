@@ -2,6 +2,7 @@ import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '../config/config.service.js';
 import { SonarrClient } from './sonarr.client.js';
+import { SonarrProvider } from './sonarr.provider.js';
 import { SonarrService } from './sonarr.service.js';
 
 @Module({
@@ -18,7 +19,7 @@ import { SonarrService } from './sonarr.service.js';
       },
     }),
   ],
-  providers: [SonarrClient, SonarrService],
-  exports: [SonarrClient, SonarrService],
+  providers: [SonarrClient, SonarrService, SonarrProvider],
+  exports: [SonarrClient, SonarrService, SonarrProvider],
 })
 export class SonarrModule {}
