@@ -1,6 +1,7 @@
 export {
   makeJellyfinItem,
   makeJellyfinUser,
+  makeJellyseerrRequest,
   makeRadarrImportListMovie,
   makeRadarrMovie,
   makeRadarrTag,

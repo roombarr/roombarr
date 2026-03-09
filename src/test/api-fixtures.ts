@@ -1,4 +1,5 @@
 import type { JellyfinItem, JellyfinUser } from '../jellyfin/jellyfin.types.js';
+import type { JellyseerrRequest } from '../jellyseerr/jellyseerr.types.js';
 import type {
   RadarrImportListMovie,
   RadarrMovie,
@@ -115,6 +116,30 @@ export function makeJellyfinItem(
     Name: 'Test Item',
     Type: 'Movie',
     ProviderIds: { Tmdb: '100' },
+    ...overrides,
+  };
+}
+
+/** Creates a `JellyseerrRequest` with sensible defaults for testing. */
+export function makeJellyseerrRequest(
+  overrides: Partial<JellyseerrRequest> = {},
+): JellyseerrRequest {
+  return {
+    id: 1,
+    status: 2,
+    type: 'movie',
+    createdAt: '2025-01-15T12:00:00Z',
+    media: {
+      id: 10,
+      tmdbId: 603,
+      mediaType: 'movie',
+      status: 5,
+    },
+    requestedBy: {
+      id: 1,
+      username: 'alice',
+      email: 'alice@example.com',
+    },
     ...overrides,
   };
 }
