@@ -42,8 +42,8 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   private drizzleDb!: BunSQLiteDatabase<typeof schema>;
   private readonly dbPath: string;
 
-  constructor() {
-    this.dbPath = process.env.DB_PATH ?? DEFAULT_DB_PATH;
+  constructor(dbPath?: string) {
+    this.dbPath = dbPath ?? process.env.DB_PATH ?? DEFAULT_DB_PATH;
   }
 
   onModuleInit() {

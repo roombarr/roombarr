@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -12,7 +13,7 @@ interface TestDatabase {
  * Creates an isolated `DatabaseService` backed by a temporary SQLite file.
  *
  * Returns the service instance and a `cleanup` function that tears down
- * the database connection, removes the temp directory, and unsets `DB_PATH`.
+ * the database connection and removes the temp directory.
  *
  * @example
  * ```ts
@@ -22,10 +23,8 @@ interface TestDatabase {
  * ```
  */
 export function createTestDatabase(): TestDatabase {
-  const testDir = join(tmpdir(), `roombarr-test-${Date.now()}`);
-  process.env.DB_PATH = join(testDir, 'roombarr.sqlite');
-
-  const dbService = new DatabaseService();
+  const testDir = join(tmpdir(), `roombarr-test-${randomUUID()}`);
+  const dbService = new DatabaseService(join(testDir, 'roombarr.sqlite'));
   dbService.onModuleInit();
 
   const cleanup = () => {
@@ -33,7 +32,6 @@ export function createTestDatabase(): TestDatabase {
     if (existsSync(testDir)) {
       rmSync(testDir, { recursive: true });
     }
-    delete process.env.DB_PATH;
   };
 
   return { dbService, cleanup };

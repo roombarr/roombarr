@@ -8,11 +8,12 @@ import { DatabaseService } from './database.service.js';
 describe('DatabaseService', () => {
   let service: DatabaseService;
   let testDir: string;
+  let dbPath: string;
 
   beforeEach(() => {
     testDir = join(tmpdir(), `roombarr-test-${Date.now()}`);
-    process.env.DB_PATH = join(testDir, 'roombarr.sqlite');
-    service = new DatabaseService();
+    dbPath = join(testDir, 'roombarr.sqlite');
+    service = new DatabaseService(dbPath);
   });
 
   afterEach(() => {
@@ -24,13 +25,11 @@ describe('DatabaseService', () => {
     if (existsSync(testDir)) {
       rmSync(testDir, { recursive: true });
     }
-    delete process.env.DB_PATH;
   });
 
   test('creates database directory and file on init', () => {
     service.onModuleInit();
 
-    const dbPath = join(testDir, 'roombarr.sqlite');
     expect(existsSync(dbPath)).toBe(true);
   });
 
@@ -122,7 +121,7 @@ describe('DatabaseService', () => {
     service.onModuleDestroy();
 
     // Re-init
-    service = new DatabaseService();
+    service = new DatabaseService(dbPath);
     service.onModuleInit();
     const db2 = service.getDatabase();
 
@@ -177,8 +176,6 @@ describe('DatabaseService', () => {
 
   describe('v1 bridge migration', () => {
     test('upgrades v1 database without data loss', () => {
-      const dbPath = join(testDir, 'roombarr.sqlite');
-
       // Create a v1 database manually
       const dir = join(testDir);
       if (!existsSync(dir)) {
@@ -348,7 +345,7 @@ describe('DatabaseService', () => {
       service.onModuleDestroy();
 
       // Second init — should be idempotent
-      service = new DatabaseService();
+      service = new DatabaseService(dbPath);
       service.onModuleInit();
       const db2 = service.getDatabase();
 

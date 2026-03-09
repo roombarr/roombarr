@@ -147,6 +147,10 @@ describe('AuditService', () => {
       const service = new MockedAuditService(configService);
       service.onModuleInit();
 
+      // Restore mocked modules to avoid poisoning other test files
+      mock.module('node:fs', () => require('node:fs'));
+      mock.module('pino', () => require('pino'));
+
       expect(mkdirSyncMock).toHaveBeenCalledWith('/config/logs/', {
         recursive: true,
       });

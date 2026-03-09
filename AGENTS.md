@@ -131,3 +131,18 @@ AI agents should use the following scripts during development. All scripts are r
   When writing a commit, consider the actual impact of the change and select the type that accurately represents it. Commit messages should reflect the real effect of the change, not just the files that were modified.
 
   Because commit types influence version bumps and changelog entries, choosing the correct type is important for keeping our release history accurate and meaningful.
+
+* **Do not use decorative section divider comments.**
+  Avoid visual separator comments such as banner-style or ruler-style comments used to divide sections of a file.
+
+  Examples of disallowed patterns:
+
+  ```ts
+  // ── E2E tests ─────────────────────────────────────────
+  // ===== Utilities ======================================
+  // ------------------------------------------------------
+  ```
+
+  These comments add visual noise and rarely provide meaningful context. Prefer clear function names, smaller modules, and well-structured code instead.
+
+  This frames the rule around **maintainability**, not just preference, which helps AI agents follow it more reliably.
