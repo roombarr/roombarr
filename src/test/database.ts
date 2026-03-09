@@ -1,3 +1,4 @@
+import { afterEach, beforeEach } from 'bun:test';
 import { randomUUID } from 'node:crypto';
 import { existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -35,4 +36,38 @@ export function createTestDatabase(): TestDatabase {
   };
 
   return { dbService, cleanup };
+}
+
+/**
+ * Registers `beforeEach`/`afterEach` hooks that create and tear down an
+ * isolated test database for every test. Returns an object with lazy
+ * getters so callers always see the current test's instance.
+ *
+ * @example
+ * ```ts
+ * const db = useTestDatabase();
+ * test('inserts a row', () => {
+ *   db.drizzle.insert(table).values({ … }).run();
+ * });
+ * ```
+ */
+export function useTestDatabase() {
+  let current: TestDatabase;
+
+  beforeEach(() => {
+    current = createTestDatabase();
+  });
+
+  afterEach(() => {
+    current.cleanup();
+  });
+
+  return {
+    get dbService() {
+      return current.dbService;
+    },
+    get drizzle() {
+      return current.dbService.getDrizzle();
+    },
+  };
 }

@@ -1,37 +1,22 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import { count, eq, like } from 'drizzle-orm';
-import type { BunSQLiteDatabase } from 'drizzle-orm/bun-sqlite';
-import type * as schema from '../database/schema.js';
 import { fieldChanges, mediaItems } from '../database/schema.js';
-import {
-  createTestDatabase,
-  makeJellyfinData,
-  makeMovie,
-} from '../test/index.js';
+import { makeJellyfinData, makeMovie, useTestDatabase } from '../test/index.js';
 import { SnapshotService } from './snapshot.service.js';
 
 describe('SnapshotService', () => {
+  const db = useTestDatabase();
   let snapshotService: SnapshotService;
-  let drizzle: BunSQLiteDatabase<typeof schema>;
-  let cleanup: () => void;
 
   beforeEach(() => {
-    const testDb = createTestDatabase();
-    cleanup = testDb.cleanup;
-    drizzle = testDb.dbService.getDrizzle();
-
-    snapshotService = new SnapshotService(testDb.dbService);
-  });
-
-  afterEach(() => {
-    cleanup();
+    snapshotService = new SnapshotService(db.dbService);
   });
 
   test('creates snapshot for new items', async () => {
     const movie = makeMovie({ tmdb_id: 42, title: 'My Movie' });
     await snapshotService.snapshot([movie], new Set(['radarr']));
 
-    const row = drizzle
+    const row = db.drizzle
       .select({ mediaId: mediaItems.mediaId, title: mediaItems.title })
       .from(mediaItems)
       .get();
@@ -44,7 +29,7 @@ describe('SnapshotService', () => {
     const movie = makeMovie();
     await snapshotService.snapshot([movie], new Set(['radarr']));
 
-    const changes = drizzle
+    const changes = db.drizzle
       .select({ id: fieldChanges.id })
       .from(fieldChanges)
       .all();
@@ -59,7 +44,7 @@ describe('SnapshotService', () => {
     const updatedMovie = makeMovie({ radarr: { monitored: false } });
     await snapshotService.snapshot([updatedMovie], new Set(['radarr']));
 
-    const changes = drizzle
+    const changes = db.drizzle
       .select({
         fieldPath: fieldChanges.fieldPath,
         oldValue: fieldChanges.oldValue,
@@ -85,7 +70,7 @@ describe('SnapshotService', () => {
     // Same movie again — no changes expected
     await snapshotService.snapshot([movie], new Set(['radarr']));
 
-    const changes = drizzle
+    const changes = db.drizzle
       .select({ id: fieldChanges.id })
       .from(fieldChanges)
       .all();
@@ -100,7 +85,7 @@ describe('SnapshotService', () => {
     // Only hydrate radarr, not jellyfin
     await snapshotService.snapshot([movie], new Set(['radarr']));
 
-    const row = drizzle
+    const row = db.drizzle
       .select({ data: mediaItems.data })
       .from(mediaItems)
       .get();
@@ -124,7 +109,7 @@ describe('SnapshotService', () => {
     const movieNoJellyfin = makeMovie();
     await snapshotService.snapshot([movieNoJellyfin], new Set(['radarr']));
 
-    const row = drizzle
+    const row = db.drizzle
       .select({ data: mediaItems.data })
       .from(mediaItems)
       .get();
@@ -143,7 +128,7 @@ describe('SnapshotService', () => {
     // Next evaluation with no items
     await snapshotService.snapshot([], new Set(['radarr']));
 
-    const row = drizzle
+    const row = db.drizzle
       .select({ missedEvaluations: mediaItems.missedEvaluations })
       .from(mediaItems)
       .get();
@@ -160,7 +145,7 @@ describe('SnapshotService', () => {
     // Reappear
     await snapshotService.snapshot([movie], new Set(['radarr']));
 
-    const row = drizzle
+    const row = db.drizzle
       .select({ missedEvaluations: mediaItems.missedEvaluations })
       .from(mediaItems)
       .get();
@@ -176,7 +161,7 @@ describe('SnapshotService', () => {
       await snapshotService.snapshot([], new Set(['radarr']));
     }
 
-    const [row] = drizzle.select({ count: count() }).from(mediaItems).all();
+    const [row] = db.drizzle.select({ count: count() }).from(mediaItems).all();
     expect(row.count).toBe(0);
   });
 
@@ -190,7 +175,7 @@ describe('SnapshotService', () => {
     });
     await snapshotService.snapshot([reorderedMovie], new Set(['radarr']));
 
-    const changes = drizzle
+    const changes = db.drizzle
       .select({ fieldPath: fieldChanges.fieldPath })
       .from(fieldChanges)
       .where(eq(fieldChanges.fieldPath, 'radarr.tags'))
@@ -203,7 +188,7 @@ describe('SnapshotService', () => {
     const movie2 = makeMovie({ radarr_id: 2, tmdb_id: 2, title: 'Movie 2' });
     await snapshotService.snapshot([movie1, movie2], new Set(['radarr']));
 
-    const [row] = drizzle.select({ count: count() }).from(mediaItems).all();
+    const [row] = db.drizzle.select({ count: count() }).from(mediaItems).all();
     expect(row.count).toBe(2);
   });
 
@@ -222,7 +207,7 @@ describe('SnapshotService', () => {
       new Set(['radarr', 'jellyfin']),
     );
 
-    const changes = drizzle
+    const changes = db.drizzle
       .select({
         fieldPath: fieldChanges.fieldPath,
         oldValue: fieldChanges.oldValue,
@@ -264,7 +249,7 @@ describe('SnapshotService', () => {
       new Set(['radarr', 'jellyfin']),
     );
 
-    const changes = drizzle
+    const changes = db.drizzle
       .select({
         fieldPath: fieldChanges.fieldPath,
         oldValue: fieldChanges.oldValue,
@@ -297,7 +282,7 @@ describe('SnapshotService', () => {
       await snapshotService.snapshot([], new Set(['radarr']));
     }
 
-    const [row] = drizzle.select({ count: count() }).from(mediaItems).all();
+    const [row] = db.drizzle.select({ count: count() }).from(mediaItems).all();
     expect(row.count).toBe(1);
   });
 
@@ -305,7 +290,7 @@ describe('SnapshotService', () => {
     const movie = makeMovie();
     await snapshotService.snapshot([movie], new Set(['radarr']));
 
-    const row = drizzle
+    const row = db.drizzle
       .select({ lastSeenAt: mediaItems.lastSeenAt })
       .from(mediaItems)
       .get();

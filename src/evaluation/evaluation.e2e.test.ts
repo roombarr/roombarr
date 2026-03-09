@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import type { RuleConfig } from '../config/config.schema.js';
 import { getHydratedServices } from '../config/field-registry.js';
 import { ActionExecutorService } from '../execution/action-executor.service.js';
@@ -12,9 +12,9 @@ import { StateService } from '../snapshot/state.service.js';
 import {
   createMockRadarrClient,
   createMockSonarrClient,
-  createTestDatabase,
   makeRadarrMovie,
   makeRule,
+  useTestDatabase,
 } from '../test/index.js';
 
 function createMockAuditService() {
@@ -22,6 +22,7 @@ function createMockAuditService() {
 }
 
 describe('full evaluation pipeline (e2e)', () => {
+  const db = useTestDatabase();
   let mockRadarrClient: RadarrClient;
   let mockAuditService: ReturnType<typeof createMockAuditService>;
   let mediaService: MediaService;
@@ -29,28 +30,20 @@ describe('full evaluation pipeline (e2e)', () => {
   let stateService: StateService;
   let rulesService: RulesService;
   let actionExecutor: ActionExecutorService;
-  let cleanup: (() => void) | undefined;
 
   beforeEach(() => {
-    const testDb = createTestDatabase();
-    cleanup = testDb.cleanup;
-
     mockRadarrClient = createMockRadarrClient();
     mockAuditService = createMockAuditService();
 
     const radarrService = new RadarrService(mockRadarrClient);
     mediaService = new MediaService(null, radarrService, null, null);
-    snapshotService = new SnapshotService(testDb.dbService);
-    stateService = new StateService(testDb.dbService);
+    snapshotService = new SnapshotService(db.dbService);
+    stateService = new StateService(db.dbService);
     rulesService = new RulesService(mockAuditService as any);
     actionExecutor = new ActionExecutorService(
       mockRadarrClient,
       createMockSonarrClient(),
     );
-  });
-
-  afterEach(() => {
-    cleanup?.();
   });
 
   /**

@@ -1,30 +1,19 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import { and, eq, sql } from 'drizzle-orm';
-import type { BunSQLiteDatabase } from 'drizzle-orm/bun-sqlite';
-import type * as schema from '../database/schema.js';
 import { fieldChanges } from '../database/schema.js';
 import type { UnifiedMedia, UnifiedMovie } from '../shared/types.js';
-import { createTestDatabase, makeMovie } from '../test/index.js';
+import { makeMovie, useTestDatabase } from '../test/index.js';
 import { SnapshotService } from './snapshot.service.js';
 import { StateService } from './state.service.js';
 
 describe('Snapshot → State integration', () => {
+  const db = useTestDatabase();
   let snapshotService: SnapshotService;
   let stateService: StateService;
-  let drizzle: BunSQLiteDatabase<typeof schema>;
-  let cleanup: () => void;
 
   beforeEach(() => {
-    const testDb = createTestDatabase();
-    cleanup = testDb.cleanup;
-    drizzle = testDb.dbService.getDrizzle();
-
-    snapshotService = new SnapshotService(testDb.dbService);
-    stateService = new StateService(testDb.dbService);
-  });
-
-  afterEach(() => {
-    cleanup();
+    snapshotService = new SnapshotService(db.dbService);
+    stateService = new StateService(db.dbService);
   });
 
   const services = new Set(['radarr']);
@@ -88,7 +77,7 @@ describe('Snapshot → State integration', () => {
     await snapshotService.snapshot([movieOff], services);
 
     // Backdate the field_change to 3 days ago
-    drizzle
+    db.drizzle
       .update(fieldChanges)
       .set({ changedAt: sql`datetime('now', '-3 days')` })
       .where(

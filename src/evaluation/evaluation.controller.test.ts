@@ -1,4 +1,5 @@
-import { describe, expect, mock, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { EvaluationController } from './evaluation.controller.js';
@@ -54,21 +55,26 @@ function createMockService() {
 }
 
 describe('EvaluationController', () => {
-  async function setup() {
-    const mockService = createMockService();
+  let app: INestApplication;
+  let mockService: ReturnType<typeof createMockService>;
+
+  beforeEach(async () => {
+    mockService = createMockService();
     const module = await Test.createTestingModule({
       controllers: [EvaluationController],
       providers: [{ provide: EvaluationService, useValue: mockService }],
     }).compile();
 
-    const app = module.createNestApplication();
+    app = module.createNestApplication();
     await app.init();
-    return { app, mockService };
-  }
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
 
   describe('POST /evaluate', () => {
     test('starts evaluation and returns 202', async () => {
-      const { app, mockService } = await setup();
       mockService.isRunning.mockReturnValue(false);
       mockService.startEvaluation.mockReturnValue(runningRun);
 
@@ -80,12 +86,9 @@ describe('EvaluationController', () => {
         run_id: 'run-001',
         status: 'running',
       });
-
-      await app.close();
     });
 
     test('returns 409 when evaluation is already running', async () => {
-      const { app, mockService } = await setup();
       mockService.isRunning.mockReturnValue(true);
 
       const { body } = await request(app.getHttpServer())
@@ -96,14 +99,11 @@ describe('EvaluationController', () => {
         statusCode: 409,
         message: 'An evaluation is already running',
       });
-
-      await app.close();
     });
   });
 
   describe('GET /evaluate/:runId', () => {
     test('returns 202 for a running evaluation', async () => {
-      const { app, mockService } = await setup();
       mockService.getRun.mockReturnValue(runningRun);
 
       const { body } = await request(app.getHttpServer())
@@ -117,12 +117,9 @@ describe('EvaluationController', () => {
       });
       expect(body).not.toHaveProperty('summary');
       expect(body).not.toHaveProperty('results');
-
-      await app.close();
     });
 
     test('returns 200 with full results for a completed evaluation', async () => {
-      const { app, mockService } = await setup();
       mockService.getRun.mockReturnValue(completedRun);
 
       const { body } = await request(app.getHttpServer())
@@ -138,12 +135,9 @@ describe('EvaluationController', () => {
         results: completedRun.results,
         dry_run: true,
       });
-
-      await app.close();
     });
 
     test('returns 404 for an unknown run', async () => {
-      const { app, mockService } = await setup();
       mockService.getRun.mockReturnValue(undefined);
 
       const { body } = await request(app.getHttpServer())
@@ -155,8 +149,6 @@ describe('EvaluationController', () => {
         message: 'Evaluation run unknown not found',
         error: 'Not Found',
       });
-
-      await app.close();
     });
   });
 });

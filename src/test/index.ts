@@ -9,7 +9,7 @@ export {
   makeSonarrSeries,
   makeSonarrTag,
 } from './api-fixtures.js';
-export { createTestDatabase } from './database.js';
+export { createTestDatabase, useTestDatabase } from './database.js';
 export type { MovieOverrides, SeasonOverrides } from './fixtures.js';
 export {
   makeConfig,
