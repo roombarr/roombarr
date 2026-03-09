@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from 'bun:test';
 import type { ConfigService } from '../config/config.service.js';
-import { makeConfig, makeMovie, makeSeason } from '../test/fixtures.js';
+import { makeConfig, makeMovie, makeSeason } from '../test/index.js';
 import { AuditService } from './audit.service.js';
 import type { LogActionParams } from './audit.types.js';
 
