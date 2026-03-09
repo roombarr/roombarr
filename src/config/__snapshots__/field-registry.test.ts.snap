@@ -36,6 +36,7 @@ exports[`fieldRegistry sonarr registry fields match snapshot 1`] = `
   "jellyseerr.requested_at",
   "jellyseerr.requested_by",
   "sonarr.genres",
+  "sonarr.path",
   "sonarr.season.episode_count",
   "sonarr.season.episode_file_count",
   "sonarr.season.has_file",

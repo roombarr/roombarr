@@ -10,13 +10,13 @@ origin: docs/brainstorms/2026-02-13-rule-based-media-cleanup-brainstorm.md
 
 ## Overview
 
-Roombarr v1 is permanently hardcoded to dry-run mode — it evaluates rules, logs what *would* happen, but never calls Radarr/Sonarr mutation APIs. This feature adds the missing "execute" step to the evaluation pipeline and exposes a `dry_run` config option (default: `true`) so users can preview destructive actions before committing.
+Roombarr v1 is permanently hardcoded to dry-run mode — it evaluates rules, logs what _would_ happen, but never calls Radarr/Sonarr mutation APIs. This feature adds the missing "execute" step to the evaluation pipeline and exposes a `dry_run` config option (default: `true`) so users can preview destructive actions before committing.
 
-The brainstorm established this as an intentional phased rollout: *"Live execution will be added once the rule engine is trusted"* (see brainstorm: `docs/brainstorms/2026-02-13-rule-based-media-cleanup-brainstorm.md`). The rule engine has been stable — time to let it do damage.
+The brainstorm established this as an intentional phased rollout: _"Live execution will be added once the rule engine is trusted"_ (see brainstorm: `docs/brainstorms/2026-02-13-rule-based-media-cleanup-brainstorm.md`). The rule engine has been stable — time to let it do damage.
 
 ## Problem Statement / Motivation
 
-Without live execution, Roombarr is an expensive logger. Users can see what *would* happen but must manually delete/unmonitor items in Radarr/Sonarr. This defeats the purpose of an automated cleanup engine. The entire value proposition depends on this feature shipping.
+Without live execution, Roombarr is an expensive logger. Users can see what _would_ happen but must manually delete/unmonitor items in Radarr/Sonarr. This defeats the purpose of an automated cleanup engine. The entire value proposition depends on this feature shipping.
 
 ## Proposed Solution
 
@@ -31,12 +31,14 @@ Add a top-level `dry_run` config option and an `ActionExecutorService` that sits
 Every Radarr/Sonarr mutation API requires internal IDs (`RadarrMovie.id`, `SonarrSeries.id`), but the unified models currently only carry external IDs (`tmdb_id`, `tvdb_id`). The mappers in `radarr.service.ts` and `sonarr.service.ts` discard these during `.map()`.
 
 **Approach:** Add internal IDs directly to the unified models:
+
 - `UnifiedMovie` gains `radarr_id: number`
 - `UnifiedSeason` gains `sonarr_series_id: number`
 
 This is the lowest-friction path. The alternative (reverse-lookup map) adds complexity for no real benefit — the internal IDs aren't sensitive and belong on the model.
 
 **Files affected:**
+
 - `src/shared/types.ts` — add `radarr_id` to `UnifiedMovie`, `sonarr_series_id` to `UnifiedSeason`
 - `src/radarr/radarr.mapper.ts` — preserve `id` during mapping
 - `src/sonarr/sonarr.mapper.ts` — preserve `id` during mapping
@@ -52,22 +54,24 @@ Deleting a season's files requires episode file IDs, which the current `SonarrCl
 **Approach:** Fetch lazily during execution (not during hydration). Only seasons with `resolved_action: 'delete'` need episode file IDs. This avoids adding latency to dry-run evaluations.
 
 **Files affected:**
+
 - `src/sonarr/sonarr.client.ts` — add `fetchEpisodeFiles(seriesId: number): Promise<SonarrEpisodeFile[]>`
 - `src/sonarr/sonarr.client.ts` — add `deleteEpisodeFile(episodeFileId: number): Promise<void>`
 - `src/sonarr/sonarr.types.ts` — add `SonarrEpisodeFile` interface
 
 ### 3. Radarr/Sonarr Mutation API Endpoints
 
-| Action | Service | HTTP Method | Endpoint | Notes |
-|--------|---------|-------------|----------|-------|
-| Delete movie | Radarr | `DELETE` | `/api/v3/movie/{id}?deleteFiles=true` | Irreversible. Removes movie + files from disk. |
-| Unmonitor movie | Radarr | `PUT` | `/api/v3/movie/{id}` | Must send full movie body with `monitored: false`. Reversible. |
-| Delete season files | Sonarr | `DELETE` | `/api/v3/episodefile/{id}` | Per episode file. Irreversible. |
-| Unmonitor season | Sonarr | `PUT` | `/api/v3/series/{id}` | Must send full series body with season's `monitored: false`. Reversible. |
+| Action              | Service | HTTP Method | Endpoint                              | Notes                                                                    |
+| ------------------- | ------- | ----------- | ------------------------------------- | ------------------------------------------------------------------------ |
+| Delete movie        | Radarr  | `DELETE`    | `/api/v3/movie/{id}?deleteFiles=true` | Irreversible. Removes movie + files from disk.                           |
+| Unmonitor movie     | Radarr  | `PUT`       | `/api/v3/movie/{id}`                  | Must send full movie body with `monitored: false`. Reversible.           |
+| Delete season files | Sonarr  | `DELETE`    | `/api/v3/episodefile/{id}`            | Per episode file. Irreversible.                                          |
+| Unmonitor season    | Sonarr  | `PUT`       | `/api/v3/series/{id}`                 | Must send full series body with season's `monitored: false`. Reversible. |
 
 **Unmonitor PUT body strategy:** Re-fetch the resource by internal ID at execution time, flip the `monitored` field, PUT the full object back. This adds one extra GET per unmonitor action but guarantees no metadata corruption from partial bodies.
 
 **Files affected:**
+
 - `src/radarr/radarr.client.ts` — add `deleteMovie(id, deleteFiles)`, `fetchMovie(id)`, `updateMovie(id, body)`
 - `src/sonarr/sonarr.client.ts` — add `fetchSeries(id)`, `updateSeries(id, body)`, `fetchEpisodeFiles(seriesId)`, `deleteEpisodeFile(id)`
 
@@ -77,7 +81,7 @@ Add `dry_run` as a top-level boolean, defaulting to `true`.
 
 ```yaml
 # roombarr.yml
-dry_run: true  # Set to false to enable live execution
+dry_run: true # Set to false to enable live execution
 
 services:
   # ...
@@ -87,6 +91,7 @@ rules:
 ```
 
 **Files affected:**
+
 - `src/config/config.schema.ts` — add `dry_run` to `configSchema` (`.default(true)`) and `RoombarrConfig` interface
 - `src/config/config.service.ts` — no changes needed (config is already fully typed)
 
@@ -115,12 +120,14 @@ ActionExecutorService
 ```
 
 **Key design decisions:**
+
 - **Sequential execution** (no parallelism) for v1. Mutations are dangerous; sequential makes debugging and audit trails predictable.
 - **Continue on failure.** If item 4 of 10 fails, items 5-10 still execute. Per-item status tracking reports what happened.
 - **404 = warning only.** If Radarr/Sonarr returns 404, it is logged as a warning (item already removed externally) but not counted as a successful execution. Per-file 404s during season file deletion are handled individually — the remaining files still execute.
 - **Audit after execution.** Move audit logging from `RulesService.evaluate()` to after execution completes. In dry-run mode, audit still logs during evaluation (preserving v1 behavior). In live mode, audit logs after each action attempt with the execution outcome.
 
 **Files to create:**
+
 - `src/execution/action-executor.service.ts`
 - `src/execution/action-executor.service.test.ts`
 - `src/execution/execution.module.ts`
@@ -133,7 +140,7 @@ ActionExecutorService
 ```typescript
 export interface EvaluationItemResult {
   title: string;
-  type: 'movie' | 'season';
+  type: "movie" | "season";
   external_id: number;
   matched_rules: string[];
   resolved_action: Action | null;
@@ -141,7 +148,7 @@ export interface EvaluationItemResult {
   /** Composite key unique per item (e.g. "movie:42", "season:10:1"). */
   internal_id: string;
   /** Set during execution. Present when dry_run is true ('skipped') or when an action was attempted in live mode. */
-  execution_status?: 'success' | 'failed' | 'skipped';
+  execution_status?: "success" | "failed" | "skipped";
   /** Error message if execution_status is 'failed'. */
   execution_error?: string;
 }
@@ -162,6 +169,7 @@ export interface EvaluationSummary {
 ```
 
 **Ripple locations:**
+
 - `src/rules/types.ts:14` — `dry_run: true` → `dry_run: boolean`
 - `src/rules/rules.service.ts:85` — `dryRun: true` → `dryRun: config.dry_run`
 - `src/rules/rules.service.ts:97` — `dry_run: true` → `dry_run: config.dry_run`
@@ -227,19 +235,22 @@ This goes in `main.ts` or `EvaluationModule.onModuleInit()`.
 ## Dependencies & Risks
 
 ### Dependencies
+
 - Radarr API v3 must support `DELETE /api/v3/movie/{id}?deleteFiles=true`
 - Sonarr API v3 must support `GET /api/v3/episodefile?seriesId={id}` and `DELETE /api/v3/episodefile/{id}`
 - Both APIs must accept `PUT` with full resource body for unmonitor operations
 
 ### Risks
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| Misconfigured rule deletes entire library | Medium | Critical | `dry_run: true` default. Users must explicitly opt in. |
-| Radarr/Sonarr API changes in future versions | Low | Medium | Client methods are thin wrappers; easy to update. |
-| Partial execution leaves inconsistent state | Medium | Medium | Per-item tracking + continue-on-failure + audit logging. |
-| Unmonitor PUT corrupts metadata | Low | High | Re-fetch full resource before PUT; never send partial bodies. |
+
+| Risk                                         | Likelihood | Impact   | Mitigation                                                    |
+| -------------------------------------------- | ---------- | -------- | ------------------------------------------------------------- |
+| Misconfigured rule deletes entire library    | Medium     | Critical | `dry_run: true` default. Users must explicitly opt in.        |
+| Radarr/Sonarr API changes in future versions | Low        | Medium   | Client methods are thin wrappers; easy to update.             |
+| Partial execution leaves inconsistent state  | Medium     | Medium   | Per-item tracking + continue-on-failure + audit logging.      |
+| Unmonitor PUT corrupts metadata              | Low        | High     | Re-fetch full resource before PUT; never send partial bodies. |
 
 ### Future Considerations (Not in Scope)
+
 - **Blast-radius limit** (`max_actions_per_run`) — prevent catastrophic misconfiguration
 - **Per-rule `dry_run` override** — some rules live, others preview-only
 - **Execution concurrency** — parallel mutations for large libraries
@@ -265,8 +276,8 @@ export const configSchema = z.object({
 
 ```typescript
 export interface UnifiedMovie {
-  type: 'movie';
-  radarr_id: number;  // Internal Radarr movie ID for API mutations
+  type: "movie";
+  radarr_id: number; // Internal Radarr movie ID for API mutations
   tmdb_id: number;
   imdb_id: string | null;
   title: string;
@@ -278,8 +289,8 @@ export interface UnifiedMovie {
 }
 
 export interface UnifiedSeason {
-  type: 'season';
-  sonarr_series_id: number;  // Internal Sonarr series ID for API mutations
+  type: "season";
+  sonarr_series_id: number; // Internal Sonarr series ID for API mutations
   tvdb_id: number;
   title: string;
   year: number;
@@ -375,11 +386,14 @@ export class ActionExecutorService {
   }> {
     if (dryRun)
       return {
-        results: results.map(r => ({ ...r, execution_status: 'skipped' as const })),
+        results: results.map((r) => ({
+          ...r,
+          execution_status: "skipped" as const,
+        })),
       };
 
     const itemsByInternalId = new Map(
-      items.map(item => [buildInternalId(item), item]),
+      items.map((item) => [buildInternalId(item), item]),
     );
 
     const executed: EvaluationItemResult[] = [];
@@ -387,8 +401,8 @@ export class ActionExecutorService {
     let failedCount = 0;
 
     for (const result of results) {
-      if (!result.resolved_action || result.resolved_action === 'keep') {
-        executed.push({ ...result, execution_status: 'skipped' });
+      if (!result.resolved_action || result.resolved_action === "keep") {
+        executed.push({ ...result, execution_status: "skipped" });
         continue;
       }
 
@@ -396,8 +410,8 @@ export class ActionExecutorService {
       if (!item) {
         executed.push({
           ...result,
-          execution_status: 'failed',
-          execution_error: 'Item not found in hydrated data',
+          execution_status: "failed",
+          execution_error: "Item not found in hydrated data",
         });
         failedCount++;
         continue;
@@ -405,7 +419,7 @@ export class ActionExecutorService {
 
       try {
         await this.executeAction(item, result.resolved_action);
-        executed.push({ ...result, execution_status: 'success' });
+        executed.push({ ...result, execution_status: "success" });
         counts[result.resolved_action]++;
       } catch (error) {
         if (this.isNotFound(error)) {
@@ -413,9 +427,16 @@ export class ActionExecutorService {
             `${result.resolved_action} "${result.title}": 404 — already removed`,
           );
         } else {
-          const message = error instanceof Error ? error.message : 'Unknown error';
-          this.logger.error(`Failed to ${result.resolved_action} "${result.title}": ${message}`);
-          executed.push({ ...result, execution_status: 'failed', execution_error: message });
+          const message =
+            error instanceof Error ? error.message : "Unknown error";
+          this.logger.error(
+            `Failed to ${result.resolved_action} "${result.title}": ${message}`,
+          );
+          executed.push({
+            ...result,
+            execution_status: "failed",
+            execution_error: message,
+          });
           failedCount++;
         }
       }
@@ -423,7 +444,10 @@ export class ActionExecutorService {
 
     return {
       results: executed,
-      executionSummary: { actions_executed: counts, actions_failed: failedCount },
+      executionSummary: {
+        actions_executed: counts,
+        actions_failed: failedCount,
+      },
     };
   }
 }

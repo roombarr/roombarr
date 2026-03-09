@@ -1,4 +1,5 @@
 import starlight from '@astrojs/starlight';
+import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
 import starlightLinksValidator from 'starlight-links-validator';
 import starlightLlmsTxt from 'starlight-llms-txt';
@@ -26,53 +27,29 @@ export default defineConfig({
             },
           ]
         : [],
-      logo: {
-        src: './src/assets/logo-transparent.png',
-      },
-      favicon: '/favicon.png',
+      favicon: '/favicon.svg',
       customCss: [
         '@fontsource-variable/inter',
         '@fontsource-variable/jetbrains-mono',
+        './src/styles/global.css',
         './src/styles/custom.css',
       ],
       sidebar: [
         { slug: 'getting-started' },
-        { slug: 'how-it-works' },
         {
-          label: 'Deployment',
+          label: 'Usage',
           items: [
-            { slug: 'deployment/docker' },
-            { slug: 'deployment/truenas' },
-          ],
-        },
-        {
-          label: 'Configuration',
-          items: [
-            { slug: 'configuration/overview' },
-            { slug: 'configuration/rules' },
-            { slug: 'configuration/actions' },
-          ],
-        },
-        {
-          label: 'Integrations',
-          items: [
-            { slug: 'integrations/radarr' },
-            { slug: 'integrations/sonarr' },
-            { slug: 'integrations/jellyfin' },
-            { slug: 'integrations/jellyseerr' },
+            { slug: 'configuration' },
+            { slug: 'recipes' },
           ],
         },
         {
           label: 'Reference',
           items: [
-            { slug: 'reference/fields' },
-            { slug: 'reference/operators' },
-            { slug: 'reference/environment-variables' },
-            { slug: 'reference/api' },
+            { slug: 'api' },
+            { slug: 'reference' },
           ],
         },
-        { slug: 'recipes' },
-        { slug: 'troubleshooting' },
       ],
       social: [
         {
@@ -83,4 +60,5 @@ export default defineConfig({
       ],
     }),
   ],
+  vite: { plugins: [tailwindcss()] },
 });

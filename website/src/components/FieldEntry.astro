@@ -1,0 +1,42 @@
+---
+interface Props {
+  name: string;
+  type: string;
+  description?: string;
+  level?: string;
+  example?: string;
+}
+
+const { name, type, description, level, example } = Astro.props;
+
+const slug = name.replaceAll(".", "");
+
+/** Replace backtick-wrapped text with <code> elements for set:html rendering. */
+const formatDescription = (text: string) =>
+  text.replace(/`([^`]+)`/g, "<code>$1</code>");
+---
+
+<div class="mb-6 pb-4 border-b border-gray-700 last:border-b-0" id={slug}>
+  <div class="text-base font-semibold mb-1">
+    <code>{name}</code>
+  </div>
+  <p>
+    <span>type:</span>
+    <code>{type}</code>
+  </p>
+  {
+    level && (
+      <p>
+        <strong>Level:</strong> {level}
+      </p>
+    )
+  }
+  {
+    example && (
+      <p>
+        <strong>Example:</strong> <code>{example}</code>
+      </p>
+    )
+  }
+  {description && <p set:html={formatDescription(description)} />}
+</div>

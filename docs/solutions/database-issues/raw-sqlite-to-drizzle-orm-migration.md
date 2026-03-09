@@ -1,7 +1,19 @@
 ---
 title: "Migrate persistence layer from raw bun:sqlite to Drizzle ORM"
 category: database-issues
-tags: [drizzle-orm, sqlite, bun, nestjs, orm, typescript, migration, batch-queries, registry-pattern, temporal-data]
+tags:
+  [
+    drizzle-orm,
+    sqlite,
+    bun,
+    nestjs,
+    orm,
+    typescript,
+    migration,
+    batch-queries,
+    registry-pattern,
+    temporal-data,
+  ]
 module: Database/Snapshot/State
 symptom: "Raw SQL queries with manual prepared statements, manual PRAGMA user_version migrations, N+1 query pattern in StateService (2-3 queries per media item), hardcoded state computation methods"
 root_cause: "No ORM layer — raw bun:sqlite with manual string-based SQL, no type safety in queries, per-item loops in state computation, non-extensible temporal field methods"
@@ -37,19 +49,24 @@ The original persistence layer used `bun:sqlite` directly with hand-written SQL 
 Defined the schema declaratively in `src/database/schema.ts`:
 
 ```typescript
-export const mediaItems = sqliteTable('media_items', {
-  mediaType: text('media_type').notNull(),
-  mediaId: text('media_id').notNull(),
-  title: text('title').notNull(),
-  data: text('data').notNull(),
-  dataHash: text('data_hash').notNull(),
-  firstSeenAt: text('first_seen_at').notNull(),
-  lastSeenAt: text('last_seen_at').notNull(),
-  missedEvaluations: integer('missed_evaluations').notNull().default(0),
-}, table => [primaryKey({ columns: [table.mediaType, table.mediaId] })]);
+export const mediaItems = sqliteTable(
+  "media_items",
+  {
+    mediaType: text("media_type").notNull(),
+    mediaId: text("media_id").notNull(),
+    title: text("title").notNull(),
+    data: text("data").notNull(),
+    dataHash: text("data_hash").notNull(),
+    firstSeenAt: text("first_seen_at").notNull(),
+    lastSeenAt: text("last_seen_at").notNull(),
+    missedEvaluations: integer("missed_evaluations").notNull().default(0),
+  },
+  (table) => [primaryKey({ columns: [table.mediaType, table.mediaId] })],
+);
 ```
 
 Two strategic indexes on `field_changes`:
+
 - `(media_type, media_id, field_path)` for per-item lookups
 - `(field_path, changed_at)` for batch state queries (critical — see Gotchas)
 
@@ -58,6 +75,7 @@ Two strategic indexes on `field_changes`:
 The critical challenge was migrating existing v1 databases (using `PRAGMA user_version`) to Drizzle-managed schema without data loss.
 
 **Bridge sequence:**
+
 1. Detect v1 database via `PRAGMA user_version`
 2. Backup the database file (`.sqlite`, `-wal`, `-shm`)
 3. Rename table with FK ON so SQLite auto-updates FK references
@@ -73,14 +91,15 @@ The critical challenge was migrating existing v1 databases (using `PRAGMA user_v
 Replaced individual INSERT/UPDATE calls with chunked batch operations:
 
 ```typescript
-const MEDIA_ITEMS_CHUNK_SIZE = Math.floor(999 / 8);  // 124
+const MEDIA_ITEMS_CHUNK_SIZE = Math.floor(999 / 8); // 124
 const FIELD_CHANGES_CHUNK_SIZE = Math.floor(999 / 7); // 142
 ```
 
 Composite PK upserts with `onConflictDoUpdate`:
 
 ```typescript
-await tx.insert(mediaItems)
+await tx
+  .insert(mediaItems)
   .values(batch)
   .onConflictDoUpdate({
     target: [mediaItems.mediaType, mediaItems.mediaId],
@@ -100,18 +119,18 @@ Introduced a declarative state field registry using discriminated unions:
 
 ```typescript
 export const stateFieldRegistry = {
-  'state.days_off_import_list': {
-    type: 'days_since_value',
-    tracks: 'radarr.on_import_list',
-    value: 'false',
+  "state.days_off_import_list": {
+    type: "days_since_value",
+    tracks: "radarr.on_import_list",
+    value: "false",
     nullWhenCurrentNot: true,
-    targets: ['radarr'],
+    targets: ["radarr"],
   },
-  'state.ever_on_import_list': {
-    type: 'ever_was_value',
-    tracks: 'radarr.on_import_list',
-    value: 'true',
-    targets: ['radarr'],
+  "state.ever_on_import_list": {
+    type: "ever_was_value",
+    tracks: "radarr.on_import_list",
+    value: "true",
+    targets: ["radarr"],
   },
 } satisfies Record<string, StateFieldPattern>;
 ```
@@ -134,21 +153,25 @@ Adding a new state field now requires only a registry entry and a `StateData` in
 ## Prevention Strategies
 
 ### When Adding New Schema Changes
+
 - Always use `drizzle-kit generate` — never manually edit migration SQL files
 - If adding a NOT NULL column, use `DEFAULT` to avoid constraint violations during migration
 - After migration, run `PRAGMA foreign_key_check` to verify FK integrity
 
 ### When Creating New State Fields
+
 - Add entries to `state-registry.ts` — never add computation methods directly to `StateService`
 - Available patterns: `days_since_value` and `ever_was_value`
 - For new pattern types, add to the `StateFieldPattern` discriminated union
 
 ### When Writing Batch Operations
+
 - Always chunk: `Math.floor(999 / columnCount)` rows per INSERT
 - Use `await db.transaction(async tx => { ... })` — all operations via `tx`, not `db`
 - Keep lock window small: no API calls inside transactions
 
 ### When Running Future Bridge Migrations
+
 - Backup before any DDL: `copyFileSync(dbPath, dbPath + '.backup')`
 - Wrap all DDL in `db.transaction()` — SQLite supports transactional DDL
 - FK protocol: OFF before DDL, ON after, then `foreign_key_check`
@@ -157,24 +180,31 @@ Adding a new state field now requires only a registry entry and a `StateData` in
 ## Gotchas
 
 ### SQLite Leftmost-Prefix Index Rule
+
 Index `(a, b, c)` can efficiently serve `WHERE a = ?` or `WHERE a = ? AND b = ?`, but **cannot** serve `WHERE c = ?` — that's a full table scan. The batch state query uses `WHERE field_path IN (...)`, so `field_path` must be the **first** column of its index. The `(field_path, changed_at)` index was added specifically for this.
 
 ### Drizzle Transactions Are Async
+
 Even though `bun:sqlite` is synchronous, Drizzle's transaction API is async. Always use `await db.transaction(async tx => { ... })`. Missing `await` silently drops the transaction.
 
 ### Use `tx` Not `db` Inside Transactions
+
 Inside the transaction callback, all operations must use the `tx` parameter. Using the global `db` bypasses the transaction boundary.
 
 ### `sql` Template Literals for Dynamic Values
+
 Use `sql` for runtime-computed values:
+
 - `sql`datetime('now')`` for SQLite function calls
 - `sql`excluded.column_name`` for conflict clause references
 - `sql`${table.column} + 1`` for computed expressions
 
 ### PRAGMA foreign_keys Is Per-Connection
+
 Must be set immediately after creating the `Database` instance, before Drizzle wraps it. If set after operations, it may not take effect.
 
 ### SQLite 999 Bound Parameter Limit
+
 Multi-row inserts hit `SQLITE_TOOBIG` if total parameters exceed 999. Calculate chunk size as `Math.floor(999 / columnCount)`.
 
 ## Related Documentation

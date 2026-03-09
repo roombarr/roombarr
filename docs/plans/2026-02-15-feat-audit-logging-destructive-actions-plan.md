@@ -65,6 +65,7 @@ EvaluationService / RulesService
 ### Research Insights: Architecture
 
 **Architecture Strategist Validation:**
+
 - @Global() is architecturally correct — audit logging is infrastructure, same classification as ConfigModule and DatabaseModule
 - Dedicated Pino instance is superior to multi-transport — operational and audit logs have different lifecycles, rotation needs, and retention requirements
 - Zero circular dependency risk — AuditService is a pure sink (writes only, no business logic dependencies)
@@ -72,6 +73,7 @@ EvaluationService / RulesService
 
 **Emission Point Decision:**
 Two reviewers suggested EvaluationService as the emission point. Architecture Strategist makes the stronger case for RulesService:
+
 - **Data locality** — RulesService has all needed data at the moment of decision (matched_rules, resolved_action, condition tree, media item)
 - **Information Expert** — RulesService is the expert on "why this action"
 - **Separation of concerns** — EvaluationService is an orchestrator; it shouldn't know audit implementation details
@@ -80,33 +82,33 @@ Two reviewers suggested EvaluationService as the emission point. Architecture St
 ### Audit Event Schema
 
 ```typescript
-import type { Action } from '../config/config.schema.js';
+import type { Action } from "../config/config.schema.js";
 
 interface BaseAuditEntry {
-  timestamp: string;          // ISO 8601
-  evaluation_id: string;      // UUID from EvaluationRun
-  action: Action;             // Reuse existing type
-  rule: string;               // Name of the winning rule
-  matched_rules: string[];    // All rules that matched (shows conflict resolution)
-  reasoning: string;          // Human-readable condition string
+  timestamp: string; // ISO 8601
+  evaluation_id: string; // UUID from EvaluationRun
+  action: Action; // Reuse existing type
+  rule: string; // Name of the winning rule
+  matched_rules: string[]; // All rules that matched (shows conflict resolution)
+  reasoning: string; // Human-readable condition string
   dry_run: boolean;
 }
 
 interface MovieAuditEntry extends BaseAuditEntry {
-  media_type: 'movie';
+  media_type: "movie";
   media: {
     title: string;
     year: number;
-    tmdb_id: number;          // Required for movies
+    tmdb_id: number; // Required for movies
   };
 }
 
 interface SeasonAuditEntry extends BaseAuditEntry {
-  media_type: 'season';
+  media_type: "season";
   media: {
     title: string;
     year: number;
-    tvdb_id: number;          // Required for seasons
+    tvdb_id: number; // Required for seasons
   };
 }
 
@@ -114,11 +116,23 @@ export type AuditEntry = MovieAuditEntry | SeasonAuditEntry;
 ```
 
 **Example JSONL line:**
+
 ```json
-{"timestamp":"2026-02-15T10:30:00.000Z","evaluation_id":"a1b2c3","action":"delete","media_type":"movie","media":{"title":"Bad Film","year":2020,"tmdb_id":12345},"rule":"low-rating-old","matched_rules":["low-rating-old"],"reasoning":"radarr.monitored = true AND jellyfin.play_count = 0 AND radarr.added older_than 180d","dry_run":true}
+{
+  "timestamp": "2026-02-15T10:30:00.000Z",
+  "evaluation_id": "a1b2c3",
+  "action": "delete",
+  "media_type": "movie",
+  "media": { "title": "Bad Film", "year": 2020, "tmdb_id": 12345 },
+  "rule": "low-rating-old",
+  "matched_rules": ["low-rating-old"],
+  "reasoning": "radarr.monitored = true AND jellyfin.play_count = 0 AND radarr.added older_than 180d",
+  "dry_run": true
+}
 ```
 
 **Key schema decisions:**
+
 - **Discriminated union** — TypeScript enforces that `media_type: 'movie'` requires `tmdb_id` and `media_type: 'season'` requires `tvdb_id`. Prevents nonsensical combinations at compile time. Mirrors existing `UnifiedMedia` pattern in `src/shared/types.ts`.
 - **Reuse `Action` type** — imported from `config.schema.ts` rather than redeclaring. If actions expand (e.g., `'archive'`), audit logs get it automatically.
 - **`keep` actions** — only logged when `matched_rules.length > 1` and the resolved action is `keep` (i.e., keep overrode a competing destructive rule). Silent keeps produce no audit event.
@@ -132,8 +146,8 @@ New optional `audit` section in `roombarr.yml`:
 ```yaml
 # roombarr.yml
 audit:
-  log_directory: /data/logs/    # Default: /data/logs/ (Docker) or ./data/logs/ (bare-metal)
-  retention_days: 90            # Default: 90. Min: 1.
+  log_directory: /data/logs/ # Default: /data/logs/ (Docker) or ./data/logs/ (bare-metal)
+  retention_days: 90 # Default: 90. Min: 1.
 ```
 
 Zod schema:
@@ -142,7 +156,7 @@ Zod schema:
 // src/config/config.schema.ts
 const auditSchema = z
   .object({
-    log_directory: z.string().min(1).default('/data/logs/'),
+    log_directory: z.string().min(1).default("/data/logs/"),
     retention_days: z.number().int().min(1).default(90),
   })
   .default({});
@@ -158,11 +172,11 @@ The configurable `log_directory` needs runtime validation in `AuditService.onMod
 ```typescript
 // In AuditService.onModuleInit()
 const resolvedDir = path.resolve(logDir);
-const dataDir = path.resolve(process.env.DATA_PATH ?? '/data');
+const dataDir = path.resolve(process.env.DATA_PATH ?? "/data");
 
 if (!resolvedDir.startsWith(dataDir)) {
   throw new Error(
-    `Audit log_directory must be within the data directory. Got: ${resolvedDir}`
+    `Audit log_directory must be within the data directory. Got: ${resolvedDir}`,
   );
 }
 ```
@@ -201,12 +215,12 @@ async onModuleDestroy() {
 
 **Scalability Projections (Performance Oracle):**
 
-| Scenario | Items | Matches | Events | File Size | Memory Peak |
-|----------|-------|---------|--------|-----------|-------------|
-| Small Library | 200 | 20 | 20 | ~5KB | ~100KB |
-| Medium Library | 1000 | 150 | 150 | ~40KB | ~500KB |
-| Large Library | 5000 | 800 | 800 | ~200KB | ~2MB |
-| Stress Test | 10,000 | 2000 | 2000 | ~500KB | ~5MB |
+| Scenario       | Items  | Matches | Events | File Size | Memory Peak |
+| -------------- | ------ | ------- | ------ | --------- | ----------- |
+| Small Library  | 200    | 20      | 20     | ~5KB      | ~100KB      |
+| Medium Library | 1000   | 150     | 150    | ~40KB     | ~500KB      |
+| Large Library  | 5000   | 800     | 800    | ~200KB    | ~2MB        |
+| Stress Test    | 10,000 | 2000    | 2000   | ~500KB    | ~5MB        |
 
 **Concurrency Safety:** `EvaluationService` already prevents concurrent evaluations (line 54), so only one evaluation writes audit events at a time. No write contention possible.
 
@@ -230,7 +244,10 @@ This is a pure function on the condition tree — no media data needed, just the
 // Before the item loop in RulesService.evaluate()
 const reasoningCache = new Map<string, string>();
 for (const rule of rules) {
-  reasoningCache.set(rule.name, this.auditService.buildReasoning(rule.conditions));
+  reasoningCache.set(
+    rule.name,
+    this.auditService.buildReasoning(rule.conditions),
+  );
 }
 ```
 
@@ -248,22 +265,23 @@ pino-roll v4.0.0 supports these options that simplify our implementation:
 
 ```typescript
 const transport = pino.transport({
-  target: 'pino-roll',
+  target: "pino-roll",
   options: {
-    file: path.join(logDir, 'audit'),
-    frequency: 'daily',
-    dateFormat: 'yyyy-MM-dd',
-    extension: '.jsonl',
-    mkdir: true,              // Auto-creates directory — no manual mkdirSync needed
+    file: path.join(logDir, "audit"),
+    frequency: "daily",
+    dateFormat: "yyyy-MM-dd",
+    extension: ".jsonl",
+    mkdir: true, // Auto-creates directory — no manual mkdirSync needed
     limit: {
-      count: retentionDays,   // Built-in file retention — no custom pruning needed!
+      count: retentionDays, // Built-in file retention — no custom pruning needed!
     },
-    symlink: true,            // Creates 'audit' symlink pointing to current file
+    symlink: true, // Creates 'audit' symlink pointing to current file
   },
 });
 ```
 
 **Key discoveries:**
+
 - **`limit.count`** — pino-roll deletes oldest files during rotation when count exceeds limit. This completely eliminates the need for custom startup pruning logic (readdir + unlink).
 - **`mkdir: true`** — auto-creates the log directory with `recursive: true`. Still validate the path exists post-init for the fatal startup error requirement.
 - **`symlink: true`** — creates a symlink to the current log file, making `tail -f /data/logs/audit` easy for users.
@@ -272,16 +290,17 @@ const transport = pino.transport({
 
 **Security Sentinel findings (prioritized):**
 
-| Finding | Severity | Action |
-|---------|----------|--------|
-| Path traversal on `log_directory` | MEDIUM | Validate resolved path starts with data directory |
-| No explicit file permissions | MEDIUM | Set 0o750 on directory, rely on pino-roll defaults for files |
-| Disk exhaustion DoS | MEDIUM | Document SonicBoom silent drop behavior |
-| Pruning pattern safety | LOW | Eliminated — pino-roll `limit.count` handles retention |
-| No encryption at rest | LOW | Document volume encryption as optional hardening step |
-| SIGKILL data loss | LOW | Flush with timeout in OnModuleDestroy |
+| Finding                           | Severity | Action                                                       |
+| --------------------------------- | -------- | ------------------------------------------------------------ |
+| Path traversal on `log_directory` | MEDIUM   | Validate resolved path starts with data directory            |
+| No explicit file permissions      | MEDIUM   | Set 0o750 on directory, rely on pino-roll defaults for files |
+| Disk exhaustion DoS               | MEDIUM   | Document SonicBoom silent drop behavior                      |
+| Pruning pattern safety            | LOW      | Eliminated — pino-roll `limit.count` handles retention       |
+| No encryption at rest             | LOW      | Document volume encryption as optional hardening step        |
+| SIGKILL data loss                 | LOW      | Flush with timeout in OnModuleDestroy                        |
 
 **Not implementing for v1:**
+
 - Rate limiting on audit events (concurrency guard already prevents runaway evaluations)
 - HMAC signatures on audit entries (home server threat model doesn't warrant it)
 - `enabled: boolean` kill switch (removing the audit section or not importing AuditModule achieves this)
@@ -307,55 +326,65 @@ const transport = pino.transport({
 
 ## Dependencies & Risks
 
-| Risk | Likelihood | Mitigation |
-|------|-----------|------------|
-| `pino-roll` incompatible with Bun | Low | App already uses Pino transports in Bun. Fallback to raw SonicBoom + manual rotation. Validate with smoke test before implementation. |
-| Disk full loses audit events | Low | Pino/SonicBoom drops silently. Users should monitor disk. Document this behavior. |
-| Reasoning string generation complexity | Low | Pure function on condition tree. Existing condition types are flat (AND/OR groups with leaf conditions). Memoized per rule. |
-| Path traversal via `log_directory` | Low | Runtime validation ensures path resolves within data directory. |
+| Risk                                   | Likelihood | Mitigation                                                                                                                            |
+| -------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `pino-roll` incompatible with Bun      | Low        | App already uses Pino transports in Bun. Fallback to raw SonicBoom + manual rotation. Validate with smoke test before implementation. |
+| Disk full loses audit events           | Low        | Pino/SonicBoom drops silently. Users should monitor disk. Document this behavior.                                                     |
+| Reasoning string generation complexity | Low        | Pure function on condition tree. Existing condition types are flat (AND/OR groups with leaf conditions). Memoized per rule.           |
+| Path traversal via `log_directory`     | Low        | Runtime validation ensures path resolves within data directory.                                                                       |
 
 ## Implementation Phases
 
 ### Phase 1: Config & Module Scaffolding
 
 **Files to modify:**
+
 - `src/config/config.schema.ts` — add `auditSchema`, update `RoombarrConfig` interface and `configSchema`
 - `roombarr.example.yml` — add `audit` section with comments
 
 **Files to create:**
+
 - `src/audit/audit.module.ts` — `@Global()` module exporting `AuditService`
 - `src/audit/audit.service.ts` — skeleton with DI, lifecycle hooks, path validation
 
 **File to modify:**
+
 - `src/app.module.ts` — import `AuditModule` (place after DatabaseModule in imports array)
 
 ### Phase 2: File Transport & Types
 
 **Files to create:**
+
 - `src/audit/audit.types.ts` — `AuditEntry` discriminated union, `MovieAuditEntry`, `SeasonAuditEntry`
 
 **Files to modify:**
+
 - `src/audit/audit.service.ts` — initialize pino-roll transport in `onModuleInit` with `mkdir: true` and `limit.count`, implement `onModuleDestroy` flush with timeout
 
 **Dependencies:**
+
 - `pino-roll` (install via `bun add pino-roll`)
 - `pino` (already installed as transitive dep of `nestjs-pino`)
 
 ### Phase 3: Audit Event API & Reasoning
 
 **Files to modify:**
+
 - `src/audit/audit.service.ts` — implement `logAction()` method, reasoning string builder (`buildReasoning()`)
 - `src/rules/rules.service.ts` — inject `AuditService`, pre-compute reasoning cache, emit audit events after `resolveAction()`
 
 ### Phase 4: Housekeeping & Tests
 
 **Files to modify:**
+
 - `.gitignore` — add `data/logs/` and `*.jsonl`
 
 **Files to create:**
+
 - `src/audit/audit.service.test.ts` — unit tests for formatting, reasoning generation, path validation
 
 **Files to modify:**
+
 - `src/rules/rules.service.test.ts` — add/update tests to verify `AuditService` is called correctly
 
 ## References & Research

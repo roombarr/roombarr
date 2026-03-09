@@ -17,38 +17,47 @@ describe('fieldRegistry', () => {
   });
 
   test('spot-check date field shape', () => {
-    expect(fieldRegistry.radarr['radarr.added']).toEqual({
-      type: 'date',
-      service: 'radarr',
-    });
+    const field = fieldRegistry.radarr['radarr.added'];
+    expect(field.type).toBe('date');
+    expect(field.service).toBe('radarr');
+    expect(field.description).toBeString();
   });
 
   test('spot-check number field shape', () => {
-    expect(fieldRegistry.radarr['radarr.size_on_disk']).toEqual({
-      type: 'number',
-      service: 'radarr',
-    });
+    const field = fieldRegistry.radarr['radarr.size_on_disk'];
+    expect(field.type).toBe('number');
+    expect(field.service).toBe('radarr');
+    expect(field.description).toBeString();
   });
 
   test('spot-check boolean field shape', () => {
-    expect(fieldRegistry.sonarr['sonarr.season.monitored']).toEqual({
-      type: 'boolean',
-      service: 'sonarr',
-    });
+    const field = fieldRegistry.sonarr['sonarr.season.monitored'];
+    expect(field.type).toBe('boolean');
+    expect(field.service).toBe('sonarr');
+    expect(field.description).toBeString();
   });
 
   test('spot-check string field shape', () => {
-    expect(fieldRegistry.radarr['radarr.status']).toEqual({
-      type: 'string',
-      service: 'radarr',
-    });
+    const field = fieldRegistry.radarr['radarr.status'];
+    expect(field.type).toBe('string');
+    expect(field.service).toBe('radarr');
+    expect(field.description).toBeString();
   });
 
   test('spot-check array field shape', () => {
-    expect(fieldRegistry.sonarr['sonarr.tags']).toEqual({
-      type: 'array',
-      service: 'sonarr',
-    });
+    const field = fieldRegistry.sonarr['sonarr.tags'];
+    expect(field.type).toBe('array');
+    expect(field.service).toBe('sonarr');
+    expect(field.description).toBeString();
+  });
+
+  test('every field has a non-empty description', () => {
+    for (const [_target, fields] of Object.entries(fieldRegistry)) {
+      for (const [_fieldPath, def] of Object.entries(fields)) {
+        expect(def.description).toBeString();
+        expect(def.description!.length).toBeGreaterThan(0);
+      }
+    }
   });
 
   test('enrichment fields are identical across both targets', () => {
@@ -158,33 +167,27 @@ describe('isOperatorCompatible', () => {
 
 describe('getFieldDefinition', () => {
   test('returns correct definition for radarr native field', () => {
-    expect(getFieldDefinition('radarr', 'radarr.added')).toEqual({
-      type: 'date',
-      service: 'radarr',
-    });
+    const def = getFieldDefinition('radarr', 'radarr.added');
+    expect(def?.type).toBe('date');
+    expect(def?.service).toBe('radarr');
   });
 
   test('returns correct definition for sonarr native field', () => {
-    expect(getFieldDefinition('sonarr', 'sonarr.season.episode_count')).toEqual(
-      {
-        type: 'number',
-        service: 'sonarr',
-      },
-    );
+    const def = getFieldDefinition('sonarr', 'sonarr.season.episode_count');
+    expect(def?.type).toBe('number');
+    expect(def?.service).toBe('sonarr');
   });
 
   test('returns correct definition for enrichment field', () => {
-    expect(getFieldDefinition('radarr', 'jellyfin.play_count')).toEqual({
-      type: 'number',
-      service: 'jellyfin',
-    });
+    const def = getFieldDefinition('radarr', 'jellyfin.play_count');
+    expect(def?.type).toBe('number');
+    expect(def?.service).toBe('jellyfin');
   });
 
   test('returns correct definition for state field', () => {
-    expect(getFieldDefinition('radarr', 'state.days_off_import_list')).toEqual({
-      type: 'number',
-      service: 'state',
-    });
+    const def = getFieldDefinition('radarr', 'state.days_off_import_list');
+    expect(def?.type).toBe('number');
+    expect(def?.service).toBe('state');
   });
 
   test('returns undefined for nonexistent field path', () => {

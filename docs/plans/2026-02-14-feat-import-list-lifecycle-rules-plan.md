@@ -14,6 +14,7 @@ deepened: 2026-02-14
 **Research agents used:** TypeScript reviewer, Performance oracle, Simplicity reviewer, Security sentinel, Architecture strategist, Pattern recognition specialist, Data integrity guardian, NestJS patterns researcher, CDC/event sourcing researcher, bun:sqlite best practices researcher
 
 ### Key Improvements
+
 1. **Transaction safety** — All per-cycle writes (UPSERTs + field_changes INSERTs) must be wrapped in a single `db.transaction()` call for atomicity
 2. **JSON determinism** — Use `microdiff` library for structural diffing instead of JSON.stringify comparison; sort arrays before diffing to avoid phantom changes
 3. **Field-registry-driven snapshots** — Use existing `fieldRegistry` + `resolveField()` to drive snapshot creation instead of generic JSON flattening, keeping the snapshot aligned with what the rules engine cares about
@@ -23,6 +24,7 @@ deepened: 2026-02-14
 7. **Partial snapshot merges** — Only update snapshot fields for services that were actually hydrated in the current run, respecting the lazy-loading pattern
 
 ### New Considerations Discovered
+
 - `state` as a service type is a semantic mismatch — every other entry in the `ServiceName` union maps to an external API with a client/mapper pair; `state` is an internal computation. Consider a `source: 'external' | 'computed'` discriminator or treat `state` as always-present without adding it to the external union.
 - First evaluation should **not** generate `field_changes` entries at all (skip diffing on true INSERTs, not UPDATEs) to avoid write amplification (~15 change records per item × 1000 items = 15,000 pointless rows).
 - Orphan cleanup should use a grace period or soft-delete — an item that disappears from the API and reappears (flaky API) should not lose its temporal history.
@@ -110,21 +112,25 @@ CREATE INDEX idx_field_changes_cleanup
 #### Research Insights: Schema & Persistence
 
 **Best Practices (from data integrity, performance, and bun:sqlite research):**
+
 - Add a **foreign key with `ON DELETE CASCADE`** from `field_changes` to `media_snapshots`. Without it, orphan `field_changes` rows accumulate for deleted media items. Enable with `PRAGMA foreign_keys = ON` on every connection.
 - **`new_value` should allow `NULL`** — fields like `jellyfin.last_played` can legitimately transition from a value to `null` (e.g., Jellyseerr request deleted). The `NOT NULL` constraint would prevent recording this.
 - Use **`PRAGMA user_version`** instead of a `schema_version` table. SQLite provides this built-in integer pragma for exactly this purpose. Simpler, no extra table, no extra queries.
 - Wrap all pending migrations in a **single transaction** so partial application is impossible. Use `CREATE TABLE IF NOT EXISTS` for idempotency.
 
 **SQLite PRAGMAs (from bun:sqlite and performance research):**
+
 ```sql
 PRAGMA journal_mode = WAL;          -- Write-Ahead Logging: +40% concurrent performance
 PRAGMA synchronous = NORMAL;        -- 3x faster than FULL; safe with WAL mode
 PRAGMA foreign_keys = ON;           -- Enforce FK constraints (OFF by default!)
 PRAGMA busy_timeout = 5000;         -- Wait 5s on lock instead of immediate SQLITE_BUSY
 ```
+
 `cache_size` and `mmap_size` tuning provides marginal gains (<8%) and is unnecessary for this workload (sub-1000 items). Defaults are sufficient.
 
 **Revised schema (incorporating findings):**
+
 ```sql
 CREATE TABLE field_changes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -141,6 +147,7 @@ CREATE TABLE field_changes (
 ```
 
 **Performance (from performance oracle):**
+
 - Batch-read ALL existing snapshots into a `Map<string, SnapshotRow>` at the start of each cycle — one `SELECT * FROM media_snapshots` instead of 1000 individual lookups.
 - Wrap ALL per-cycle writes (UPSERTs + field_changes INSERTs) in a **single `db.transaction()` call**. Without this, a crash between snapshot write and change record write leaves the database inconsistent.
 - Add a **content hash** (`data_hash`) column to `media_snapshots` using `Bun.hash()`. Skip the full diff for items whose hash hasn't changed — this avoids JSON parsing for the ~95% of items that are unchanged between evaluations.
@@ -165,9 +172,9 @@ fetchImportListMovies(): Promise<RadarrImportListMovie[]>
 // src/radarr/radarr.types.ts
 interface RadarrImportListMovie {
   tmdbId: number;
-  lists: number[];        // Import list IDs this movie appears on
+  lists: number[]; // Import list IDs this movie appears on
   title: string;
-  isExisting: boolean;    // Already in Radarr library
+  isExisting: boolean; // Already in Radarr library
 }
 ```
 
@@ -176,8 +183,8 @@ interface RadarrImportListMovie {
 ```typescript
 interface RadarrData {
   // ... existing fields ...
-  on_import_list: boolean;       // true if movie appears in import list response
-  import_list_ids: number[];     // which import lists the movie is on
+  on_import_list: boolean; // true if movie appears in import list response
+  import_list_ids: number[]; // which import lists the movie is on
 }
 ```
 
@@ -199,18 +206,22 @@ The `SnapshotService` runs after hydration and before rule evaluation. It writes
 #### Research Insights: Snapshot Pipeline
 
 **Diffing strategy (from CDC research and pattern recognition):**
+
 - Use **`microdiff`** (sub-1kb, zero deps, TypeScript-native, MIT license, 645k weekly downloads) for structural diffing instead of manual JSON.stringify comparison. It returns `{ type: "CHANGE", path: ["radarr", "tags"], value, oldValue }` entries that map directly to `field_path` via `path.join(".")`.
 - **Sort arrays before diffing** — `tags`, `watched_by`, `import_list_ids` can return in different order from APIs. Without sorting, `["action", "sci-fi"]` vs `["sci-fi", "action"]` is a phantom change. Pre-sort array fields before comparison.
 - **Use the field registry to drive snapshot creation** instead of generic object flattening. Iterate `fieldRegistry[target]` keys and resolve each via `resolveField()`. This reuses existing infrastructure and stays aligned with what rules actually reference, avoiding a parallel untyped representation.
 
 **Partial snapshot merges (from architecture strategist):**
+
 - The snapshot should only capture fields for services that were **actually hydrated**. If rules only reference Radarr and Jellyfin was not fetched, the snapshot should NOT overwrite existing Jellyfin fields from a previous run. A full-replacement strategy would cause Jellyfin data to appear "deleted" from the snapshot, generating spurious field changes.
 - `SnapshotService` must accept a set of hydrated services alongside the items and only diff/overwrite fields belonging to those services.
 
 **Orphan cleanup (from architecture strategist):**
+
 - Use a **grace period** before purging orphan snapshots. An item that disappears from the API and reappears one evaluation later (flaky API) should not lose its temporal history. Consider a `last_seen_at` column on `media_snapshots` and only delete items not seen for N evaluations.
 
 **Content hash optimization (from performance oracle):**
+
 ```typescript
 // Skip full diff for unchanged items (~95% of library per cycle)
 const currentHash = Bun.hash(stableStringify(flattenedData));
@@ -237,12 +248,12 @@ Computed from the `field_changes` table:
 
 **Null semantics (critical for rule authoring):**
 
-| Scenario | `on_import_list` | `import_list_ids` | `days_off_import_list` | `ever_on_import_list` |
-|---|---|---|---|---|
-| Currently on a list | `true` | `[1, 3]` | `null` | `true` |
-| Fell off list 5 days ago | `false` | `[]` | `5` | `true` |
-| Fell off list 31 days ago | `false` | `[]` | `31` | `true` |
-| Never seen on any list | `false` | `[]` | `null` | `false` |
+| Scenario                  | `on_import_list` | `import_list_ids` | `days_off_import_list` | `ever_on_import_list` |
+| ------------------------- | ---------------- | ----------------- | ---------------------- | --------------------- |
+| Currently on a list       | `true`           | `[1, 3]`          | `null`                 | `true`                |
+| Fell off list 5 days ago  | `false`          | `[]`              | `5`                    | `true`                |
+| Fell off list 31 days ago | `false`          | `[]`              | `31`                   | `true`                |
+| Never seen on any list    | `false`          | `[]`              | `null`                 | `false`               |
 
 - `days_off_import_list` is `null` when currently on a list (safe) or never observed (unknown)
 - `days_off_import_list greater_than 30` only matches movies that **were** on a list and have been off 30+ days
@@ -273,6 +284,7 @@ type ServiceName = 'radarr' | 'sonarr' | 'jellyfin' | 'jellyseerr' | 'state';
 Adding `'state'` to the `ServiceName` union introduces a conceptual mismatch. Every other value in that union maps to: (1) an external HTTP API, (2) a `*Client` class, (3) a `*Mapper` that transforms its response, and (4) a `*Service` that orchestrates fetching. The `'state'` value breaks all four associations — it is an internal computation, not an external data source.
 
 **Options:**
+
 1. **Keep `state.*` prefix but handle specially** — add `'state'` to the union but hardcode it as always-present in `checkMissingServiceData`. Simplest, minor semantic compromise.
 2. **Add a `source` discriminator** — `{ type, service, source: 'external' | 'computed' }`. More explicit but adds complexity to an otherwise simple registry.
 3. **Different prefix** — `computed.*` or `history.*` to make the distinction visible to users configuring rules.
@@ -280,6 +292,7 @@ Adding `'state'` to the `ServiceName` union introduces a conceptual mismatch. Ev
 **Recommendation:** Option 1. The semantic impurity is minor and confined to the type definition. Users already interact with `state.*` fields in YAML config — changing the prefix adds confusion for no practical benefit.
 
 **First-run behavior (from architecture strategist):**
+
 - `StateData` should be **`null`** on the first evaluation (no history exists), NOT a zero-initialized object. This preserves the existing null-skip pattern in `checkMissingServiceData` — rules referencing `state.*` fields are safely skipped for items with no temporal history.
 - After the first snapshot exists, `StateData` should be populated with computed values (which may themselves be `null` for individual fields like `days_off_import_list`).
 
@@ -315,13 +328,14 @@ The new steps should be inserted into `EvaluationService.executeEvaluation()`, n
 
 ```typescript
 // In EvaluationService.executeEvaluation()
-const items = await this.mediaService.hydrate(rules);      // Step 1: HYDRATE
+const items = await this.mediaService.hydrate(rules); // Step 1: HYDRATE
 await this.snapshotService.snapshot(items, hydratedServices); // Step 2: SNAPSHOT
-const enriched = this.stateService.enrich(items);           // Step 3: ENRICH
+const enriched = this.stateService.enrich(items); // Step 3: ENRICH
 const { results, summary } = this.rulesService.evaluate(enriched, rules); // Step 4: EVALUATE
 ```
 
 **Module structure (from NestJS patterns research):**
+
 ```
 DatabaseModule (@Global)
   └─ DatabaseService: connection lifecycle, PRAGMAs, migrations
@@ -339,6 +353,7 @@ EvaluationModule
 Both `SnapshotService` and `StateService` are always-present infrastructure — they should NOT use the optional DI pattern (`{ token, optional: true }`) used by Jellyfin/Jellyseerr.
 
 **NestJS lifecycle (from NestJS research):**
+
 - `@Global()` modules initialize **first** and destroy **last** — guarantees DB is ready before dependents and closes after them.
 - **Must add `app.enableShutdownHooks()` to `main.ts`** — without this, `OnModuleDestroy` never fires on SIGTERM/SIGINT, meaning the SQLite connection leaks on Docker container stop.
 - Constructor injection (not `useFactory`) for `DatabaseService` — `ConfigService` is already globally available.
@@ -363,6 +378,7 @@ The pattern recognition specialist suggested merging `SnapshotService` and `Stat
 #### Research Insights: Performance
 
 **Sizing estimates (from CDC research):**
+
 - Realistic field changes per cycle: ~30-50 (most media metadata is stable day-to-day)
 - 90-day `field_changes` size: ~4,500 rows, ~765 KB — a non-concern
 - `media_snapshots` size: ~500 KB for 1000 items (upserted, never grows)
@@ -370,6 +386,7 @@ The pattern recognition specialist suggested merging `SnapshotService` and `Stat
 
 **Retention cleanup (from data integrity guardian):**
 Use **batched deletes** with `LIMIT` to avoid long SQLite locks during retention pruning:
+
 ```sql
 DELETE FROM field_changes
 WHERE changed_at < datetime('now', '-90 days')
@@ -379,6 +396,7 @@ WHERE changed_at < datetime('now', '-90 days')
   )
 LIMIT 1000;
 ```
+
 This preserves the most recent change per field_path regardless of age (preventing temporal query anchor loss) and keeps individual transactions small.
 
 ### Docker
@@ -389,7 +407,7 @@ services:
   roombarr:
     volumes:
       - ./config:/config:ro
-      - roombarr-data:/data        # Persistent, writable volume for SQLite
+      - roombarr-data:/data # Persistent, writable volume for SQLite
 
 volumes:
   roombarr-data:
@@ -400,11 +418,13 @@ The SQLite file, WAL file, and SHM file all live in `/data/` on the same filesys
 #### Research Insights: Docker (from security sentinel)
 
 Add a non-root user to the Dockerfile before this feature ships:
+
 ```dockerfile
 RUN addgroup -S roombarr && adduser -S roombarr -G roombarr
 RUN mkdir -p /data && chown -R roombarr:roombarr /app /data
 USER roombarr
 ```
+
 This ensures the SQLite file is owned by a non-root user, reducing blast radius of any container escape. The `/data` directory must be created and owned by the app user before the volume mount.
 
 ### Sonarr Parity
@@ -422,6 +442,7 @@ Because the snapshot layer tracks changes to **all** fields, adding new temporal
 ## Acceptance Criteria
 
 ### Persistence Layer
+
 - [x] SQLite database initializes at `/data/roombarr.sqlite` on first startup
 - [x] PRAGMAs set: `journal_mode=WAL`, `synchronous=NORMAL`, `foreign_keys=ON`, `busy_timeout=5000`
 - [x] Schema version tracked via `PRAGMA user_version` (not a separate table)
@@ -434,12 +455,14 @@ Because the snapshot layer tracks changes to **all** fields, adding new temporal
 - [x] All SQL uses prepared statements with `?` placeholders (no string interpolation)
 
 ### Import List Data
+
 - [x] `RadarrClient` fetches import list movies via `GET /api/v3/importlist/movie`
 - [x] Import list movies are cross-referenced with library movies by `tmdbId`
 - [x] Only `isExisting: true` movies are considered
 - [x] `radarr.on_import_list` and `radarr.import_list_ids` populated on `RadarrData`
 
 ### Snapshotting
+
 - [x] Each evaluation writes the full unified model to `media_snapshots` (one row per item)
 - [x] Field-level changes detected using `microdiff` (or equivalent structural diff)
 - [x] Arrays sorted before diffing to avoid phantom changes from ordering differences
@@ -453,16 +476,19 @@ Because the snapshot layer tracks changes to **all** fields, adding new temporal
 - [x] API failure for a service skips snapshotting for that service's fields (no false state changes recorded)
 
 ### Temporal State Fields
+
 - [x] `state.days_off_import_list` (number | null): days since `radarr.on_import_list` changed to `false`; `null` if currently on a list or never observed
 - [x] `state.ever_on_import_list` (boolean): `true` if change history shows the movie was ever on an import list
 - [x] All fields registered in field registry with correct types and operator compatibility
 - [x] `state` fields treated as always-present by `checkMissingServiceData`
 
 ### Config Validation
+
 - [x] Rules referencing new fields pass validation for `target: radarr`
 - [x] Rules referencing `state.*` fields on `target: sonarr` are rejected with a clear error
 
 ### Example Rule Config
+
 ```yaml
 rules:
   # Delete movies that fell off all import lists 30+ days ago
@@ -518,33 +544,36 @@ rules:
 #### Research Insights: Security (from security sentinel)
 
 **Relevant to this feature:**
+
 - **Set explicit SQLite file permissions** — `chmod 0600` on the database, WAL, and SHM files. Without this, the container's root user creates world-readable files containing media metadata and watch history (PII-adjacent).
 - **SQL injection prevention** — ALL queries must use `bun:sqlite`'s prepared statement API with `?` placeholders. No string concatenation or template literals in SQL. The field path regex at `config.schema.ts` (`/^[a-z][a-z0-9_.]*$/`) provides defense-in-depth.
 - **Error messages** — sanitize errors stored in `EvaluationRun.error` before exposing via API. Upstream API errors can contain internal hostnames and ports.
 - **`watched_by` in snapshots** — the `JellyfinData.watched_by` field contains Jellyfin usernames. Document that the SQLite database contains user watch history and the `/data` volume should be treated as sensitive data.
 
 **Pre-existing issues to address alongside this feature:**
+
 - Add `USER` directive to Dockerfile (non-root container user)
 - Add `app.enableShutdownHooks()` to `main.ts` (required for clean DB shutdown)
 
 ## Dependencies & Risks
 
-| Risk | Mitigation |
-|---|---|
-| Radarr import list API shape differs from research | Verify against a running Radarr instance before implementation; the `lists: number[]` field on import list movies needs confirmation |
-| API outage records false state changes | `SnapshotService` skips fields for services with null data; only genuine transitions are recorded |
-| SQLite corruption in Docker | WAL mode + named volume; no NFS/network mounts; set `synchronous = NORMAL` |
-| `field_changes` unbounded growth | Retention-based cleanup (default 90 days); always preserves most recent change per field_path |
-| Snapshot writes slow down evaluation | Expected: ~1000 UPSERTs in <100ms with `bun:sqlite` WAL mode; content hash skips ~95% of items |
-| `bun:sqlite` API changes | Built-in to Bun, stable API; low risk |
-| Non-atomic writes cause inconsistent state | Wrap ALL per-cycle writes in a single `db.transaction()` call |
-| JSON serialization non-determinism causes phantom diffs | Use `microdiff` for structural comparison; sort arrays before diffing |
-| Partial hydration overwrites snapshot with stale data | Track which services were hydrated; only diff/overwrite fields for those services |
-| First evaluation generates 15,000+ pointless field_changes | Skip `field_changes` generation on initial insert (no previous snapshot to diff against) |
+| Risk                                                       | Mitigation                                                                                                                           |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Radarr import list API shape differs from research         | Verify against a running Radarr instance before implementation; the `lists: number[]` field on import list movies needs confirmation |
+| API outage records false state changes                     | `SnapshotService` skips fields for services with null data; only genuine transitions are recorded                                    |
+| SQLite corruption in Docker                                | WAL mode + named volume; no NFS/network mounts; set `synchronous = NORMAL`                                                           |
+| `field_changes` unbounded growth                           | Retention-based cleanup (default 90 days); always preserves most recent change per field_path                                        |
+| Snapshot writes slow down evaluation                       | Expected: ~1000 UPSERTs in <100ms with `bun:sqlite` WAL mode; content hash skips ~95% of items                                       |
+| `bun:sqlite` API changes                                   | Built-in to Bun, stable API; low risk                                                                                                |
+| Non-atomic writes cause inconsistent state                 | Wrap ALL per-cycle writes in a single `db.transaction()` call                                                                        |
+| JSON serialization non-determinism causes phantom diffs    | Use `microdiff` for structural comparison; sort arrays before diffing                                                                |
+| Partial hydration overwrites snapshot with stale data      | Track which services were hydrated; only diff/overwrite fields for those services                                                    |
+| First evaluation generates 15,000+ pointless field_changes | Skip `field_changes` generation on initial insert (no previous snapshot to diff against)                                             |
 
 ## References & Research
 
 ### Internal References
+
 - Field registry: `src/config/field-registry.ts`
 - Field resolver: `src/rules/field-resolver.ts`
 - Missing data check: `src/rules/rules.service.ts` (lines 90-104)
@@ -556,6 +585,7 @@ rules:
 - Evaluation pipeline: `src/evaluation/evaluation.service.ts`
 
 ### External References
+
 - Radarr API: `GET /api/v3/importlist/movie` returns `ImportListMoviesResource` with `lists: number[]`
 - Bun SQLite docs: https://bun.sh/docs/api/sqlite
 - `bun:sqlite` supports `Database`, `Statement`, WAL mode, and typed `query<T>()` generics

@@ -1,34 +1,26 @@
-/* ==========================================================================
-   Roombarr — Brand Identity Styles
-   Palette derived from the green robot logo + navy background.
-   Green appears only in interactive/accent elements; neutrals stay neutral.
-   ========================================================================== */
-
-/* --------------------------------------------------------------------------
-   Dark mode (default — Starlight renders :root as dark)
-   -------------------------------------------------------------------------- */
 :root {
-  /* Green accent palette */
-  --sl-color-accent-low: #14532d;
-  --sl-color-accent: #22c55e;
-  --sl-color-accent-high: #4ade80;
+  /* Fuchsia accent palette — optimized for WCAG AA on both black and white */
+  --sl-color-accent-low: #2c0727;
+  --sl-color-accent: #d11fb6;
+  --sl-color-accent-high: #de21c2;
 
-  /* Navy-tinted gray scale (hue 220, boosted saturation in darks) */
-  --sl-color-gray-1: hsl(220, 20%, 94%);
-  --sl-color-gray-2: hsl(220, 8%, 77%);
-  --sl-color-gray-3: hsl(220, 8%, 56%);
-  --sl-color-gray-4: hsl(220, 9%, 36%);
-  --sl-color-gray-5: hsl(220, 14%, 23%);
-  --sl-color-gray-6: hsl(220, 18%, 16%);
+  /* Blue-shifted gray scale for dark mode */
+  --sl-color-gray-1: hsl(240, 10%, 93%);
+  --sl-color-gray-2: hsl(240, 7%, 70%);
+  --sl-color-gray-3: hsl(240, 6%, 55%);
+  --sl-color-gray-4: hsl(240, 7%, 36%);
+  --sl-color-gray-5: hsl(240, 12%, 22%);
+  --sl-color-gray-6: hsl(240, 15%, 15%);
 
-  /* Navy page background */
-  --sl-color-black: hsl(222, 25%, 9%);
-  --sl-color-white: hsl(0, 0%, 100%);
+  /* Deep near-black page background (slightly blue-shifted) */
+  --sl-color-black: #0f0f14;
+  --sl-color-white: #e8e8f0;
 
   /* Typography */
-  --sl-font: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --sl-font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo,
-    monospace;
+  --sl-font:
+    "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --sl-font-mono:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* Layout */
   --sl-content-width: 50rem;
@@ -38,31 +30,25 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* --------------------------------------------------------------------------
-   Light mode
-   -------------------------------------------------------------------------- */
-[data-theme='light'] {
-  /* Higher-contrast greens for white backgrounds */
-  --sl-color-accent-low: #ecfdf5;
-  --sl-color-accent: #16a34a;
-  --sl-color-accent-high: #166534;
+[data-theme="light"] {
+  /* Higher-contrast fuchsia for white backgrounds */
+  --sl-color-accent-low: #f6eef5;
+  --sl-color-accent: #d31fb8;
+  --sl-color-accent-high: #a0188b;
 
   /* Inverted gray scale with cool undertone */
-  --sl-color-gray-1: hsl(220, 18%, 16%);
-  --sl-color-gray-2: hsl(220, 14%, 23%);
-  --sl-color-gray-3: hsl(220, 9%, 36%);
-  --sl-color-gray-4: hsl(220, 8%, 56%);
-  --sl-color-gray-5: hsl(220, 8%, 77%);
-  --sl-color-gray-6: hsl(220, 20%, 94%);
-  --sl-color-gray-7: hsl(220, 19%, 97%);
+  --sl-color-gray-1: #1a1a2e;
+  --sl-color-gray-2: hsl(240, 12%, 22%);
+  --sl-color-gray-3: hsl(240, 7%, 36%);
+  --sl-color-gray-4: hsl(240, 6%, 55%);
+  --sl-color-gray-5: #e2e2e8;
+  --sl-color-gray-6: #f8f8fa;
+  --sl-color-gray-7: hsl(240, 15%, 97%);
 
-  --sl-color-black: hsl(0, 0%, 100%);
-  --sl-color-white: hsl(220, 18%, 16%);
+  --sl-color-black: #ffffff;
+  --sl-color-white: #1a1a2e;
 }
 
-/* --------------------------------------------------------------------------
-   Headings — negative letter-spacing for Inter at display sizes
-   -------------------------------------------------------------------------- */
 .sl-markdown-content :is(h1, h2, h3, h4, h5, h6) {
   letter-spacing: -0.02em;
 }
@@ -71,9 +57,6 @@
   letter-spacing: -0.03em;
 }
 
-/* --------------------------------------------------------------------------
-   Links — ghost underline that solidifies on hover
-   -------------------------------------------------------------------------- */
 .sl-markdown-content a:not(.sl-link-button) {
   text-decoration: underline;
   text-decoration-color: color-mix(in srgb, currentColor 30%, transparent);
@@ -85,16 +68,16 @@
   text-decoration-color: currentColor;
 }
 
-/* --------------------------------------------------------------------------
-   Buttons — hover lift + green glow
-   -------------------------------------------------------------------------- */
 .sl-link-button {
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .sl-link-button.primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--sl-color-accent) 40%, transparent);
+  box-shadow: 0 4px 14px
+    color-mix(in srgb, var(--sl-color-accent) 40%, transparent);
 }
 
 .sl-link-button.minimal:hover {
@@ -111,9 +94,6 @@
   }
 }
 
-/* --------------------------------------------------------------------------
-   Code blocks — softer border-radius
-   -------------------------------------------------------------------------- */
 .sl-markdown-content pre {
   border-radius: 0.5rem;
 }
@@ -123,21 +103,18 @@
   border-radius: 0.25rem;
 }
 
-/* --------------------------------------------------------------------------
-   Asides/Callouts — softer right edges
-   -------------------------------------------------------------------------- */
 .starlight-aside {
   border-radius: 0 0.5rem 0.5rem 0;
 }
 
-/* --------------------------------------------------------------------------
-   Hero — logo glow + sizing + tagline scale
-   -------------------------------------------------------------------------- */
+.site-title img {
+  height: 2.5rem;
+  width: auto;
+}
+
 .hero > img {
   width: 175px;
   height: auto;
-  filter: drop-shadow(0 0 20px rgba(34, 197, 94, 0.35))
-    drop-shadow(0 0 60px rgba(34, 197, 94, 0.15));
 }
 
 @media (min-width: 800px) {
@@ -145,8 +122,4 @@
     width: 280px;
     height: auto;
   }
-}
-
-.hero .tagline {
-  font-size: clamp(1.1rem, 2.5vw, 1.35rem);
 }
