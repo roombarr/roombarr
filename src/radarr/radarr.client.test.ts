@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, mock, test } from 'bun:test';
 import { HttpModule, HttpService } from '@nestjs/axios';
 import { Test } from '@nestjs/testing';
 import { of } from 'rxjs';
@@ -66,16 +66,24 @@ describe('RadarrClient', () => {
   });
 
   describe('deleteMovie', () => {
-    test('deletes a movie without error', async () => {
+    test('deletes a movie with deleteFiles defaulting to true', async () => {
       const { client, http } = await setup();
-      http.delete = () => of(axiosResponse(undefined)) as any;
-      await expect(client.deleteMovie(1)).resolves.toBeUndefined();
+      const deleteSpy = mock(() => of(axiosResponse(undefined)));
+      http.delete = deleteSpy as any;
+      await client.deleteMovie(1);
+      expect(deleteSpy).toHaveBeenCalledWith('/api/v3/movie/1', {
+        params: { deleteFiles: true },
+      });
     });
 
     test('passes deleteFiles parameter', async () => {
       const { client, http } = await setup();
-      http.delete = () => of(axiosResponse(undefined)) as any;
-      await expect(client.deleteMovie(1, false)).resolves.toBeUndefined();
+      const deleteSpy = mock(() => of(axiosResponse(undefined)));
+      http.delete = deleteSpy as any;
+      await client.deleteMovie(1, false);
+      expect(deleteSpy).toHaveBeenCalledWith('/api/v3/movie/1', {
+        params: { deleteFiles: false },
+      });
     });
   });
 
@@ -83,9 +91,10 @@ describe('RadarrClient', () => {
     test('updates a movie without error', async () => {
       const { client, http } = await setup();
       const movie = makeRadarrMovie({ id: 1 });
-
-      http.put = () => of(axiosResponse(undefined)) as any;
-      await expect(client.updateMovie(1, movie)).resolves.toBeUndefined();
+      const putSpy = mock(() => of(axiosResponse(undefined)));
+      http.put = putSpy as any;
+      await client.updateMovie(1, movie);
+      expect(putSpy).toHaveBeenCalledWith('/api/v3/movie/1', movie);
     });
   });
 

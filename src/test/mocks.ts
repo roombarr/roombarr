@@ -10,22 +10,33 @@ import type {
   RadarrTag,
 } from '../radarr/radarr.types.js';
 import type { SonarrClient } from '../sonarr/sonarr.client.js';
-import type { SonarrSeries, SonarrTag } from '../sonarr/sonarr.types.js';
+import type {
+  SonarrEpisodeFile,
+  SonarrSeries,
+  SonarrTag,
+} from '../sonarr/sonarr.types.js';
 
-/** Creates a mock `RadarrClient` with all fetch methods stubbed. */
+/** Creates a mock `RadarrClient` with all methods stubbed. */
 export function createMockRadarrClient() {
   return {
     fetchMovies: mock<() => Promise<RadarrMovie[]>>(),
+    fetchMovie: mock<() => Promise<RadarrMovie>>(),
     fetchTags: mock<() => Promise<RadarrTag[]>>(),
     fetchImportListMovies: mock<() => Promise<RadarrImportListMovie[]>>(),
+    deleteMovie: mock<() => Promise<void>>(),
+    updateMovie: mock<() => Promise<void>>(),
   } as unknown as RadarrClient;
 }
 
-/** Creates a mock `SonarrClient` with all fetch methods stubbed. */
+/** Creates a mock `SonarrClient` with all methods stubbed. */
 export function createMockSonarrClient() {
   return {
     fetchSeries: mock<() => Promise<SonarrSeries[]>>(),
+    fetchSeriesById: mock<() => Promise<SonarrSeries>>(),
     fetchTags: mock<() => Promise<SonarrTag[]>>(),
+    fetchEpisodeFiles: mock<() => Promise<SonarrEpisodeFile[]>>(),
+    updateSeries: mock<() => Promise<void>>(),
+    deleteEpisodeFile: mock<() => Promise<void>>(),
   } as unknown as SonarrClient;
 }
 

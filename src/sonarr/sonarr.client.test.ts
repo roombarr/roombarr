@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, mock, test } from 'bun:test';
 import { HttpModule, HttpService } from '@nestjs/axios';
 import { Test } from '@nestjs/testing';
 import { of } from 'rxjs';
@@ -55,9 +55,10 @@ describe('SonarrClient', () => {
     test('updates a series without error', async () => {
       const { client, http } = await setup();
       const series = makeSonarrSeries({ id: 1 });
-
-      http.put = () => of(axiosResponse(undefined)) as any;
-      await expect(client.updateSeries(1, series)).resolves.toBeUndefined();
+      const putSpy = mock(() => of(axiosResponse(undefined)));
+      http.put = putSpy as any;
+      await client.updateSeries(1, series);
+      expect(putSpy).toHaveBeenCalledWith('/api/v3/series/1', series);
     });
   });
 
@@ -75,8 +76,10 @@ describe('SonarrClient', () => {
   describe('deleteEpisodeFile', () => {
     test('deletes an episode file without error', async () => {
       const { client, http } = await setup();
-      http.delete = () => of(axiosResponse(undefined)) as any;
-      await expect(client.deleteEpisodeFile(1)).resolves.toBeUndefined();
+      const deleteSpy = mock(() => of(axiosResponse(undefined)));
+      http.delete = deleteSpy as any;
+      await client.deleteEpisodeFile(1);
+      expect(deleteSpy).toHaveBeenCalledWith('/api/v3/episodefile/1');
     });
   });
 

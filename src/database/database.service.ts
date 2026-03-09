@@ -6,6 +6,7 @@ import {
   Logger,
   type OnModuleDestroy,
   type OnModuleInit,
+  Optional,
 } from '@nestjs/common';
 import { type BunSQLiteDatabase, drizzle } from 'drizzle-orm/bun-sqlite';
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
@@ -32,7 +33,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   private drizzleDb!: BunSQLiteDatabase<typeof schema>;
   private readonly dbPath: string;
 
-  constructor(dbPath?: string) {
+  constructor(@Optional() dbPath?: string) {
     this.dbPath = dbPath ?? process.env.DB_PATH ?? DEFAULT_DB_PATH;
   }
 

@@ -59,7 +59,7 @@ export function useTestDatabase() {
   });
 
   afterEach(() => {
-    current.cleanup();
+    current?.cleanup();
   });
 
   return {
