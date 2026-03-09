@@ -2,6 +2,7 @@ export {
   makeRadarrImportListMovie,
   makeRadarrMovie,
   makeRadarrTag,
+  makeSonarrEpisodeFile,
   makeSonarrSeries,
   makeSonarrTag,
 } from './api-fixtures.js';

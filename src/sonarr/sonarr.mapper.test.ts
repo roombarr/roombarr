@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'bun:test';
-import { makeSonarrSeries } from '../test/index.js';
+import { makeSonarrSeries, makeSonarrTag } from '../test/index.js';
 import { buildTagMap, mapSeason, resolveTagNames } from './sonarr.mapper.js';
-import type { SonarrSeason, SonarrTag } from './sonarr.types.js';
+import type { SonarrSeason } from './sonarr.types.js';
 
-const TAGS: SonarrTag[] = [
-  { id: 1, label: 'keep-forever' },
-  { id: 2, label: 'kids' },
-  { id: 3, label: 'anime' },
+const TAGS = [
+  makeSonarrTag({ id: 1, label: 'keep-forever' }),
+  makeSonarrTag({ id: 2, label: 'kids' }),
+  makeSonarrTag({ id: 3, label: 'anime' }),
 ];
 
 describe('buildTagMap', () => {
@@ -19,7 +19,7 @@ describe('buildTagMap', () => {
   });
 
   test('lowercases tag labels', () => {
-    const map = buildTagMap([{ id: 1, label: 'Keep-Forever' }]);
+    const map = buildTagMap([makeSonarrTag({ id: 1, label: 'Keep-Forever' })]);
     expect(map.get(1)).toBe('keep-forever');
   });
 

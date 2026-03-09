@@ -3,7 +3,11 @@ import type {
   RadarrMovie,
   RadarrTag,
 } from '../radarr/radarr.types.js';
-import type { SonarrSeries, SonarrTag } from '../sonarr/sonarr.types.js';
+import type {
+  SonarrEpisodeFile,
+  SonarrSeries,
+  SonarrTag,
+} from '../sonarr/sonarr.types.js';
 
 /** Creates a `RadarrMovie` with sensible defaults for testing. */
 export function makeRadarrMovie(
@@ -73,4 +77,18 @@ export function makeSonarrSeries(
 /** Creates a `SonarrTag` with sensible defaults for testing. */
 export function makeSonarrTag(overrides: Partial<SonarrTag> = {}): SonarrTag {
   return { id: 1, label: 'test-tag', ...overrides };
+}
+
+/** Creates a `SonarrEpisodeFile` with sensible defaults for testing. */
+export function makeSonarrEpisodeFile(
+  overrides: Partial<SonarrEpisodeFile> = {},
+): SonarrEpisodeFile {
+  return {
+    id: 1,
+    seriesId: 1,
+    seasonNumber: 1,
+    path: '/tv/test-series/Season 01/episode.mkv',
+    size: 1_500_000_000,
+    ...overrides,
+  };
 }
