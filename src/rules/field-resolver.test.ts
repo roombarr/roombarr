@@ -1,79 +1,23 @@
 import { describe, expect, test } from 'bun:test';
-import type { UnifiedMedia } from '../shared/types.js';
+import {
+  makeJellyfinData,
+  makeJellyseerrData,
+  makeMovie,
+  makeSeason,
+} from '../test/index.js';
 import { resolveField } from './field-resolver.js';
 
-function makeMovie(overrides: Record<string, any> = {}): UnifiedMedia {
-  return {
-    type: 'movie',
-    radarr_id: 501,
-    tmdb_id: 12345,
-    imdb_id: 'tt1234567',
-    title: 'Test Movie',
-    year: 2024,
-    radarr: {
-      added: '2024-01-01T00:00:00Z',
-      size_on_disk: 5_000_000_000,
-      has_file: true,
-      monitored: true,
-      tags: ['permanent', 'favorite'],
-      genres: ['Action', 'Drama'],
-      status: 'released',
-      year: 2024,
-      digital_release: '2024-03-01T00:00:00Z',
-      physical_release: '2024-04-01T00:00:00Z',
-      path: '/movies/test',
-      on_import_list: false,
-      import_list_ids: [],
-    },
-    state: null,
-    jellyfin: {
-      watched_by: ['Alice', 'Bob'],
-      watched_by_all: true,
-      last_played: '2024-06-01T00:00:00Z',
-      play_count: 3,
-    },
-    jellyseerr: {
-      requested_by: 'Alice',
-      requested_at: '2024-01-15T00:00:00Z',
-      request_status: 'available',
-    },
-    ...overrides,
-  };
-}
+const jellyfinData = makeJellyfinData({
+  watched_by: ['Alice', 'Bob'],
+  watched_by_all: true,
+  play_count: 3,
+});
 
-function makeSeason(overrides: Record<string, any> = {}): UnifiedMedia {
-  return {
-    type: 'season',
-    sonarr_series_id: 601,
-    tvdb_id: 54321,
-    title: 'Test Show',
-    year: 2023,
-    sonarr: {
-      tags: ['favorite'],
-      genres: ['Sci-Fi'],
-      status: 'ended',
-      year: 2023,
-      path: '/tv/test',
-      season: {
-        season_number: 1,
-        monitored: true,
-        episode_count: 10,
-        episode_file_count: 10,
-        has_file: true,
-        size_on_disk: 15_000_000_000,
-      },
-    },
-    jellyfin: {
-      watched_by: ['Alice'],
-      watched_by_all: false,
-      last_played: '2024-05-01T00:00:00Z',
-      play_count: 1,
-    },
-    jellyseerr: null,
-    state: null,
-    ...overrides,
-  };
-}
+const jellyseerrData = makeJellyseerrData({
+  requested_by: 'Alice',
+  requested_at: '2024-01-15T00:00:00Z',
+  request_status: 'available',
+});
 
 describe('resolveField', () => {
   test('resolves top-level radarr field', () => {
@@ -85,7 +29,8 @@ describe('resolveField', () => {
   });
 
   test('resolves radarr array field', () => {
-    const result = resolveField(makeMovie(), 'radarr.tags');
+    const movie = makeMovie({ radarr: { tags: ['permanent', 'favorite'] } });
+    const result = resolveField(movie, 'radarr.tags');
     expect(result).toEqual({
       value: ['permanent', 'favorite'],
       resolved: true,
@@ -98,18 +43,19 @@ describe('resolveField', () => {
   });
 
   test('resolves jellyfin field on movie', () => {
-    const result = resolveField(makeMovie(), 'jellyfin.watched_by_all');
+    const movie = makeMovie({ jellyfin: jellyfinData });
+    const result = resolveField(movie, 'jellyfin.watched_by_all');
     expect(result).toEqual({ value: true, resolved: true });
   });
 
   test('resolves jellyseerr field', () => {
-    const result = resolveField(makeMovie(), 'jellyseerr.requested_by');
+    const movie = makeMovie({ jellyseerr: jellyseerrData });
+    const result = resolveField(movie, 'jellyseerr.requested_by');
     expect(result).toEqual({ value: 'Alice', resolved: true });
   });
 
   test('returns unresolved for null service data', () => {
-    const movie = makeMovie({ jellyfin: null });
-    const result = resolveField(movie, 'jellyfin.watched_by');
+    const result = resolveField(makeMovie(), 'jellyfin.watched_by');
     expect(result).toEqual({ value: undefined, resolved: false });
   });
 
@@ -122,13 +68,13 @@ describe('resolveField', () => {
   });
 
   test('resolves sonarr series-level field', () => {
-    const result = resolveField(makeSeason(), 'sonarr.tags');
+    const season = makeSeason({ sonarr: { tags: ['favorite'] } });
+    const result = resolveField(season, 'sonarr.tags');
     expect(result).toEqual({ value: ['favorite'], resolved: true });
   });
 
   test('returns unresolved for null jellyseerr on season', () => {
-    const season = makeSeason({ jellyseerr: null });
-    const result = resolveField(season, 'jellyseerr.requested_by');
+    const result = resolveField(makeSeason(), 'jellyseerr.requested_by');
     expect(result).toEqual({ value: undefined, resolved: false });
   });
 
@@ -139,28 +85,17 @@ describe('resolveField', () => {
 
   test('resolves radarr.has_file as false without treating it as unresolved', () => {
     const movie = makeMovie({
-      radarr: {
-        added: '2024-01-01T00:00:00Z',
-        size_on_disk: 0,
-        has_file: false,
-        monitored: true,
-        tags: [],
-        genres: [],
-        status: 'released',
-        year: 2024,
-        digital_release: null,
-        physical_release: null,
-        path: '/movies/test',
-        on_import_list: false,
-        import_list_ids: [],
-      },
+      radarr: { has_file: false, size_on_disk: 0, tags: [], genres: [] },
     });
     const result = resolveField(movie, 'radarr.has_file');
     expect(result).toEqual({ value: false, resolved: true });
   });
 
   test('resolves deeply nested path', () => {
-    const result = resolveField(makeSeason(), 'sonarr.season.size_on_disk');
+    const season = makeSeason({
+      sonarr: { season: { size_on_disk: 15_000_000_000 } },
+    });
+    const result = resolveField(season, 'sonarr.season.size_on_disk');
     expect(result).toEqual({ value: 15_000_000_000, resolved: true });
   });
 });

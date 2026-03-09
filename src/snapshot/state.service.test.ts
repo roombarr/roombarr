@@ -1,68 +1,19 @@
-import type { Database } from 'bun:sqlite';
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { existsSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { DatabaseService } from '../database/database.service.js';
+import { beforeEach, describe, expect, test } from 'bun:test';
+import { and, eq, sql } from 'drizzle-orm';
+import { fieldChanges } from '../database/schema.js';
 import type { UnifiedMovie, UnifiedSeason } from '../shared/types.js';
+import { makeMovie, makeSeason, useTestDatabase } from '../test/index.js';
 import { SnapshotService } from './snapshot.service.js';
 import { StateService } from './state.service.js';
 
-function makeMovie(overrides: Record<string, any> = {}): UnifiedMovie {
-  return {
-    type: 'movie',
-    radarr_id: 101,
-    tmdb_id: 1,
-    imdb_id: 'tt0000001',
-    title: 'Test Movie',
-    year: 2024,
-    radarr: {
-      added: '2024-01-01T00:00:00Z',
-      size_on_disk: 5_000_000_000,
-      has_file: true,
-      monitored: true,
-      tags: [],
-      genres: ['Action'],
-      status: 'released',
-      year: 2024,
-      digital_release: null,
-      physical_release: null,
-      path: '/movies/test',
-      on_import_list: true,
-      import_list_ids: [1],
-    },
-    state: null,
-    jellyfin: null,
-    jellyseerr: null,
-    ...overrides,
-  };
-}
-
 describe('StateService', () => {
-  let dbService: DatabaseService;
+  const db = useTestDatabase();
   let snapshotService: SnapshotService;
   let stateService: StateService;
-  let db: Database;
-  let testDir: string;
 
   beforeEach(() => {
-    testDir = join(tmpdir(), `roombarr-state-test-${Date.now()}`);
-    process.env.DB_PATH = join(testDir, 'roombarr.sqlite');
-
-    dbService = new DatabaseService();
-    dbService.onModuleInit();
-    db = dbService.getDatabase();
-
-    snapshotService = new SnapshotService(dbService);
-    stateService = new StateService(dbService);
-  });
-
-  afterEach(() => {
-    dbService.onModuleDestroy();
-    if (existsSync(testDir)) {
-      rmSync(testDir, { recursive: true });
-    }
-    delete process.env.DB_PATH;
+    snapshotService = new SnapshotService(db.dbService);
+    stateService = new StateService(db.dbService);
   });
 
   test('returns items unchanged on first evaluation (no snapshots)', () => {
@@ -74,7 +25,9 @@ describe('StateService', () => {
   });
 
   test('populates state after first snapshot exists', async () => {
-    const movie = makeMovie();
+    const movie = makeMovie({
+      radarr: { on_import_list: true, import_list_ids: [1] },
+    });
 
     // Create initial snapshot
     await snapshotService.snapshot([movie], new Set(['radarr']));
@@ -91,7 +44,7 @@ describe('StateService', () => {
 
   test('days_off_import_list is null when currently on a list', async () => {
     const movie = makeMovie({
-      radarr: { ...makeMovie().radarr, on_import_list: true },
+      radarr: { on_import_list: true, import_list_ids: [1] },
     });
     await snapshotService.snapshot([movie], new Set(['radarr']));
 
@@ -102,25 +55,26 @@ describe('StateService', () => {
   });
 
   test('days_off_import_list computes from change history', async () => {
-    const movieOn = makeMovie();
+    const movieOn = makeMovie({
+      radarr: { on_import_list: true, import_list_ids: [1] },
+    });
     await snapshotService.snapshot([movieOn], new Set(['radarr']));
 
     // Movie falls off import list
-    const movieOff = makeMovie({
-      radarr: {
-        ...makeMovie().radarr,
-        on_import_list: false,
-        import_list_ids: [],
-      },
-    });
+    const movieOff = makeMovie();
     await snapshotService.snapshot([movieOff], new Set(['radarr']));
 
     // Manually backdate the field_change to 5 days ago for testing
-    db.query(
-      `UPDATE field_changes
-       SET changed_at = datetime('now', '-5 days')
-       WHERE field_path = 'radarr.on_import_list' AND new_value = 'false'`,
-    ).run();
+    db.drizzle
+      .update(fieldChanges)
+      .set({ changedAt: sql`datetime('now', '-5 days')` })
+      .where(
+        and(
+          eq(fieldChanges.fieldPath, 'radarr.on_import_list'),
+          eq(fieldChanges.newValue, 'false'),
+        ),
+      )
+      .run();
 
     const enriched = stateService.enrich([movieOff]);
     const state = (enriched[0] as UnifiedMovie).state!;
@@ -129,13 +83,7 @@ describe('StateService', () => {
   });
 
   test('days_off_import_list is null when never on a list', async () => {
-    const movie = makeMovie({
-      radarr: {
-        ...makeMovie().radarr,
-        on_import_list: false,
-        import_list_ids: [],
-      },
-    });
+    const movie = makeMovie();
     await snapshotService.snapshot([movie], new Set(['radarr']));
 
     const enriched = stateService.enrich([movie]);
@@ -146,7 +94,9 @@ describe('StateService', () => {
   });
 
   test('ever_on_import_list is true when currently on list', async () => {
-    const movie = makeMovie();
+    const movie = makeMovie({
+      radarr: { on_import_list: true, import_list_ids: [1] },
+    });
     await snapshotService.snapshot([movie], new Set(['radarr']));
 
     const enriched = stateService.enrich([movie]);
@@ -157,17 +107,13 @@ describe('StateService', () => {
 
   test('ever_on_import_list is true after falling off list', async () => {
     // Was on list
-    const movieOn = makeMovie();
+    const movieOn = makeMovie({
+      radarr: { on_import_list: true, import_list_ids: [1] },
+    });
     await snapshotService.snapshot([movieOn], new Set(['radarr']));
 
     // Fell off list
-    const movieOff = makeMovie({
-      radarr: {
-        ...makeMovie().radarr,
-        on_import_list: false,
-        import_list_ids: [],
-      },
-    });
+    const movieOff = makeMovie();
     await snapshotService.snapshot([movieOff], new Set(['radarr']));
 
     const enriched = stateService.enrich([movieOff]);
@@ -177,13 +123,7 @@ describe('StateService', () => {
   });
 
   test('ever_on_import_list is false when never on a list', async () => {
-    const movie = makeMovie({
-      radarr: {
-        ...makeMovie().radarr,
-        on_import_list: false,
-        import_list_ids: [],
-      },
-    });
+    const movie = makeMovie();
     await snapshotService.snapshot([movie], new Set(['radarr']));
 
     const enriched = stateService.enrich([movie]);
@@ -193,31 +133,7 @@ describe('StateService', () => {
   });
 
   test('returns seasons unchanged when no registry fields target sonarr', async () => {
-    const season: UnifiedSeason = {
-      type: 'season',
-      sonarr_series_id: 201,
-      tvdb_id: 100,
-      title: 'Test Show - S01',
-      year: 2024,
-      sonarr: {
-        tags: [],
-        genres: ['Drama'],
-        status: 'continuing',
-        year: 2024,
-        path: '/tv/test',
-        season: {
-          season_number: 1,
-          monitored: true,
-          episode_count: 10,
-          episode_file_count: 10,
-          has_file: true,
-          size_on_disk: 10_000_000_000,
-        },
-      },
-      jellyfin: null,
-      jellyseerr: null,
-      state: null,
-    };
+    const season = makeSeason();
 
     // Create a snapshot so enrichment would run if applicable
     await snapshotService.snapshot([season], new Set(['sonarr']));
@@ -229,16 +145,12 @@ describe('StateService', () => {
   });
 
   test('batch query handles multiple items efficiently', async () => {
-    const movie1 = makeMovie({ tmdb_id: 1, title: 'Movie 1' });
-    const movie2 = makeMovie({
-      tmdb_id: 2,
-      title: 'Movie 2',
-      radarr: {
-        ...makeMovie().radarr,
-        on_import_list: false,
-        import_list_ids: [],
-      },
+    const movie1 = makeMovie({
+      tmdb_id: 1,
+      title: 'Movie 1',
+      radarr: { on_import_list: true, import_list_ids: [1] },
     });
+    const movie2 = makeMovie({ tmdb_id: 2, title: 'Movie 2' });
 
     await snapshotService.snapshot([movie1, movie2], new Set(['radarr']));
 

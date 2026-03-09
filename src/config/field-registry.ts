@@ -110,3 +110,41 @@ export function getFieldDefinition(
 export function getServiceFromField(fieldPath: string): string {
   return fieldPath.split('.')[0];
 }
+
+/**
+ * Minimal recursive type for condition trees.
+ * Defined here (rather than imported from config.schema) to avoid
+ * a circular dependency — config.schema already imports from this file.
+ */
+interface ConditionNode {
+  field?: string;
+  children?: ConditionNode[];
+}
+
+/**
+ * Determine which service prefixes are referenced by the given rules.
+ * The base service (radarr/sonarr) is always included for each rule's target.
+ * Enrichment services are included if referenced in any condition.
+ */
+export function getHydratedServices(
+  rules: readonly { target: string; conditions: ConditionNode }[],
+): Set<string> {
+  const services = new Set<string>();
+
+  const collect = (condition: ConditionNode): void => {
+    if (condition.field !== undefined) {
+      services.add(getServiceFromField(condition.field));
+    } else if (condition.children !== undefined) {
+      for (const child of condition.children) {
+        collect(child);
+      }
+    }
+  };
+
+  for (const rule of rules) {
+    services.add(rule.target);
+    collect(rule.conditions);
+  }
+
+  return services;
+}

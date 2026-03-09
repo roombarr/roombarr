@@ -1,105 +1,24 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import type { RuleConfig } from '../config/config.schema.js';
 import type { JellyseerrIndexes } from '../jellyseerr/jellyseerr.service.js';
-import type {
-  JellyfinData,
-  UnifiedMovie,
-  UnifiedSeason,
-} from '../shared/types.js';
+import type { UnifiedMovie } from '../shared/types.js';
+import {
+  makeJellyfinData,
+  makeJellyseerrData,
+  makeMovie,
+  makeRule,
+  makeSeason,
+} from '../test/index.js';
 import { MediaService } from './media.service.js';
 
-function makeMovie(tmdbId: number): UnifiedMovie {
-  return {
-    type: 'movie',
-    radarr_id: tmdbId + 1000,
-    tmdb_id: tmdbId,
-    imdb_id: `tt${tmdbId}`,
-    title: `Movie ${tmdbId}`,
-    year: 2024,
-    radarr: {
-      added: '2024-06-01T12:00:00Z',
-      size_on_disk: 5_000_000_000,
-      has_file: true,
-      monitored: true,
-      tags: [],
-      genres: ['action'],
-      status: 'released',
-      year: 2024,
-      digital_release: null,
-      physical_release: null,
-      path: `/movies/Movie ${tmdbId}`,
-      on_import_list: false,
-      import_list_ids: [],
-    },
-    state: null,
-    jellyfin: null,
-    jellyseerr: null,
-  };
-}
-
-function makeSeason(tvdbId: number, seasonNumber: number): UnifiedSeason {
-  return {
-    type: 'season',
-    sonarr_series_id: tvdbId + 2000,
-    tvdb_id: tvdbId,
-    title: `Series ${tvdbId} - S${String(seasonNumber).padStart(2, '0')}`,
-    year: 2024,
-    sonarr: {
-      tags: [],
-      genres: ['drama'],
-      status: 'continuing',
-      year: 2024,
-      path: `/tv/Series ${tvdbId}`,
-      season: {
-        season_number: seasonNumber,
-        monitored: true,
-        episode_count: 10,
-        episode_file_count: 10,
-        has_file: true,
-        size_on_disk: 10_000_000_000,
-      },
-    },
-    jellyfin: null,
-    jellyseerr: null,
-    state: null,
-  };
-}
-
-const jellyfinMovieData: JellyfinData = {
-  watched_by: ['alice'],
-  watched_by_all: false,
+const jellyfinMovieData = makeJellyfinData({
   last_played: '2024-12-01T20:00:00Z',
-  play_count: 1,
-};
+});
 
 const jellyseerrIndexes: JellyseerrIndexes = {
-  byTmdbId: new Map([
-    [
-      603,
-      {
-        requested_by: 'alice',
-        requested_at: '2024-01-15T12:00:00Z',
-        request_status: 'approved',
-      },
-    ],
-  ]),
+  byTmdbId: new Map([[603, makeJellyseerrData()]]),
   byTvdbId: new Map(),
 };
-
-function makeRule(overrides: Partial<RuleConfig> = {}): RuleConfig {
-  return {
-    name: 'Test rule',
-    target: 'radarr',
-    action: 'delete',
-    conditions: {
-      operator: 'AND',
-      children: [
-        { field: 'radarr.monitored', operator: 'equals', value: true },
-      ],
-    },
-    ...overrides,
-  };
-}
 
 describe('MediaService', () => {
   let radarrService: { fetchMovies: ReturnType<typeof mock> };
@@ -113,10 +32,10 @@ describe('MediaService', () => {
 
   beforeEach(() => {
     radarrService = {
-      fetchMovies: mock(() => Promise.resolve([makeMovie(603)])),
+      fetchMovies: mock(() => Promise.resolve([makeMovie({ tmdb_id: 603 })])),
     };
     sonarrService = {
-      fetchSeasons: mock(() => Promise.resolve([makeSeason(100, 1)])),
+      fetchSeasons: mock(() => Promise.resolve([makeSeason()])),
     };
     jellyfinService = {
       fetchMovieWatchData: mock(() =>

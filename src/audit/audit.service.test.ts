@@ -1,138 +1,204 @@
-import { describe, expect, test } from 'bun:test';
-import type { ConditionGroup } from '../config/config.schema.js';
-import { buildReasoning } from './reasoning.js';
+import { describe, expect, mock, test } from 'bun:test';
+import type { ConfigService } from '../config/config.service.js';
+import { makeConfig, makeMovie, makeSeason } from '../test/index.js';
+import { AuditService } from './audit.service.js';
+import type { LogActionParams } from './audit.types.js';
 
-describe('buildReasoning', () => {
-  test('formats a single leaf condition', () => {
-    const conditions: ConditionGroup = {
-      operator: 'AND',
-      children: [
-        { field: 'radarr.monitored', operator: 'equals', value: true },
-      ],
-    };
+function makeLogActionParams(
+  overrides: Partial<LogActionParams> = {},
+): LogActionParams {
+  return {
+    item: makeMovie(),
+    action: 'delete',
+    winningRule: 'Test rule',
+    matchedRules: ['Test rule'],
+    reasoning: 'radarr.monitored equals true',
+    evaluationId: 'eval-123',
+    dryRun: false,
+    ...overrides,
+  };
+}
 
-    expect(buildReasoning(conditions)).toBe('radarr.monitored equals true');
+function makeService() {
+  const configService = {
+    getConfig: mock(() => makeConfig()),
+  } as unknown as ConfigService;
+
+  const service = new AuditService(configService);
+  (service as any).flushTimeoutMs = 10;
+
+  const auditLogger = {
+    info: mock((_entry: any) => {}),
+    flush: mock((cb: (err?: Error | null) => void) => cb(null)),
+  };
+  const logger = {
+    log: mock((_msg: any) => {}),
+    warn: mock((_msg: any) => {}),
+  };
+
+  (service as any).auditLogger = auditLogger;
+  (service as any).logger = logger;
+
+  return { service, auditLogger, logger, configService };
+}
+
+describe('AuditService', () => {
+  describe('logAction', () => {
+    test('builds a movie audit entry with media_type "movie" and tmdb_id', () => {
+      const { service, auditLogger } = makeService();
+      const movie = makeMovie({ tmdb_id: 42 });
+
+      service.logAction(makeLogActionParams({ item: movie }));
+
+      const entry = auditLogger.info.mock.calls[0][0];
+      expect(entry.media_type).toBe('movie');
+      expect(entry.media.tmdb_id).toBe(42);
+    });
+
+    test('builds a season audit entry with media_type "season" and tvdb_id', () => {
+      const { service, auditLogger } = makeService();
+      const season = makeSeason({ tvdb_id: 99 });
+
+      service.logAction(makeLogActionParams({ item: season }));
+
+      const entry = auditLogger.info.mock.calls[0][0];
+      expect(entry.media_type).toBe('season');
+      expect(entry.media.tvdb_id).toBe(99);
+    });
+
+    test('maps params fields to entry fields correctly', () => {
+      const { service, auditLogger } = makeService();
+      const params = makeLogActionParams({
+        winningRule: 'Custom rule',
+        matchedRules: ['Rule A', 'Rule B'],
+        evaluationId: 'eval-abc',
+        reasoning: 'custom reasoning',
+        action: 'unmonitor',
+        dryRun: true,
+      });
+
+      service.logAction(params);
+
+      const entry = auditLogger.info.mock.calls[0][0];
+      expect(entry.rule).toBe('Custom rule');
+      expect(entry.matched_rules).toEqual(['Rule A', 'Rule B']);
+      expect(entry.evaluation_id).toBe('eval-abc');
+      expect(entry.reasoning).toBe('custom reasoning');
+      expect(entry.action).toBe('unmonitor');
+      expect(entry.dry_run).toBe(true);
+    });
+
+    test('sets timestamp as a valid ISO string', () => {
+      const { service, auditLogger } = makeService();
+
+      service.logAction(makeLogActionParams());
+
+      const entry = auditLogger.info.mock.calls[0][0];
+      const parsed = Date.parse(entry.timestamp);
+      expect(Number.isNaN(parsed)).toBe(false);
+    });
+
+    test('logs with [DRY RUN] prefix when dryRun is true', () => {
+      const { service, logger } = makeService();
+
+      service.logAction(makeLogActionParams({ dryRun: true }));
+
+      const logMessage = logger.log.mock.calls[0][0];
+      expect(logMessage).toContain('[DRY RUN]');
+    });
+
+    test('logs with [LIVE] prefix when dryRun is false', () => {
+      const { service, logger } = makeService();
+
+      service.logAction(makeLogActionParams({ dryRun: false }));
+
+      const logMessage = logger.log.mock.calls[0][0];
+      expect(logMessage).toContain('[LIVE]');
+    });
   });
 
-  test('formats AND group with multiple conditions', () => {
-    const conditions: ConditionGroup = {
-      operator: 'AND',
-      children: [
-        { field: 'radarr.monitored', operator: 'equals', value: true },
-        { field: 'jellyfin.play_count', operator: 'equals', value: 0 },
-      ],
-    };
+  describe('onModuleInit', () => {
+    test('creates the log directory and initializes pino transport', async () => {
+      const mkdirSyncMock = mock((_path: any, _opts: any) => undefined);
+      const transportMock = mock((_opts: any) => 'mock-transport');
+      const pinoMock = mock((_opts: any, _transport: any) => ({
+        info: mock(() => {}),
+      }));
+      (pinoMock as any).transport = transportMock;
 
-    expect(buildReasoning(conditions)).toBe(
-      '(radarr.monitored equals true AND jellyfin.play_count equals 0)',
-    );
+      mock.module('node:fs', () => ({
+        mkdirSync: mkdirSyncMock,
+        existsSync: () => true,
+        readFileSync: () => '',
+      }));
+
+      mock.module('pino', () => ({
+        default: pinoMock,
+      }));
+
+      try {
+        // Re-import to pick up mocked modules
+        const { AuditService: MockedAuditService } = await import(
+          './audit.service.js'
+        );
+
+        const configService = {
+          getConfig: mock(() => makeConfig({ audit: { retention_days: 30 } })),
+        } as unknown as ConfigService;
+
+        const service = new MockedAuditService(configService);
+        service.onModuleInit();
+
+        expect(mkdirSyncMock).toHaveBeenCalledWith('/config/logs/', {
+          recursive: true,
+        });
+        expect(transportMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            target: 'pino-roll',
+            options: expect.objectContaining({
+              limit: { count: 30 },
+            }),
+          }),
+        );
+      } finally {
+        // Restore mocked modules to avoid poisoning other test files
+        mock.module('node:fs', () => require('node:fs'));
+        mock.module('pino', () => require('pino'));
+      }
+    });
   });
 
-  test('formats OR group', () => {
-    const conditions: ConditionGroup = {
-      operator: 'OR',
-      children: [
-        { field: 'radarr.added', operator: 'older_than', value: '180d' },
-        {
-          field: 'jellyfin.watched_by_all',
-          operator: 'equals',
-          value: true,
-        },
-      ],
-    };
+  describe('onModuleDestroy', () => {
+    test('flushes transport successfully', async () => {
+      const { service, auditLogger, logger } = makeService();
 
-    expect(buildReasoning(conditions)).toBe(
-      '(radarr.added older than "180d" OR jellyfin.watched_by_all equals true)',
-    );
-  });
+      await service.onModuleDestroy();
 
-  test('formats nested condition groups', () => {
-    const conditions: ConditionGroup = {
-      operator: 'AND',
-      children: [
-        { field: 'radarr.monitored', operator: 'equals', value: true },
-        {
-          operator: 'OR',
-          children: [
-            { field: 'jellyfin.play_count', operator: 'equals', value: 0 },
-            {
-              field: 'state.days_off_import_list',
-              operator: 'greater_than',
-              value: 90,
-            },
-          ],
-        },
-      ],
-    };
+      expect(auditLogger.flush).toHaveBeenCalled();
+      expect(logger.log).toHaveBeenCalledWith('Audit log flushed successfully');
+    });
 
-    expect(buildReasoning(conditions)).toBe(
-      '(radarr.monitored equals true AND (jellyfin.play_count equals 0 OR state.days_off_import_list greater than 90))',
-    );
-  });
+    test('handles flush timeout gracefully', async () => {
+      const { service, logger } = makeService();
 
-  test('formats is_empty operator without value', () => {
-    const conditions: ConditionGroup = {
-      operator: 'AND',
-      children: [{ field: 'jellyfin.watched_by', operator: 'is_empty' }],
-    };
+      // Replace flushTransport with a promise that never resolves
+      (service as any).flushTransport = mock(() => new Promise<void>(() => {}));
 
-    expect(buildReasoning(conditions)).toBe('jellyfin.watched_by is empty');
-  });
+      await service.onModuleDestroy();
 
-  test('formats is_not_empty operator without value', () => {
-    const conditions: ConditionGroup = {
-      operator: 'AND',
-      children: [{ field: 'jellyfin.watched_by', operator: 'is_not_empty' }],
-    };
+      expect(logger.warn).toHaveBeenCalledWith(
+        'Audit flush timed out — some events may be lost',
+      );
+    });
 
-    expect(buildReasoning(conditions)).toBe('jellyfin.watched_by is not empty');
-  });
+    test('returns early when auditLogger is falsy', async () => {
+      const { service, logger } = makeService();
+      (service as any).auditLogger = null;
 
-  test('formats includes operator with string value', () => {
-    const conditions: ConditionGroup = {
-      operator: 'AND',
-      children: [
-        { field: 'radarr.tags', operator: 'includes', value: 'permanent' },
-      ],
-    };
+      await service.onModuleDestroy();
 
-    expect(buildReasoning(conditions)).toBe('radarr.tags includes "permanent"');
-  });
-
-  test('formats 3+ levels of nesting', () => {
-    const conditions: ConditionGroup = {
-      operator: 'AND',
-      children: [
-        {
-          operator: 'OR',
-          children: [
-            {
-              operator: 'AND',
-              children: [
-                {
-                  field: 'radarr.tags',
-                  operator: 'includes',
-                  value: 'seasonal',
-                },
-                {
-                  field: 'radarr.status',
-                  operator: 'equals',
-                  value: 'released',
-                },
-              ],
-            },
-            {
-              field: 'radarr.genres',
-              operator: 'includes',
-              value: 'Horror',
-            },
-          ],
-        },
-      ],
-    };
-
-    expect(buildReasoning(conditions)).toBe(
-      '((radarr.tags includes "seasonal" AND radarr.status equals "released") OR radarr.genres includes "Horror")',
-    );
+      expect(logger.log).not.toHaveBeenCalled();
+      expect(logger.warn).not.toHaveBeenCalled();
+    });
   });
 });

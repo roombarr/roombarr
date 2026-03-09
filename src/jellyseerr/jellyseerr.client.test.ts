@@ -1,46 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import { HttpModule, HttpService } from '@nestjs/axios';
 import { Test } from '@nestjs/testing';
-import type { AxiosResponse } from 'axios';
 import { of } from 'rxjs';
+import { axiosResponse, makeJellyseerrRequest } from '../test/index.js';
 import { JellyseerrClient } from './jellyseerr.client.js';
-import type {
-  JellyseerrRequest,
-  JellyseerrRequestsResponse,
-} from './jellyseerr.types.js';
-
-function axiosResponse<T>(data: T): AxiosResponse<T> {
-  return {
-    data,
-    status: 200,
-    statusText: 'OK',
-    headers: {},
-    config: {} as any,
-  };
-}
-
-function makeRequest(
-  overrides: Partial<JellyseerrRequest> = {},
-): JellyseerrRequest {
-  return {
-    id: 1,
-    status: 2,
-    type: 'movie',
-    createdAt: '2025-01-15T12:00:00Z',
-    media: {
-      id: 10,
-      tmdbId: 603,
-      mediaType: 'movie',
-      status: 5,
-    },
-    requestedBy: {
-      id: 1,
-      username: 'testuser',
-      email: 'test@example.com',
-    },
-    ...overrides,
-  };
-}
+import type { JellyseerrRequestsResponse } from './jellyseerr.types.js';
 
 describe('JellyseerrClient', () => {
   async function setup() {
@@ -59,7 +23,10 @@ describe('JellyseerrClient', () => {
       const { client, http } = await setup();
       const fixture: JellyseerrRequestsResponse = {
         pageInfo: { page: 1, pages: 1, results: 2 },
-        results: [makeRequest({ id: 1 }), makeRequest({ id: 2 })],
+        results: [
+          makeJellyseerrRequest({ id: 1 }),
+          makeJellyseerrRequest({ id: 2 }),
+        ],
       };
 
       http.get = () => of(axiosResponse(fixture)) as any;
@@ -75,11 +42,14 @@ describe('JellyseerrClient', () => {
 
       const page1: JellyseerrRequestsResponse = {
         pageInfo: { page: 1, pages: 2, results: 3 },
-        results: [makeRequest({ id: 1 }), makeRequest({ id: 2 })],
+        results: [
+          makeJellyseerrRequest({ id: 1 }),
+          makeJellyseerrRequest({ id: 2 }),
+        ],
       };
       const page2: JellyseerrRequestsResponse = {
         pageInfo: { page: 2, pages: 2, results: 3 },
-        results: [makeRequest({ id: 3 })],
+        results: [makeJellyseerrRequest({ id: 3 })],
       };
 
       http.get = () => {

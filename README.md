@@ -10,6 +10,12 @@
 <h4 align="center">A rule-based media cleanup engine for the <a href="https://wiki.servarr.com">*arr stack</a>.</h4>
 
 <p align="center">
+  <a href="https://github.com/roombarr/roombarr/blob/main/LICENSE"><img src="https://img.shields.io/github/license/roombarr/roombarr" alt="License"></a>
+  <a href="https://github.com/roombarr/roombarr/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/roombarr/roombarr/ci.yml?branch=main&label=ci" alt="CI"></a>
+  <a href="https://github.com/roombarr/roombarr/releases/latest"><img src="https://img.shields.io/github/v/release/roombarr/roombarr" alt="GitHub Release"></a>
+</p>
+
+<p align="center">
   <a href="#features">Features</a> •
   <a href="#quick-start">Quick Start</a> •
   <a href="#configuration">Configuration</a> •

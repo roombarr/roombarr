@@ -1,9 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import type { Condition, RoombarrConfig } from '../config/config.schema.js';
 import { ConfigService } from '../config/config.service.js';
-import { getServiceFromField } from '../config/field-registry.js';
+import { getHydratedServices } from '../config/field-registry.js';
 import { ActionExecutorService } from '../execution/action-executor.service.js';
 import { MediaService } from '../media/media.service.js';
 import { RulesService } from '../rules/rules.service.js';
@@ -133,7 +132,7 @@ export class EvaluationService {
       const items = await this.mediaService.hydrate(rules);
 
       // Step 2: Snapshot — persist unified models, detect field changes
-      const hydratedServices = this.getHydratedServices(rules);
+      const hydratedServices = getHydratedServices(rules);
       await this.snapshotService.snapshot(items, hydratedServices);
 
       // Step 3: Enrich — compute temporal state fields from change history
@@ -241,36 +240,6 @@ export class EvaluationService {
 
     // Exact match
     return Number.parseInt(field, 10) === value;
-  }
-
-  /**
-   * Determine which service prefixes were hydrated for the given rules.
-   * The base service (radarr/sonarr) is always hydrated for its rule target.
-   * Enrichment services are hydrated if referenced in any condition.
-   */
-  private getHydratedServices(rules: RoombarrConfig['rules']): Set<string> {
-    const services = new Set<string>();
-
-    for (const rule of rules) {
-      // The base service for the rule target is always hydrated
-      services.add(rule.target);
-      this.collectFieldServices(rule.conditions, services);
-    }
-
-    return services;
-  }
-
-  private collectFieldServices(
-    condition: Condition,
-    services: Set<string>,
-  ): void {
-    if ('field' in condition) {
-      services.add(getServiceFromField(condition.field));
-    } else if ('children' in condition) {
-      for (const child of condition.children) {
-        this.collectFieldServices(child, services);
-      }
-    }
   }
 
   private storeRun(run: EvaluationRun): void {

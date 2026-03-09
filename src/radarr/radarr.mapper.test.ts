@@ -1,42 +1,21 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  makeRadarrImportListMovie,
+  makeRadarrMovie,
+  makeRadarrTag,
+} from '../test/index.js';
+import {
   buildImportListIndex,
   buildTagMap,
   mapMovie,
   resolveTagNames,
 } from './radarr.mapper.js';
-import type {
-  RadarrImportListMovie,
-  RadarrMovie,
-  RadarrTag,
-} from './radarr.types.js';
 
-const TAGS: RadarrTag[] = [
-  { id: 1, label: 'keep-forever' },
-  { id: 2, label: 'classics' },
-  { id: 3, label: 'kids' },
+const TAGS = [
+  makeRadarrTag({ id: 1, label: 'keep-forever' }),
+  makeRadarrTag({ id: 2, label: 'classics' }),
+  makeRadarrTag({ id: 3, label: 'kids' }),
 ];
-
-function makeMovie(overrides: Partial<RadarrMovie> = {}): RadarrMovie {
-  return {
-    id: 1,
-    title: 'The Matrix',
-    tmdbId: 603,
-    imdbId: 'tt0133093',
-    year: 1999,
-    path: '/movies/The Matrix (1999)',
-    status: 'released',
-    genres: ['action', 'sci-fi'],
-    tags: [1, 2],
-    monitored: true,
-    hasFile: true,
-    sizeOnDisk: 8_500_000_000,
-    added: '2024-06-01T12:00:00Z',
-    digitalRelease: '1999-09-21T00:00:00Z',
-    physicalRelease: '1999-09-21T00:00:00Z',
-    ...overrides,
-  };
-}
 
 describe('buildTagMap', () => {
   test('builds id-to-lowercase-name map', () => {
@@ -48,7 +27,7 @@ describe('buildTagMap', () => {
   });
 
   test('lowercases tag labels', () => {
-    const map = buildTagMap([{ id: 1, label: 'Keep-Forever' }]);
+    const map = buildTagMap([makeRadarrTag({ id: 1, label: 'Keep-Forever' })]);
     expect(map.get(1)).toBe('keep-forever');
   });
 
@@ -76,9 +55,19 @@ describe('resolveTagNames', () => {
 
 describe('buildImportListIndex', () => {
   test('indexes existing movies by tmdbId', () => {
-    const movies: RadarrImportListMovie[] = [
-      { tmdbId: 603, lists: [1, 3], title: 'The Matrix', isExisting: true },
-      { tmdbId: 999, lists: [2], title: 'New Movie', isExisting: false },
+    const movies = [
+      makeRadarrImportListMovie({
+        tmdbId: 603,
+        lists: [1, 3],
+        title: 'The Matrix',
+        isExisting: true,
+      }),
+      makeRadarrImportListMovie({
+        tmdbId: 999,
+        lists: [2],
+        title: 'New Movie',
+        isExisting: false,
+      }),
     ];
     const index = buildImportListIndex(movies);
     expect(index.get(603)).toEqual([1, 3]);
@@ -96,7 +85,15 @@ describe('mapMovie', () => {
   const emptyImportIndex = new Map<number, number[]>();
 
   test('maps Radarr movie to RadarrData', () => {
-    const movie = makeMovie();
+    const movie = makeRadarrMovie({
+      year: 1999,
+      path: '/movies/The Matrix (1999)',
+      genres: ['action', 'sci-fi'],
+      tags: [1, 2],
+      sizeOnDisk: 8_500_000_000,
+      digitalRelease: '1999-09-21T00:00:00Z',
+      physicalRelease: '1999-09-21T00:00:00Z',
+    });
     const result = mapMovie(movie, tagMap, emptyImportIndex);
 
     expect(result).toEqual({
@@ -117,7 +114,7 @@ describe('mapMovie', () => {
   });
 
   test('includes import list data when movie is on an import list', () => {
-    const movie = makeMovie();
+    const movie = makeRadarrMovie({ tmdbId: 603 });
     const importIndex = new Map([[603, [1, 5]]]);
     const result = mapMovie(movie, tagMap, importIndex);
 
@@ -126,7 +123,7 @@ describe('mapMovie', () => {
   });
 
   test('handles null release dates', () => {
-    const movie = makeMovie({
+    const movie = makeRadarrMovie({
       digitalRelease: null,
       physicalRelease: null,
     });
@@ -137,26 +134,26 @@ describe('mapMovie', () => {
   });
 
   test('handles movie with no tags', () => {
-    const movie = makeMovie({ tags: [] });
+    const movie = makeRadarrMovie({ tags: [] });
     const result = mapMovie(movie, tagMap, emptyImportIndex);
     expect(result.tags).toEqual([]);
   });
 
   test('handles movie with no file on disk', () => {
-    const movie = makeMovie({ hasFile: false, sizeOnDisk: 0 });
+    const movie = makeRadarrMovie({ hasFile: false, sizeOnDisk: 0 });
     const result = mapMovie(movie, tagMap, emptyImportIndex);
     expect(result.size_on_disk).toBe(0);
     expect(result.has_file).toBe(false);
   });
 
   test('handles empty genres', () => {
-    const movie = makeMovie({ genres: [] });
+    const movie = makeRadarrMovie({ genres: [] });
     const result = mapMovie(movie, tagMap, emptyImportIndex);
     expect(result.genres).toEqual([]);
   });
 
   test('handles null imdbId in source (not mapped to RadarrData)', () => {
-    const movie = makeMovie({ imdbId: null });
+    const movie = makeRadarrMovie({ imdbId: null });
     const result = mapMovie(movie, tagMap, emptyImportIndex);
     // imdbId is on UnifiedMovie, not RadarrData — mapMovie still works
     expect(result.status).toBe('released');
