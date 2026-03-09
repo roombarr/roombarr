@@ -28,19 +28,23 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy() {
     if (!this.auditLogger) return;
 
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
     try {
       await Promise.race([
         this.flushTransport(),
-        new Promise<never>((_, reject) =>
-          setTimeout(
+        new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(
             () => reject(new Error('Flush timeout')),
             this.flushTimeoutMs,
-          ),
-        ),
+          );
+        }),
       ]);
       this.logger.log('Audit log flushed successfully');
     } catch {
       this.logger.warn('Audit flush timed out — some events may be lost');
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
