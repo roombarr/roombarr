@@ -1,3 +1,4 @@
+import type { JellyfinItem, JellyfinUser } from '../jellyfin/jellyfin.types.js';
 import type {
   RadarrImportListMovie,
   RadarrMovie,
@@ -89,6 +90,31 @@ export function makeSonarrEpisodeFile(
     seasonNumber: 1,
     path: '/tv/test-series/Season 01/episode.mkv',
     size: 1_500_000_000,
+    ...overrides,
+  };
+}
+
+/** Creates a `JellyfinUser` with sensible defaults for testing. */
+export function makeJellyfinUser(
+  overrides: Partial<JellyfinUser> = {},
+): JellyfinUser {
+  return {
+    Id: 'user-1',
+    Name: 'Test User',
+    Policy: { IsDisabled: false },
+    ...overrides,
+  };
+}
+
+/** Creates a `JellyfinItem` with sensible defaults for testing. */
+export function makeJellyfinItem(
+  overrides: Partial<JellyfinItem> = {},
+): JellyfinItem {
+  return {
+    Id: 'item-1',
+    Name: 'Test Item',
+    Type: 'Movie',
+    ProviderIds: { Tmdb: '100' },
     ...overrides,
   };
 }

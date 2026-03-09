@@ -1,72 +1,6 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { makeJellyfinItem, makeJellyfinUser } from '../test/index.js';
 import { JellyfinService, seasonKey } from './jellyfin.service.js';
-import type { JellyfinItem, JellyfinUser } from './jellyfin.types.js';
-
-function makeUser(name: string, id = name.toLowerCase()): JellyfinUser {
-  return { Id: id, Name: name, Policy: { IsDisabled: false } };
-}
-
-function makeMovieItem(
-  tmdbId: string | undefined,
-  playCount: number,
-  lastPlayedDate: string | null = null,
-): JellyfinItem {
-  return {
-    Id: `movie-${tmdbId}`,
-    Name: `Movie ${tmdbId}`,
-    Type: 'Movie',
-    ProviderIds: tmdbId ? { Tmdb: tmdbId } : {},
-    UserData: {
-      PlayCount: playCount,
-      Played: playCount > 0,
-      LastPlayedDate: lastPlayedDate ?? undefined,
-      IsFavorite: false,
-    },
-  };
-}
-
-function makeSeriesItem(tvdbId: string, jellyfinId: string): JellyfinItem {
-  return {
-    Id: jellyfinId,
-    Name: `Series ${tvdbId}`,
-    Type: 'Series',
-    ProviderIds: { Tvdb: tvdbId },
-  };
-}
-
-function makeSeasonItem(
-  jellyfinId: string,
-  seasonNumber: number,
-): JellyfinItem {
-  return {
-    Id: jellyfinId,
-    Name: `Season ${seasonNumber}`,
-    Type: 'Season',
-    ProviderIds: {},
-    IndexNumber: seasonNumber,
-  };
-}
-
-let episodeIdCounter = 0;
-
-function makeEpisodeItem(
-  played: boolean,
-  playCount: number,
-  lastPlayedDate: string | null = null,
-): JellyfinItem {
-  return {
-    Id: `ep-${episodeIdCounter++}`,
-    Name: 'Episode',
-    Type: 'Episode',
-    ProviderIds: {},
-    UserData: {
-      PlayCount: playCount,
-      Played: played,
-      LastPlayedDate: lastPlayedDate ?? undefined,
-      IsFavorite: false,
-    },
-  };
-}
 
 describe('JellyfinService', () => {
   let client: {
@@ -79,7 +13,6 @@ describe('JellyfinService', () => {
   let service: JellyfinService;
 
   beforeEach(() => {
-    episodeIdCounter = 0;
     client = {
       fetchUsers: mock(() => Promise.resolve([])),
       fetchPlayedMovies: mock(() => Promise.resolve([])),
@@ -92,16 +25,39 @@ describe('JellyfinService', () => {
 
   describe('fetchMovieWatchData', () => {
     test('aggregates watch data by TMDB ID across multiple users', async () => {
-      const users = [makeUser('Alice'), makeUser('Bob')];
+      const users = [
+        makeJellyfinUser({ Id: 'alice', Name: 'Alice' }),
+        makeJellyfinUser({ Id: 'bob', Name: 'Bob' }),
+      ];
       client.fetchUsers = mock(() => Promise.resolve(users));
       client.fetchPlayedMovies = mock((userId: string) => {
         if (userId === 'alice') {
           return Promise.resolve([
-            makeMovieItem('100', 2, '2024-12-01T20:00:00Z'),
+            makeJellyfinItem({
+              Id: 'movie-100',
+              Name: 'Movie 100',
+              ProviderIds: { Tmdb: '100' },
+              UserData: {
+                PlayCount: 2,
+                Played: true,
+                LastPlayedDate: '2024-12-01T20:00:00Z',
+                IsFavorite: false,
+              },
+            }),
           ]);
         }
         return Promise.resolve([
-          makeMovieItem('100', 1, '2024-11-15T10:00:00Z'),
+          makeJellyfinItem({
+            Id: 'movie-100',
+            Name: 'Movie 100',
+            ProviderIds: { Tmdb: '100' },
+            UserData: {
+              PlayCount: 1,
+              Played: true,
+              LastPlayedDate: '2024-11-15T10:00:00Z',
+              IsFavorite: false,
+            },
+          }),
         ]);
       });
 
@@ -116,9 +72,22 @@ describe('JellyfinService', () => {
     });
 
     test('skips movies with missing TMDB provider ID', async () => {
-      client.fetchUsers = mock(() => Promise.resolve([makeUser('Alice')]));
+      client.fetchUsers = mock(() =>
+        Promise.resolve([makeJellyfinUser({ Id: 'alice', Name: 'Alice' })]),
+      );
       client.fetchPlayedMovies = mock(() =>
-        Promise.resolve([makeMovieItem(undefined, 1)]),
+        Promise.resolve([
+          makeJellyfinItem({
+            Id: 'movie-unknown',
+            Name: 'Movie unknown',
+            ProviderIds: {},
+            UserData: {
+              PlayCount: 1,
+              Played: true,
+              IsFavorite: false,
+            },
+          }),
+        ]),
       );
 
       const result = await service.fetchMovieWatchData();
@@ -127,9 +96,22 @@ describe('JellyfinService', () => {
     });
 
     test('skips movies with non-numeric TMDB ID', async () => {
-      client.fetchUsers = mock(() => Promise.resolve([makeUser('Alice')]));
+      client.fetchUsers = mock(() =>
+        Promise.resolve([makeJellyfinUser({ Id: 'alice', Name: 'Alice' })]),
+      );
       client.fetchPlayedMovies = mock(() =>
-        Promise.resolve([makeMovieItem('not-a-number', 1)]),
+        Promise.resolve([
+          makeJellyfinItem({
+            Id: 'movie-not-a-number',
+            Name: 'Movie not-a-number',
+            ProviderIds: { Tmdb: 'not-a-number' },
+            UserData: {
+              PlayCount: 1,
+              Played: true,
+              IsFavorite: false,
+            },
+          }),
+        ]),
       );
 
       const result = await service.fetchMovieWatchData();
@@ -145,16 +127,36 @@ describe('JellyfinService', () => {
     });
 
     test('handles multiple movies across multiple users', async () => {
-      const users = [makeUser('Alice'), makeUser('Bob')];
+      const users = [
+        makeJellyfinUser({ Id: 'alice', Name: 'Alice' }),
+        makeJellyfinUser({ Id: 'bob', Name: 'Bob' }),
+      ];
       client.fetchUsers = mock(() => Promise.resolve(users));
       client.fetchPlayedMovies = mock((userId: string) => {
         if (userId === 'alice') {
           return Promise.resolve([
-            makeMovieItem('100', 1),
-            makeMovieItem('200', 1),
+            makeJellyfinItem({
+              Id: 'movie-100',
+              Name: 'Movie 100',
+              ProviderIds: { Tmdb: '100' },
+              UserData: { PlayCount: 1, Played: true, IsFavorite: false },
+            }),
+            makeJellyfinItem({
+              Id: 'movie-200',
+              Name: 'Movie 200',
+              ProviderIds: { Tmdb: '200' },
+              UserData: { PlayCount: 1, Played: true, IsFavorite: false },
+            }),
           ]);
         }
-        return Promise.resolve([makeMovieItem('200', 2)]);
+        return Promise.resolve([
+          makeJellyfinItem({
+            Id: 'movie-200',
+            Name: 'Movie 200',
+            ProviderIds: { Tmdb: '200' },
+            UserData: { PlayCount: 2, Played: true, IsFavorite: false },
+          }),
+        ]);
       });
 
       const result = await service.fetchMovieWatchData();
@@ -177,18 +179,55 @@ describe('JellyfinService', () => {
     });
 
     test('resolves TVDB to Jellyfin series and returns aggregated data', async () => {
-      const users = [makeUser('Alice')];
+      const users = [makeJellyfinUser({ Id: 'alice', Name: 'Alice' })];
       client.fetchUsers = mock(() => Promise.resolve(users));
       client.fetchSeriesItems = mock(() =>
-        Promise.resolve([makeSeriesItem('500', 'jf-series-1')]),
+        Promise.resolve([
+          makeJellyfinItem({
+            Id: 'jf-series-1',
+            Name: 'Series 500',
+            Type: 'Series',
+            ProviderIds: { Tvdb: '500' },
+          }),
+        ]),
       );
       client.fetchSeriesSeasons = mock(() =>
-        Promise.resolve([makeSeasonItem('jf-season-1', 1)]),
+        Promise.resolve([
+          makeJellyfinItem({
+            Id: 'jf-season-1',
+            Name: 'Season 1',
+            Type: 'Season',
+            ProviderIds: {},
+            IndexNumber: 1,
+          }),
+        ]),
       );
       client.fetchSeasonEpisodes = mock(() =>
         Promise.resolve([
-          makeEpisodeItem(true, 1, '2024-12-01T20:00:00Z'),
-          makeEpisodeItem(true, 1, '2024-12-02T20:00:00Z'),
+          makeJellyfinItem({
+            Id: 'ep-0',
+            Name: 'Episode',
+            Type: 'Episode',
+            ProviderIds: {},
+            UserData: {
+              PlayCount: 1,
+              Played: true,
+              LastPlayedDate: '2024-12-01T20:00:00Z',
+              IsFavorite: false,
+            },
+          }),
+          makeJellyfinItem({
+            Id: 'ep-1',
+            Name: 'Episode',
+            Type: 'Episode',
+            ProviderIds: {},
+            UserData: {
+              PlayCount: 1,
+              Played: true,
+              LastPlayedDate: '2024-12-02T20:00:00Z',
+              IsFavorite: false,
+            },
+          }),
         ]),
       );
 
@@ -205,7 +244,7 @@ describe('JellyfinService', () => {
     });
 
     test('skips seasons with no Jellyfin series match', async () => {
-      const users = [makeUser('Alice')];
+      const users = [makeJellyfinUser({ Id: 'alice', Name: 'Alice' })];
       client.fetchUsers = mock(() => Promise.resolve(users));
       client.fetchSeriesItems = mock(() => Promise.resolve([]));
 
@@ -217,13 +256,28 @@ describe('JellyfinService', () => {
     });
 
     test('skips seasons with no matching Jellyfin season number', async () => {
-      const users = [makeUser('Alice')];
+      const users = [makeJellyfinUser({ Id: 'alice', Name: 'Alice' })];
       client.fetchUsers = mock(() => Promise.resolve(users));
       client.fetchSeriesItems = mock(() =>
-        Promise.resolve([makeSeriesItem('500', 'jf-series-1')]),
+        Promise.resolve([
+          makeJellyfinItem({
+            Id: 'jf-series-1',
+            Name: 'Series 500',
+            Type: 'Series',
+            ProviderIds: { Tvdb: '500' },
+          }),
+        ]),
       );
       client.fetchSeriesSeasons = mock(() =>
-        Promise.resolve([makeSeasonItem('jf-season-1', 2)]),
+        Promise.resolve([
+          makeJellyfinItem({
+            Id: 'jf-season-1',
+            Name: 'Season 2',
+            Type: 'Season',
+            ProviderIds: {},
+            IndexNumber: 2,
+          }),
+        ]),
       );
 
       const result = await service.fetchSeasonWatchData([
@@ -234,22 +288,61 @@ describe('JellyfinService', () => {
     });
 
     test('handles multiple seasons from different series', async () => {
-      const users = [makeUser('Alice')];
+      const users = [makeJellyfinUser({ Id: 'alice', Name: 'Alice' })];
       client.fetchUsers = mock(() => Promise.resolve(users));
       client.fetchSeriesItems = mock(() =>
         Promise.resolve([
-          makeSeriesItem('500', 'jf-series-1'),
-          makeSeriesItem('600', 'jf-series-2'),
+          makeJellyfinItem({
+            Id: 'jf-series-1',
+            Name: 'Series 500',
+            Type: 'Series',
+            ProviderIds: { Tvdb: '500' },
+          }),
+          makeJellyfinItem({
+            Id: 'jf-series-2',
+            Name: 'Series 600',
+            Type: 'Series',
+            ProviderIds: { Tvdb: '600' },
+          }),
         ]),
       );
       client.fetchSeriesSeasons = mock((_userId: string, seriesId: string) => {
         if (seriesId === 'jf-series-1') {
-          return Promise.resolve([makeSeasonItem('jf-s1-s1', 1)]);
+          return Promise.resolve([
+            makeJellyfinItem({
+              Id: 'jf-s1-s1',
+              Name: 'Season 1',
+              Type: 'Season',
+              ProviderIds: {},
+              IndexNumber: 1,
+            }),
+          ]);
         }
-        return Promise.resolve([makeSeasonItem('jf-s2-s3', 3)]);
+        return Promise.resolve([
+          makeJellyfinItem({
+            Id: 'jf-s2-s3',
+            Name: 'Season 3',
+            Type: 'Season',
+            ProviderIds: {},
+            IndexNumber: 3,
+          }),
+        ]);
       });
       client.fetchSeasonEpisodes = mock(() =>
-        Promise.resolve([makeEpisodeItem(true, 1, '2024-12-01T20:00:00Z')]),
+        Promise.resolve([
+          makeJellyfinItem({
+            Id: 'ep-0',
+            Name: 'Episode',
+            Type: 'Episode',
+            ProviderIds: {},
+            UserData: {
+              PlayCount: 1,
+              Played: true,
+              LastPlayedDate: '2024-12-01T20:00:00Z',
+              IsFavorite: false,
+            },
+          }),
+        ]),
       );
 
       const result = await service.fetchSeasonWatchData([

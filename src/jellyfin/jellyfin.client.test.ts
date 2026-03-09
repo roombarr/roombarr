@@ -2,9 +2,13 @@ import { describe, expect, test } from 'bun:test';
 import { HttpModule, HttpService } from '@nestjs/axios';
 import { Test } from '@nestjs/testing';
 import { of } from 'rxjs';
-import { axiosResponse } from '../test/index.js';
+import {
+  axiosResponse,
+  makeJellyfinItem,
+  makeJellyfinUser,
+} from '../test/index.js';
 import { JellyfinClient } from './jellyfin.client.js';
-import type { JellyfinItemsResponse, JellyfinUser } from './jellyfin.types.js';
+import type { JellyfinItemsResponse } from './jellyfin.types.js';
 
 describe('JellyfinClient', () => {
   async function setup() {
@@ -21,17 +25,9 @@ describe('JellyfinClient', () => {
   describe('fetchUsers', () => {
     test('returns active users from Jellyfin', async () => {
       const { client, http } = await setup();
-      const fixture: JellyfinUser[] = [
-        {
-          Id: 'user-1',
-          Name: 'Jackson',
-          Policy: { IsDisabled: false },
-        },
-        {
-          Id: 'user-2',
-          Name: 'Partner',
-          Policy: { IsDisabled: false },
-        },
+      const fixture = [
+        makeJellyfinUser({ Id: 'user-1', Name: 'Jackson' }),
+        makeJellyfinUser({ Id: 'user-2', Name: 'Partner' }),
       ];
 
       http.get = () => of(axiosResponse(fixture)) as any;
@@ -52,10 +48,9 @@ describe('JellyfinClient', () => {
       const { client, http } = await setup();
       const fixture: JellyfinItemsResponse = {
         Items: [
-          {
+          makeJellyfinItem({
             Id: 'item-1',
             Name: 'Inception',
-            Type: 'Movie',
             ProviderIds: { Tmdb: '27205' },
             UserData: {
               PlayCount: 2,
@@ -63,7 +58,7 @@ describe('JellyfinClient', () => {
               LastPlayedDate: '2026-01-15T20:00:00Z',
               IsFavorite: false,
             },
-          },
+          }),
         ],
         TotalRecordCount: 1,
       };
@@ -90,30 +85,31 @@ describe('JellyfinClient', () => {
     test('paginates through large libraries', async () => {
       const { client, http } = await setup();
 
-      // Create 150 items to require 2 pages (page size is 100)
-      const page1Items = Array.from({ length: 100 }, (_, i) => ({
-        Id: `item-${i}`,
-        Name: `Movie ${i}`,
-        Type: 'Movie',
-        ProviderIds: { Tmdb: `${i}` },
-        UserData: {
-          PlayCount: 1,
-          Played: true,
-          IsFavorite: false,
-        },
-      }));
+      const page1Items = Array.from({ length: 100 }, (_, i) =>
+        makeJellyfinItem({
+          Id: `item-${i}`,
+          Name: `Movie ${i}`,
+          ProviderIds: { Tmdb: `${i}` },
+          UserData: {
+            PlayCount: 1,
+            Played: true,
+            IsFavorite: false,
+          },
+        }),
+      );
 
-      const page2Items = Array.from({ length: 50 }, (_, i) => ({
-        Id: `item-${100 + i}`,
-        Name: `Movie ${100 + i}`,
-        Type: 'Movie',
-        ProviderIds: { Tmdb: `${100 + i}` },
-        UserData: {
-          PlayCount: 1,
-          Played: true,
-          IsFavorite: false,
-        },
-      }));
+      const page2Items = Array.from({ length: 50 }, (_, i) =>
+        makeJellyfinItem({
+          Id: `item-${100 + i}`,
+          Name: `Movie ${100 + i}`,
+          ProviderIds: { Tmdb: `${100 + i}` },
+          UserData: {
+            PlayCount: 1,
+            Played: true,
+            IsFavorite: false,
+          },
+        }),
+      );
 
       let callCount = 0;
       http.get = () => {
@@ -145,12 +141,12 @@ describe('JellyfinClient', () => {
       const { client, http } = await setup();
       const fixture: JellyfinItemsResponse = {
         Items: [
-          {
+          makeJellyfinItem({
             Id: 'series-1',
             Name: 'Breaking Bad',
             Type: 'Series',
             ProviderIds: { Tvdb: '81189', Tmdb: '1396' },
-          },
+          }),
         ],
         TotalRecordCount: 1,
       };
@@ -160,6 +156,18 @@ describe('JellyfinClient', () => {
       expect(result).toHaveLength(1);
       expect(result[0].ProviderIds.Tvdb).toBe('81189');
     });
+
+    test('returns empty array when user has no series', async () => {
+      const { client, http } = await setup();
+      const fixture: JellyfinItemsResponse = {
+        Items: [],
+        TotalRecordCount: 0,
+      };
+
+      http.get = () => of(axiosResponse(fixture)) as any;
+      const result = await client.fetchSeriesItems('user-1');
+      expect(result).toEqual([]);
+    });
   });
 
   describe('fetchSeasonEpisodes', () => {
@@ -167,7 +175,7 @@ describe('JellyfinClient', () => {
       const { client, http } = await setup();
       const fixture: JellyfinItemsResponse = {
         Items: [
-          {
+          makeJellyfinItem({
             Id: 'ep-1',
             Name: 'Pilot',
             Type: 'Episode',
@@ -180,8 +188,8 @@ describe('JellyfinClient', () => {
               LastPlayedDate: '2026-01-10T20:00:00Z',
               IsFavorite: false,
             },
-          },
-          {
+          }),
+          makeJellyfinItem({
             Id: 'ep-2',
             Name: "Cat's in the Bag...",
             Type: 'Episode',
@@ -194,7 +202,7 @@ describe('JellyfinClient', () => {
               LastPlayedDate: '2026-01-11T20:00:00Z',
               IsFavorite: false,
             },
-          },
+          }),
         ],
         TotalRecordCount: 2,
       };
@@ -204,6 +212,18 @@ describe('JellyfinClient', () => {
       expect(result).toHaveLength(2);
       expect(result[0].UserData?.Played).toBe(true);
     });
+
+    test('returns empty array when season has no episodes', async () => {
+      const { client, http } = await setup();
+      const fixture: JellyfinItemsResponse = {
+        Items: [],
+        TotalRecordCount: 0,
+      };
+
+      http.get = () => of(axiosResponse(fixture)) as any;
+      const result = await client.fetchSeasonEpisodes('user-1', 'season-1');
+      expect(result).toEqual([]);
+    });
   });
 
   describe('fetchSeriesSeasons', () => {
@@ -211,20 +231,20 @@ describe('JellyfinClient', () => {
       const { client, http } = await setup();
       const fixture: JellyfinItemsResponse = {
         Items: [
-          {
+          makeJellyfinItem({
             Id: 'season-1',
             Name: 'Season 1',
             Type: 'Season',
             ProviderIds: {},
             IndexNumber: 1,
-          },
-          {
+          }),
+          makeJellyfinItem({
             Id: 'season-2',
             Name: 'Season 2',
             Type: 'Season',
             ProviderIds: {},
             IndexNumber: 2,
-          },
+          }),
         ],
         TotalRecordCount: 2,
       };
@@ -233,6 +253,18 @@ describe('JellyfinClient', () => {
       const result = await client.fetchSeriesSeasons('user-1', 'series-1');
       expect(result).toHaveLength(2);
       expect(result[0].IndexNumber).toBe(1);
+    });
+
+    test('returns empty array when series has no seasons', async () => {
+      const { client, http } = await setup();
+      const fixture: JellyfinItemsResponse = {
+        Items: [],
+        TotalRecordCount: 0,
+      };
+
+      http.get = () => of(axiosResponse(fixture)) as any;
+      const result = await client.fetchSeriesSeasons('user-1', 'series-1');
+      expect(result).toEqual([]);
     });
   });
 });
