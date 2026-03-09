@@ -17,84 +17,15 @@ import type { UnifiedMovie, UnifiedSeason } from '../shared/types.js';
 import { SonarrClient } from '../sonarr/sonarr.client.js';
 import { SonarrService } from '../sonarr/sonarr.service.js';
 import type { SonarrSeries, SonarrTag } from '../sonarr/sonarr.types.js';
-import { makeRule } from '../test/fixtures.js';
+import {
+  makeRadarrImportListMovie,
+  makeRadarrMovie,
+  makeRadarrTag,
+  makeRule,
+  makeSonarrSeries,
+  makeSonarrTag,
+} from '../test/index.js';
 import { MediaService } from './media.service.js';
-
-// ── Raw API fixture factories ──────────────────────────────────────────
-
-function makeRadarrMovie(overrides: Partial<RadarrMovie> = {}): RadarrMovie {
-  return {
-    id: 1,
-    title: 'Integration Movie',
-    tmdbId: 550,
-    imdbId: 'tt0137523',
-    year: 1999,
-    path: '/movies/integration-movie',
-    status: 'released',
-    genres: ['Drama', 'Thriller'],
-    tags: [1],
-    monitored: true,
-    hasFile: true,
-    sizeOnDisk: 8_000_000_000,
-    added: '2024-06-15T12:00:00Z',
-    digitalRelease: '2024-03-01T00:00:00Z',
-    physicalRelease: '2024-04-01T00:00:00Z',
-    ...overrides,
-  };
-}
-
-function makeRadarrTag(overrides: Partial<RadarrTag> = {}): RadarrTag {
-  return { id: 1, label: 'Upgrade', ...overrides };
-}
-
-function makeImportListMovie(
-  overrides: Partial<RadarrImportListMovie> = {},
-): RadarrImportListMovie {
-  return {
-    tmdbId: 550,
-    lists: [10],
-    title: 'Integration Movie',
-    isExisting: true,
-    ...overrides,
-  };
-}
-
-function makeSonarrSeries(overrides: Partial<SonarrSeries> = {}): SonarrSeries {
-  return {
-    id: 5,
-    title: 'Integration Show',
-    tvdbId: 777,
-    imdbId: 'tt9999999',
-    year: 2022,
-    path: '/tv/integration-show',
-    status: 'continuing',
-    genres: ['Sci-Fi'],
-    tags: [2],
-    monitored: true,
-    seasons: [
-      {
-        seasonNumber: 0,
-        monitored: false,
-      },
-      {
-        seasonNumber: 1,
-        monitored: true,
-        statistics: {
-          episodeCount: 8,
-          episodeFileCount: 8,
-          sizeOnDisk: 12_000_000_000,
-          totalEpisodeCount: 10,
-          percentOfEpisodes: 80,
-        },
-      },
-    ],
-    ...overrides,
-  };
-}
-
-function makeSonarrTag(overrides: Partial<SonarrTag> = {}): SonarrTag {
-  return { id: 2, label: 'Favorite', ...overrides };
-}
 
 function makeJellyfinUser(overrides: Partial<JellyfinUser> = {}): JellyfinUser {
   return {
@@ -184,8 +115,6 @@ function makeJellyseerrRequest(
   };
 }
 
-// ── Test helpers ────────────────────────────────────────────────────────
-
 function createMockRadarrClient() {
   return {
     fetchMovies: mock<() => Promise<RadarrMovie[]>>(),
@@ -217,8 +146,6 @@ function createMockJellyseerrClient() {
   } as unknown as JellyseerrClient;
 }
 
-// ── Integration tests ──────────────────────────────────────────────────
-
 describe('media hydration pipeline (integration)', () => {
   test('full hydration with all 4 services — Radarr movie with Jellyfin + Jellyseerr', async () => {
     const radarrClient = createMockRadarrClient();
@@ -227,14 +154,32 @@ describe('media hydration pipeline (integration)', () => {
 
     // Configure Radarr mock responses
     (radarrClient.fetchMovies as ReturnType<typeof mock>).mockResolvedValue([
-      makeRadarrMovie(),
+      makeRadarrMovie({
+        title: 'Integration Movie',
+        tmdbId: 550,
+        imdbId: 'tt0137523',
+        year: 1999,
+        path: '/movies/integration-movie',
+        genres: ['Drama', 'Thriller'],
+        tags: [1],
+        sizeOnDisk: 8_000_000_000,
+        added: '2024-06-15T12:00:00Z',
+        digitalRelease: '2024-03-01T00:00:00Z',
+        physicalRelease: '2024-04-01T00:00:00Z',
+      }),
     ]);
     (radarrClient.fetchTags as ReturnType<typeof mock>).mockResolvedValue([
-      makeRadarrTag(),
+      makeRadarrTag({ label: 'Upgrade' }),
     ]);
     (
       radarrClient.fetchImportListMovies as ReturnType<typeof mock>
-    ).mockResolvedValue([makeImportListMovie()]);
+    ).mockResolvedValue([
+      makeRadarrImportListMovie({
+        tmdbId: 550,
+        lists: [10],
+        title: 'Integration Movie',
+      }),
+    ]);
 
     // Configure Jellyfin mock responses — two users, both watched
     const users = [
@@ -352,10 +297,10 @@ describe('media hydration pipeline (integration)', () => {
     const jellyseerrClient = createMockJellyseerrClient();
 
     (radarrClient.fetchMovies as ReturnType<typeof mock>).mockResolvedValue([
-      makeRadarrMovie(),
+      makeRadarrMovie({ tags: [1] }),
     ]);
     (radarrClient.fetchTags as ReturnType<typeof mock>).mockResolvedValue([
-      makeRadarrTag(),
+      makeRadarrTag({ label: 'Upgrade' }),
     ]);
     (
       radarrClient.fetchImportListMovies as ReturnType<typeof mock>
@@ -409,10 +354,33 @@ describe('media hydration pipeline (integration)', () => {
 
     // Configure Sonarr mock responses
     (sonarrClient.fetchSeries as ReturnType<typeof mock>).mockResolvedValue([
-      makeSonarrSeries(),
+      makeSonarrSeries({
+        id: 5,
+        title: 'Integration Show',
+        tvdbId: 777,
+        imdbId: 'tt9999999',
+        year: 2022,
+        path: '/tv/integration-show',
+        genres: ['Sci-Fi'],
+        tags: [2],
+        seasons: [
+          { seasonNumber: 0, monitored: false },
+          {
+            seasonNumber: 1,
+            monitored: true,
+            statistics: {
+              episodeCount: 8,
+              episodeFileCount: 8,
+              sizeOnDisk: 12_000_000_000,
+              totalEpisodeCount: 10,
+              percentOfEpisodes: 80,
+            },
+          },
+        ],
+      }),
     ]);
     (sonarrClient.fetchTags as ReturnType<typeof mock>).mockResolvedValue([
-      makeSonarrTag(),
+      makeSonarrTag({ id: 2, label: 'Favorite' }),
     ]);
 
     // Configure Jellyfin mock responses for season watch data

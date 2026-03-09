@@ -1,26 +1,7 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { makeSonarrSeries } from '../test/index.js';
 import { SonarrService } from './sonarr.service.js';
-import type { SonarrSeries, SonarrTag } from './sonarr.types.js';
-
-function makeSonarrSeries(overrides: Partial<SonarrSeries> = {}): SonarrSeries {
-  return {
-    id: 1,
-    title: 'Test Series',
-    tvdbId: 500,
-    imdbId: 'tt0000500',
-    year: 2023,
-    path: '/tv/Test Series',
-    status: 'continuing',
-    genres: ['drama'],
-    tags: [],
-    monitored: true,
-    seasons: [
-      { seasonNumber: 1, monitored: true },
-      { seasonNumber: 2, monitored: true },
-    ],
-    ...overrides,
-  };
-}
+import type { SonarrTag } from './sonarr.types.js';
 
 describe('SonarrService', () => {
   let client: {

@@ -1,31 +1,7 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { makeRadarrMovie } from '../test/index.js';
 import { RadarrService } from './radarr.service.js';
-import type {
-  RadarrImportListMovie,
-  RadarrMovie,
-  RadarrTag,
-} from './radarr.types.js';
-
-function makeRadarrMovie(overrides: Partial<RadarrMovie> = {}): RadarrMovie {
-  return {
-    id: 1,
-    title: 'Test Movie',
-    tmdbId: 100,
-    imdbId: 'tt0000100',
-    year: 2024,
-    path: '/movies/Test Movie',
-    status: 'released',
-    genres: ['action'],
-    tags: [],
-    monitored: true,
-    hasFile: true,
-    sizeOnDisk: 5_000_000_000,
-    added: '2024-06-01T12:00:00Z',
-    digitalRelease: null,
-    physicalRelease: null,
-    ...overrides,
-  };
-}
+import type { RadarrImportListMovie, RadarrTag } from './radarr.types.js';
 
 describe('RadarrService', () => {
   let client: {

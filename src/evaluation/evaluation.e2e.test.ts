@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
-import type { Condition, RuleConfig } from '../config/config.schema.js';
-import { getServiceFromField } from '../config/field-registry.js';
+import type { RuleConfig } from '../config/config.schema.js';
+import { getHydratedServices } from '../config/field-registry.js';
 import { ActionExecutorService } from '../execution/action-executor.service.js';
 import { MediaService } from '../media/media.service.js';
 import { RadarrClient } from '../radarr/radarr.client.js';
@@ -15,29 +15,11 @@ import type { EvaluationItemResult } from '../rules/types.js';
 import { SnapshotService } from '../snapshot/snapshot.service.js';
 import { StateService } from '../snapshot/state.service.js';
 import { SonarrClient } from '../sonarr/sonarr.client.js';
-import { makeRule } from '../test/fixtures.js';
-import { createTestDatabase } from '../test/index.js';
-
-function makeRadarrMovie(overrides: Partial<RadarrMovie> = {}): RadarrMovie {
-  return {
-    id: 1,
-    title: 'E2E Movie',
-    tmdbId: 550,
-    imdbId: 'tt0137523',
-    year: 1999,
-    path: '/movies/e2e-movie',
-    status: 'released',
-    genres: ['Drama'],
-    tags: [],
-    monitored: true,
-    hasFile: true,
-    sizeOnDisk: 5_000_000_000,
-    added: '2024-01-01T00:00:00Z',
-    digitalRelease: null,
-    physicalRelease: null,
-    ...overrides,
-  };
-}
+import {
+  createTestDatabase,
+  makeRadarrMovie,
+  makeRule,
+} from '../test/index.js';
 
 function createMockRadarrClient() {
   return {
@@ -53,32 +35,6 @@ function createMockSonarrClient() {
 
 function createMockAuditService() {
   return { logAction: mock() };
-}
-
-/**
- * Replicates EvaluationService.getHydratedServices() — determines which
- * service prefixes are referenced by the given rules so the snapshot service
- * knows which fields to track.
- */
-function getHydratedServices(rules: RuleConfig[]): Set<string> {
-  const services = new Set<string>();
-
-  const collect = (condition: Condition): void => {
-    if ('field' in condition) {
-      services.add(getServiceFromField(condition.field));
-    } else if ('children' in condition) {
-      for (const child of condition.children) {
-        collect(child);
-      }
-    }
-  };
-
-  for (const rule of rules) {
-    services.add(rule.target);
-    collect(rule.conditions);
-  }
-
-  return services;
 }
 
 describe('full evaluation pipeline (e2e)', () => {
@@ -164,7 +120,7 @@ describe('full evaluation pipeline (e2e)', () => {
 
   test('dry-run — movie matches delete rule → execution_status: skipped', async () => {
     (mockRadarrClient.fetchMovies as ReturnType<typeof mock>).mockResolvedValue(
-      [makeRadarrMovie({ monitored: true })],
+      [makeRadarrMovie({ title: 'E2E Movie', monitored: true })],
     );
     (mockRadarrClient.fetchTags as ReturnType<typeof mock>).mockResolvedValue(
       [],

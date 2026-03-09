@@ -1,41 +1,13 @@
 import { describe, expect, test } from 'bun:test';
+import { makeSonarrSeries } from '../test/index.js';
 import { buildTagMap, mapSeason, resolveTagNames } from './sonarr.mapper.js';
-import type { SonarrSeason, SonarrSeries, SonarrTag } from './sonarr.types.js';
+import type { SonarrSeason, SonarrTag } from './sonarr.types.js';
 
 const TAGS: SonarrTag[] = [
   { id: 1, label: 'keep-forever' },
   { id: 2, label: 'kids' },
   { id: 3, label: 'anime' },
 ];
-
-function makeSeries(overrides: Partial<SonarrSeries> = {}): SonarrSeries {
-  return {
-    id: 1,
-    title: 'Breaking Bad',
-    tvdbId: 81189,
-    imdbId: 'tt0903747',
-    year: 2008,
-    path: '/tv/Breaking Bad',
-    status: 'ended',
-    genres: ['drama', 'thriller'],
-    tags: [1, 2],
-    monitored: true,
-    seasons: [
-      {
-        seasonNumber: 1,
-        monitored: true,
-        statistics: {
-          episodeCount: 7,
-          episodeFileCount: 7,
-          sizeOnDisk: 14_000_000_000,
-          totalEpisodeCount: 7,
-          percentOfEpisodes: 100,
-        },
-      },
-    ],
-    ...overrides,
-  };
-}
 
 describe('buildTagMap', () => {
   test('builds id-to-lowercase-name map', () => {
@@ -77,7 +49,28 @@ describe('mapSeason', () => {
   const tagMap = buildTagMap(TAGS);
 
   test('maps series + season to SonarrData', () => {
-    const series = makeSeries();
+    const series = makeSonarrSeries({
+      title: 'Breaking Bad',
+      tvdbId: 81189,
+      year: 2008,
+      path: '/tv/Breaking Bad',
+      status: 'ended',
+      genres: ['drama', 'thriller'],
+      tags: [1, 2],
+      seasons: [
+        {
+          seasonNumber: 1,
+          monitored: true,
+          statistics: {
+            episodeCount: 7,
+            episodeFileCount: 7,
+            sizeOnDisk: 14_000_000_000,
+            totalEpisodeCount: 7,
+            percentOfEpisodes: 100,
+          },
+        },
+      ],
+    });
     const season = series.seasons[0];
     const result = mapSeason(series, season, tagMap);
 
@@ -99,7 +92,7 @@ describe('mapSeason', () => {
   });
 
   test('handles season without statistics', () => {
-    const series = makeSeries();
+    const series = makeSonarrSeries();
     const season: SonarrSeason = { seasonNumber: 2, monitored: false };
     const result = mapSeason(series, season, tagMap);
 
@@ -114,7 +107,7 @@ describe('mapSeason', () => {
   });
 
   test('handles series with no tags', () => {
-    const series = makeSeries({ tags: [] });
+    const series = makeSonarrSeries({ tags: [] });
     const season = series.seasons[0];
     const result = mapSeason(series, season, tagMap);
 
@@ -122,7 +115,7 @@ describe('mapSeason', () => {
   });
 
   test('handles series with empty genres', () => {
-    const series = makeSeries({ genres: [] });
+    const series = makeSonarrSeries({ genres: [] });
     const season = series.seasons[0];
     const result = mapSeason(series, season, tagMap);
 

@@ -25,6 +25,7 @@ function makeService() {
   } as unknown as ConfigService;
 
   const service = new AuditService(configService);
+  (service as any).flushTimeoutMs = 10;
 
   const auditLogger = {
     info: mock((_entry: any) => {}),
@@ -180,25 +181,6 @@ describe('AuditService', () => {
 
       // Replace flushTransport with a promise that never resolves
       (service as any).flushTransport = mock(() => new Promise<void>(() => {}));
-
-      // Shorten the timeout race by replacing onModuleDestroy's timeout
-      service.onModuleDestroy = async () => {
-        if (!(service as any).auditLogger) return;
-
-        try {
-          await Promise.race([
-            (service as any).flushTransport(),
-            new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error('Flush timeout')), 10),
-            ),
-          ]);
-          (service as any).logger.log('Audit log flushed successfully');
-        } catch {
-          (service as any).logger.warn(
-            'Audit flush timed out — some events may be lost',
-          );
-        }
-      };
 
       await service.onModuleDestroy();
 
