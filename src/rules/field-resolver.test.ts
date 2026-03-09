@@ -1,19 +1,23 @@
 import { describe, expect, test } from 'bun:test';
-import { makeMovie, makeSeason } from '../test/index.js';
+import {
+  makeJellyfinData,
+  makeJellyseerrData,
+  makeMovie,
+  makeSeason,
+} from '../test/index.js';
 import { resolveField } from './field-resolver.js';
 
-const jellyfinData = {
+const jellyfinData = makeJellyfinData({
   watched_by: ['Alice', 'Bob'],
   watched_by_all: true,
-  last_played: '2024-06-01T00:00:00Z',
   play_count: 3,
-};
+});
 
-const jellyseerrData = {
+const jellyseerrData = makeJellyseerrData({
   requested_by: 'Alice',
   requested_at: '2024-01-15T00:00:00Z',
   request_status: 'available',
-};
+});
 
 describe('resolveField', () => {
   test('resolves top-level radarr field', () => {

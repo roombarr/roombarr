@@ -1,23 +1,18 @@
 import { describe, expect, mock, test } from 'bun:test';
 import type { RuleConfig } from '../config/config.schema.js';
-import { JellyfinClient } from '../jellyfin/jellyfin.client.js';
 import { JellyfinService } from '../jellyfin/jellyfin.service.js';
-import type { JellyfinItem, JellyfinUser } from '../jellyfin/jellyfin.types.js';
-import { JellyseerrClient } from '../jellyseerr/jellyseerr.client.js';
+import type { JellyfinItem } from '../jellyfin/jellyfin.types.js';
 import { JellyseerrService } from '../jellyseerr/jellyseerr.service.js';
-import type { JellyseerrRequest } from '../jellyseerr/jellyseerr.types.js';
-import { RadarrClient } from '../radarr/radarr.client.js';
 import { RadarrService } from '../radarr/radarr.service.js';
-import type {
-  RadarrImportListMovie,
-  RadarrMovie,
-  RadarrTag,
-} from '../radarr/radarr.types.js';
 import type { UnifiedMovie, UnifiedSeason } from '../shared/types.js';
-import { SonarrClient } from '../sonarr/sonarr.client.js';
 import { SonarrService } from '../sonarr/sonarr.service.js';
-import type { SonarrSeries, SonarrTag } from '../sonarr/sonarr.types.js';
 import {
+  createMockJellyfinClient,
+  createMockJellyseerrClient,
+  createMockRadarrClient,
+  createMockSonarrClient,
+  makeJellyfinUser,
+  makeJellyseerrRequest,
   makeRadarrImportListMovie,
   makeRadarrMovie,
   makeRadarrTag,
@@ -26,15 +21,6 @@ import {
   makeSonarrTag,
 } from '../test/index.js';
 import { MediaService } from './media.service.js';
-
-function makeJellyfinUser(overrides: Partial<JellyfinUser> = {}): JellyfinUser {
-  return {
-    Id: 'user-1',
-    Name: 'alice',
-    Policy: { IsDisabled: false },
-    ...overrides,
-  };
-}
 
 function makeMovieItem(overrides: Partial<JellyfinItem> = {}): JellyfinItem {
   return {
@@ -90,60 +76,6 @@ function makeEpisodeItem(overrides: Partial<JellyfinItem> = {}): JellyfinItem {
     },
     ...overrides,
   };
-}
-
-function makeJellyseerrRequest(
-  overrides: Partial<JellyseerrRequest> = {},
-): JellyseerrRequest {
-  return {
-    id: 42,
-    status: 2,
-    type: 'movie',
-    createdAt: '2024-12-01T10:00:00Z',
-    media: {
-      id: 100,
-      tmdbId: 550,
-      mediaType: 'movie',
-      status: 5,
-    },
-    requestedBy: {
-      id: 1,
-      username: 'bob',
-      email: 'bob@example.com',
-    },
-    ...overrides,
-  };
-}
-
-function createMockRadarrClient() {
-  return {
-    fetchMovies: mock<() => Promise<RadarrMovie[]>>(),
-    fetchTags: mock<() => Promise<RadarrTag[]>>(),
-    fetchImportListMovies: mock<() => Promise<RadarrImportListMovie[]>>(),
-  } as unknown as RadarrClient;
-}
-
-function createMockSonarrClient() {
-  return {
-    fetchSeries: mock<() => Promise<SonarrSeries[]>>(),
-    fetchTags: mock<() => Promise<SonarrTag[]>>(),
-  } as unknown as SonarrClient;
-}
-
-function createMockJellyfinClient() {
-  return {
-    fetchUsers: mock<() => Promise<JellyfinUser[]>>(),
-    fetchPlayedMovies: mock<() => Promise<JellyfinItem[]>>(),
-    fetchSeriesItems: mock<() => Promise<JellyfinItem[]>>(),
-    fetchSeriesSeasons: mock<() => Promise<JellyfinItem[]>>(),
-    fetchSeasonEpisodes: mock<() => Promise<JellyfinItem[]>>(),
-  } as unknown as JellyfinClient;
-}
-
-function createMockJellyseerrClient() {
-  return {
-    fetchAllRequests: mock<() => Promise<JellyseerrRequest[]>>(),
-  } as unknown as JellyseerrClient;
 }
 
 describe('media hydration pipeline (integration)', () => {
@@ -219,7 +151,14 @@ describe('media hydration pipeline (integration)', () => {
     // Configure Jellyseerr mock responses
     (
       jellyseerrClient.fetchAllRequests as ReturnType<typeof mock>
-    ).mockResolvedValue([makeJellyseerrRequest()]);
+    ).mockResolvedValue([
+      makeJellyseerrRequest({
+        id: 42,
+        createdAt: '2024-12-01T10:00:00Z',
+        media: { id: 100, tmdbId: 550, mediaType: 'movie', status: 5 },
+        requestedBy: { id: 1, username: 'bob', email: 'bob@example.com' },
+      }),
+    ]);
 
     // Wire real services with mock clients
     const radarrService = new RadarrService(radarrClient);
@@ -495,7 +434,7 @@ describe('media hydration pipeline (integration)', () => {
     ).mockResolvedValue([]);
 
     // Single user with watch data for tmdbId 999
-    const users = [makeJellyfinUser()];
+    const users = [makeJellyfinUser({ Name: 'alice' })];
     (jellyfinClient.fetchUsers as ReturnType<typeof mock>).mockResolvedValue(
       users,
     );

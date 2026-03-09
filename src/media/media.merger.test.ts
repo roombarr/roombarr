@@ -1,21 +1,21 @@
 import { describe, expect, test } from 'bun:test';
 import type { JellyseerrIndexes } from '../jellyseerr/jellyseerr.service.js';
-import type { JellyfinData, JellyseerrData } from '../shared/types.js';
-import { makeMovie, makeSeason } from '../test/index.js';
+import {
+  makeJellyfinData,
+  makeJellyseerrData,
+  makeMovie,
+  makeSeason,
+} from '../test/index.js';
 import { enrichMovies, enrichSeasons } from './media.merger.js';
 
-const jellyfinData: JellyfinData = {
+const jellyfinData = makeJellyfinData({
   watched_by: ['alice', 'bob'],
   watched_by_all: true,
   last_played: '2024-12-01T20:00:00Z',
   play_count: 3,
-};
+});
 
-const jellyseerrRequestData: JellyseerrData = {
-  requested_by: 'alice',
-  requested_at: '2024-01-15T12:00:00Z',
-  request_status: 'approved',
-};
+const jellyseerrRequestData = makeJellyseerrData();
 
 describe('enrichMovies', () => {
   test('enriches movies with matched Jellyfin and Jellyseerr data', () => {

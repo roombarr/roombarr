@@ -1,5 +1,7 @@
 import type { RoombarrConfig, RuleConfig } from '../config/config.schema.js';
 import type {
+  JellyfinData,
+  JellyseerrData,
   RadarrData,
   SonarrData,
   UnifiedMovie,
@@ -100,6 +102,31 @@ export function makeSeason(overrides: SeasonOverrides = {}): UnifiedSeason {
       ...sonarrTopLevel,
       season: { ...defaultSonarrSeason, ...seasonOverrides },
     },
+  };
+}
+
+/** Creates a `JellyfinData` with sensible defaults for testing. */
+export function makeJellyfinData(
+  overrides: Partial<JellyfinData> = {},
+): JellyfinData {
+  return {
+    watched_by: ['Alice'],
+    watched_by_all: false,
+    last_played: '2024-06-01T00:00:00Z',
+    play_count: 1,
+    ...overrides,
+  };
+}
+
+/** Creates a `JellyseerrData` with sensible defaults for testing. */
+export function makeJellyseerrData(
+  overrides: Partial<JellyseerrData> = {},
+): JellyseerrData {
+  return {
+    requested_by: 'alice',
+    requested_at: '2024-01-15T12:00:00Z',
+    request_status: 'approved',
+    ...overrides,
   };
 }
 

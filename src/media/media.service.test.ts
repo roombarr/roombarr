@@ -1,28 +1,22 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import type { RuleConfig } from '../config/config.schema.js';
 import type { JellyseerrIndexes } from '../jellyseerr/jellyseerr.service.js';
-import type { JellyfinData, UnifiedMovie } from '../shared/types.js';
-import { makeMovie, makeRule, makeSeason } from '../test/index.js';
+import type { UnifiedMovie } from '../shared/types.js';
+import {
+  makeJellyfinData,
+  makeJellyseerrData,
+  makeMovie,
+  makeRule,
+  makeSeason,
+} from '../test/index.js';
 import { MediaService } from './media.service.js';
 
-const jellyfinMovieData: JellyfinData = {
-  watched_by: ['alice'],
-  watched_by_all: false,
+const jellyfinMovieData = makeJellyfinData({
   last_played: '2024-12-01T20:00:00Z',
-  play_count: 1,
-};
+});
 
 const jellyseerrIndexes: JellyseerrIndexes = {
-  byTmdbId: new Map([
-    [
-      603,
-      {
-        requested_by: 'alice',
-        requested_at: '2024-01-15T12:00:00Z',
-        request_status: 'approved',
-      },
-    ],
-  ]),
+  byTmdbId: new Map([[603, makeJellyseerrData()]]),
   byTvdbId: new Map(),
 };
 

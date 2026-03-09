@@ -5,33 +5,17 @@ import { ActionExecutorService } from '../execution/action-executor.service.js';
 import { MediaService } from '../media/media.service.js';
 import { RadarrClient } from '../radarr/radarr.client.js';
 import { RadarrService } from '../radarr/radarr.service.js';
-import type {
-  RadarrImportListMovie,
-  RadarrMovie,
-  RadarrTag,
-} from '../radarr/radarr.types.js';
 import { RulesService } from '../rules/rules.service.js';
 import type { EvaluationItemResult } from '../rules/types.js';
 import { SnapshotService } from '../snapshot/snapshot.service.js';
 import { StateService } from '../snapshot/state.service.js';
-import { SonarrClient } from '../sonarr/sonarr.client.js';
 import {
+  createMockRadarrClient,
+  createMockSonarrClient,
   createTestDatabase,
   makeRadarrMovie,
   makeRule,
 } from '../test/index.js';
-
-function createMockRadarrClient() {
-  return {
-    fetchMovies: mock<() => Promise<RadarrMovie[]>>(),
-    fetchTags: mock<() => Promise<RadarrTag[]>>(),
-    fetchImportListMovies: mock<() => Promise<RadarrImportListMovie[]>>(),
-  } as unknown as RadarrClient;
-}
-
-function createMockSonarrClient() {
-  return {} as unknown as SonarrClient;
-}
 
 function createMockAuditService() {
   return { logAction: mock() };

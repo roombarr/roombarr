@@ -3,7 +3,11 @@ import { count, eq, like } from 'drizzle-orm';
 import type { BunSQLiteDatabase } from 'drizzle-orm/bun-sqlite';
 import type * as schema from '../database/schema.js';
 import { fieldChanges, mediaItems } from '../database/schema.js';
-import { createTestDatabase, makeMovie } from '../test/index.js';
+import {
+  createTestDatabase,
+  makeJellyfinData,
+  makeMovie,
+} from '../test/index.js';
 import { SnapshotService } from './snapshot.service.js';
 
 describe('SnapshotService', () => {
@@ -90,12 +94,7 @@ describe('SnapshotService', () => {
 
   test('only snapshots fields for hydrated services', async () => {
     const movie = makeMovie({
-      jellyfin: {
-        watched_by: ['Alice'],
-        watched_by_all: false,
-        last_played: '2024-06-01T00:00:00Z',
-        play_count: 1,
-      },
+      jellyfin: makeJellyfinData(),
     });
 
     // Only hydrate radarr, not jellyfin
@@ -115,12 +114,7 @@ describe('SnapshotService', () => {
 
   test('preserves non-hydrated service fields on subsequent snapshots', async () => {
     const movie = makeMovie({
-      jellyfin: {
-        watched_by: ['Alice'],
-        watched_by_all: false,
-        last_played: '2024-06-01T00:00:00Z',
-        play_count: 1,
-      },
+      jellyfin: makeJellyfinData(),
     });
 
     // First snapshot with both services hydrated
@@ -221,12 +215,7 @@ describe('SnapshotService', () => {
 
     // Second snapshot adds jellyfin data and hydrates both services
     const movieWithJellyfin = makeMovie({
-      jellyfin: {
-        watched_by: ['Alice'],
-        watched_by_all: false,
-        last_played: '2024-06-01T00:00:00Z',
-        play_count: 1,
-      },
+      jellyfin: makeJellyfinData(),
     });
     await snapshotService.snapshot(
       [movieWithJellyfin],
@@ -259,12 +248,7 @@ describe('SnapshotService', () => {
 
   test('records REMOVE diffs when a service field disappears', async () => {
     const movieWithJellyfin = makeMovie({
-      jellyfin: {
-        watched_by: ['Alice'],
-        watched_by_all: false,
-        last_played: '2024-06-01T00:00:00Z',
-        play_count: 1,
-      },
+      jellyfin: makeJellyfinData(),
     });
 
     // First snapshot with both services hydrated
