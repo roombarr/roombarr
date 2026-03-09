@@ -136,33 +136,35 @@ describe('AuditService', () => {
         default: pinoMock,
       }));
 
-      // Re-import to pick up mocked modules
-      const { AuditService: MockedAuditService } = await import(
-        './audit.service.js'
-      );
+      try {
+        // Re-import to pick up mocked modules
+        const { AuditService: MockedAuditService } = await import(
+          './audit.service.js'
+        );
 
-      const configService = {
-        getConfig: mock(() => makeConfig({ audit: { retention_days: 30 } })),
-      } as unknown as ConfigService;
+        const configService = {
+          getConfig: mock(() => makeConfig({ audit: { retention_days: 30 } })),
+        } as unknown as ConfigService;
 
-      const service = new MockedAuditService(configService);
-      service.onModuleInit();
+        const service = new MockedAuditService(configService);
+        service.onModuleInit();
 
-      // Restore mocked modules to avoid poisoning other test files
-      mock.module('node:fs', () => require('node:fs'));
-      mock.module('pino', () => require('pino'));
-
-      expect(mkdirSyncMock).toHaveBeenCalledWith('/config/logs/', {
-        recursive: true,
-      });
-      expect(transportMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          target: 'pino-roll',
-          options: expect.objectContaining({
-            limit: { count: 30 },
+        expect(mkdirSyncMock).toHaveBeenCalledWith('/config/logs/', {
+          recursive: true,
+        });
+        expect(transportMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            target: 'pino-roll',
+            options: expect.objectContaining({
+              limit: { count: 30 },
+            }),
           }),
-        }),
-      );
+        );
+      } finally {
+        // Restore mocked modules to avoid poisoning other test files
+        mock.module('node:fs', () => require('node:fs'));
+        mock.module('pino', () => require('pino'));
+      }
     });
   });
 

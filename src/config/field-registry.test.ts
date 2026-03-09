@@ -8,12 +8,12 @@ import {
 } from './field-registry.js';
 
 describe('fieldRegistry', () => {
-  test('radarr registry contains 21 fields', () => {
-    expect(Object.keys(fieldRegistry.radarr)).toHaveLength(21);
+  test('radarr registry fields match snapshot', () => {
+    expect(Object.keys(fieldRegistry.radarr).sort()).toMatchSnapshot();
   });
 
-  test('sonarr registry contains 19 fields', () => {
-    expect(Object.keys(fieldRegistry.sonarr)).toHaveLength(19);
+  test('sonarr registry fields match snapshot', () => {
+    expect(Object.keys(fieldRegistry.sonarr).sort()).toMatchSnapshot();
   });
 
   test('spot-check date field shape', () => {

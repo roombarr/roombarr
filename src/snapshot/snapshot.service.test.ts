@@ -24,7 +24,7 @@ describe('SnapshotService', () => {
   });
 
   test('creates snapshot for new items', async () => {
-    const movie = makeMovie();
+    const movie = makeMovie({ tmdb_id: 42, title: 'My Movie' });
     await snapshotService.snapshot([movie], new Set(['radarr']));
 
     const row = drizzle
@@ -32,8 +32,8 @@ describe('SnapshotService', () => {
       .from(mediaItems)
       .get();
     expect(row).toBeTruthy();
-    expect(row!.mediaId).toBe('1');
-    expect(row!.title).toBe('Test Movie');
+    expect(row!.mediaId).toBe('42');
+    expect(row!.title).toBe('My Movie');
   });
 
   test('does not generate field_changes on first observation', async () => {

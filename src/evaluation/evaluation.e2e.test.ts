@@ -58,7 +58,7 @@ describe('full evaluation pipeline (e2e)', () => {
     mediaService = new MediaService(null, radarrService, null, null);
     snapshotService = new SnapshotService(testDb.dbService);
     stateService = new StateService(testDb.dbService);
-    rulesService = new RulesService(mockAuditService as never);
+    rulesService = new RulesService(mockAuditService as any);
     actionExecutor = new ActionExecutorService(
       mockRadarrClient,
       createMockSonarrClient(),

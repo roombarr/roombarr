@@ -47,13 +47,15 @@ function makeSeasonItem(
   };
 }
 
+let episodeIdCounter = 0;
+
 function makeEpisodeItem(
   played: boolean,
   playCount: number,
   lastPlayedDate: string | null = null,
 ): JellyfinItem {
   return {
-    Id: `ep-${Math.random().toString(36).slice(2)}`,
+    Id: `ep-${episodeIdCounter++}`,
     Name: 'Episode',
     Type: 'Episode',
     ProviderIds: {},
@@ -77,6 +79,7 @@ describe('JellyfinService', () => {
   let service: JellyfinService;
 
   beforeEach(() => {
+    episodeIdCounter = 0;
     client = {
       fetchUsers: mock(() => Promise.resolve([])),
       fetchPlayedMovies: mock(() => Promise.resolve([])),

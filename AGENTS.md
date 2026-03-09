@@ -145,8 +145,6 @@ AI agents should use the following scripts during development. All scripts are r
 
   These comments add visual noise and rarely provide meaningful context. Prefer clear function names, smaller modules, and well-structured code instead.
 
-  This frames the rule around **maintainability**, not just preference, which helps AI agents follow it more reliably.
-
 * **Avoid raw SQL when using the ORM.**
   Prefer using the ORM (Drizzle) for database interactions whenever possible. The ORM provides type safety, consistent query construction, and better integration with the rest of the codebase.
 

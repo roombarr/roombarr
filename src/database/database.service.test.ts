@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { mediaItems } from '../database/schema.js';
 import { createTestDatabase } from '../test/index.js';
 import { DatabaseService } from './database.service.js';
 
@@ -18,7 +19,7 @@ describe('DatabaseService', () => {
 
     afterEach(() => cleanup());
 
-    test('creates database directory and file on init', () => {
+    test('provides access to the underlying database', () => {
       const db = service.getDatabase();
       expect(db).toBeTruthy();
     });
@@ -88,7 +89,9 @@ describe('DatabaseService', () => {
       const drizzleDb = service.getDrizzle();
 
       expect(drizzleDb).toBeTruthy();
-      expect(typeof drizzleDb.select).toBe('function');
+      const rows = drizzleDb.select().from(mediaItems).all();
+      expect(rows).toBeDefined();
+      expect(rows.length).toBeGreaterThanOrEqual(0);
     });
 
     test('FK cascade deletes field_changes when media_item is deleted', () => {

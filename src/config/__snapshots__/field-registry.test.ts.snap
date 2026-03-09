@@ -1,0 +1,51 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`fieldRegistry radarr registry fields match snapshot 1`] = `
+[
+  "jellyfin.last_played",
+  "jellyfin.play_count",
+  "jellyfin.watched_by",
+  "jellyfin.watched_by_all",
+  "jellyseerr.request_status",
+  "jellyseerr.requested_at",
+  "jellyseerr.requested_by",
+  "radarr.added",
+  "radarr.digital_release",
+  "radarr.genres",
+  "radarr.has_file",
+  "radarr.import_list_ids",
+  "radarr.monitored",
+  "radarr.on_import_list",
+  "radarr.physical_release",
+  "radarr.size_on_disk",
+  "radarr.status",
+  "radarr.tags",
+  "radarr.year",
+  "state.days_off_import_list",
+  "state.ever_on_import_list",
+]
+`;
+
+exports[`fieldRegistry sonarr registry fields match snapshot 1`] = `
+[
+  "jellyfin.last_played",
+  "jellyfin.play_count",
+  "jellyfin.watched_by",
+  "jellyfin.watched_by_all",
+  "jellyseerr.request_status",
+  "jellyseerr.requested_at",
+  "jellyseerr.requested_by",
+  "sonarr.genres",
+  "sonarr.season.episode_count",
+  "sonarr.season.episode_file_count",
+  "sonarr.season.has_file",
+  "sonarr.season.monitored",
+  "sonarr.season.season_number",
+  "sonarr.season.size_on_disk",
+  "sonarr.status",
+  "sonarr.tags",
+  "sonarr.year",
+  "state.days_off_import_list",
+  "state.ever_on_import_list",
+]
+`;
