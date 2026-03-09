@@ -4,7 +4,12 @@ import type { RadarrClient } from '../radarr/radarr.client.js';
 import type { EvaluationItemResult } from '../rules/types.js';
 import { buildInternalId, type UnifiedMedia } from '../shared/types.js';
 import type { SonarrClient } from '../sonarr/sonarr.client.js';
-import { makeMovie, makeSeason } from '../test/index.js';
+import {
+  makeMovie,
+  makeRadarrMovie,
+  makeSeason,
+  makeSonarrSeries,
+} from '../test/index.js';
 import { ActionExecutorService } from './action-executor.service.js';
 
 function makeResult(
@@ -52,22 +57,7 @@ describe('ActionExecutorService', () => {
     radarrClient = {
       deleteMovie: mock(() => Promise.resolve()),
       fetchMovie: mock(() =>
-        Promise.resolve({
-          id: 101,
-          title: 'Test Movie',
-          tmdbId: 1,
-          imdbId: 'tt0000001',
-          year: 2024,
-          path: '/movies/test',
-          status: 'released',
-          genres: ['Action'],
-          tags: [],
-          monitored: true,
-          sizeOnDisk: 5_000_000_000,
-          added: '2024-01-01T00:00:00Z',
-          digitalRelease: null,
-          physicalRelease: null,
-        }),
+        Promise.resolve(makeRadarrMovie({ id: 101, monitored: true })),
       ),
       updateMovie: mock(() => Promise.resolve()),
     };
@@ -99,22 +89,15 @@ describe('ActionExecutorService', () => {
       ),
       deleteEpisodeFile: mock(() => Promise.resolve()),
       fetchSeriesById: mock(() =>
-        Promise.resolve({
-          id: 201,
-          title: 'Test Show - S01',
-          tvdbId: 100,
-          imdbId: null,
-          year: 2023,
-          path: '/tv/test',
-          status: 'ended',
-          genres: ['Drama'],
-          tags: [],
-          monitored: true,
-          seasons: [
-            { seasonNumber: 1, monitored: true },
-            { seasonNumber: 2, monitored: true },
-          ],
-        }),
+        Promise.resolve(
+          makeSonarrSeries({
+            id: 201,
+            seasons: [
+              { seasonNumber: 1, monitored: true },
+              { seasonNumber: 2, monitored: true },
+            ],
+          }),
+        ),
       ),
       updateSeries: mock(() => Promise.resolve()),
     };
@@ -340,6 +323,51 @@ describe('ActionExecutorService', () => {
       expect(results[0].execution_error).toBe(
         'Item not found in hydrated data',
       );
+    });
+
+    test('fails when unmonitorSeason cannot find the target season on the series', async () => {
+      sonarrClient.fetchSeriesById = mock(() =>
+        Promise.resolve(
+          makeSonarrSeries({
+            id: 201,
+            seasons: [{ seasonNumber: 99, monitored: true }],
+          }),
+        ),
+      );
+
+      const season = makeSeason();
+      const result = makeResult(season, 'unmonitor');
+
+      const { results, executionSummary } = await service.execute(
+        [result],
+        [season],
+        false,
+      );
+
+      expect(results[0].execution_status).toBe('failed');
+      expect(results[0].execution_error).toBe(
+        'Season 1 not found on series 201',
+      );
+      expect(executionSummary?.actions_failed).toBe(1);
+    });
+
+    test('re-throws non-404 errors during individual episode file deletion', async () => {
+      sonarrClient.deleteEpisodeFile = mock(() =>
+        Promise.reject(new Error('Connection refused')),
+      );
+
+      const season = makeSeason();
+      const result = makeResult(season, 'delete');
+
+      const { results, executionSummary } = await service.execute(
+        [result],
+        [season],
+        false,
+      );
+
+      expect(results[0].execution_status).toBe('failed');
+      expect(results[0].execution_error).toBe('Connection refused');
+      expect(executionSummary?.actions_failed).toBe(1);
     });
   });
 
