@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { makeConfig, makeRule } from '../test/index.js';
 import { configSchema, validateConfig } from './config.schema.js';
 
 function validConfig(overrides: Record<string, any> = {}) {
@@ -315,19 +316,13 @@ describe('configSchema', () => {
 });
 
 describe('validateConfig (cross-validation)', () => {
-  function parse(overrides: Record<string, any> = {}) {
-    const result = configSchema.safeParse(validConfig(overrides));
-    if (!result.success) throw new Error('Schema parse failed');
-    return result.data;
-  }
-
   test('passes with valid full config', () => {
-    const errors = validateConfig(parse());
+    const errors = validateConfig(makeConfig());
     expect(errors).toEqual([]);
   });
 
   test('fails when no arr service is configured', () => {
-    const config = parse();
+    const config = makeConfig();
     config.services.sonarr = undefined;
     config.services.radarr = undefined;
     const errors = validateConfig(config);
@@ -339,23 +334,18 @@ describe('validateConfig (cross-validation)', () => {
   });
 
   test('fails when sonarr rule targets unconfigured sonarr', () => {
-    const config = parse({
+    const config = makeConfig({
       rules: [
-        {
-          name: 'Sonarr rule',
+        makeRule({
           target: 'sonarr',
           conditions: {
             operator: 'AND',
             children: [
-              {
-                field: 'sonarr.tags',
-                operator: 'includes',
-                value: 'test',
-              },
+              { field: 'sonarr.tags', operator: 'includes', value: 'test' },
             ],
           },
           action: 'keep',
-        },
+        }),
       ],
     });
     config.services.sonarr = undefined;
@@ -368,7 +358,7 @@ describe('validateConfig (cross-validation)', () => {
   });
 
   test('fails when radarr rule targets unconfigured radarr', () => {
-    const config = parse();
+    const config = makeConfig();
     config.services.radarr = undefined;
     const errors = validateConfig(config);
     expect(errors).toContainEqual(
@@ -379,11 +369,9 @@ describe('validateConfig (cross-validation)', () => {
   });
 
   test('fails when jellyfin field used without jellyfin configured', () => {
-    const config = parse({
+    const config = makeConfig({
       rules: [
-        {
-          name: 'Uses jellyfin',
-          target: 'radarr',
+        makeRule({
           conditions: {
             operator: 'AND',
             children: [
@@ -394,8 +382,7 @@ describe('validateConfig (cross-validation)', () => {
               },
             ],
           },
-          action: 'delete',
-        },
+        }),
       ],
     });
     config.services.jellyfin = undefined;
@@ -406,11 +393,9 @@ describe('validateConfig (cross-validation)', () => {
   });
 
   test('fails when jellyseerr field used without jellyseerr configured', () => {
-    const config = parse({
+    const config = makeConfig({
       rules: [
-        {
-          name: 'Jellyseerr rule',
-          target: 'radarr',
+        makeRule({
           conditions: {
             operator: 'AND',
             children: [
@@ -421,8 +406,7 @@ describe('validateConfig (cross-validation)', () => {
               },
             ],
           },
-          action: 'delete',
-        },
+        }),
       ],
     });
     config.services.jellyseerr = undefined;
@@ -433,11 +417,9 @@ describe('validateConfig (cross-validation)', () => {
   });
 
   test('fails for unknown field path', () => {
-    const config = parse({
+    const config = makeConfig({
       rules: [
-        {
-          name: 'Unknown field',
-          target: 'radarr',
+        makeRule({
           conditions: {
             operator: 'AND',
             children: [
@@ -448,8 +430,7 @@ describe('validateConfig (cross-validation)', () => {
               },
             ],
           },
-          action: 'delete',
-        },
+        }),
       ],
     });
     const errors = validateConfig(config);
@@ -459,23 +440,16 @@ describe('validateConfig (cross-validation)', () => {
   });
 
   test('fails for incompatible operator and field type', () => {
-    const config = parse({
+    const config = makeConfig({
       rules: [
-        {
-          name: 'Bad operator',
-          target: 'radarr',
+        makeRule({
           conditions: {
             operator: 'AND',
             children: [
-              {
-                field: 'radarr.tags',
-                operator: 'older_than',
-                value: '30d',
-              },
+              { field: 'radarr.tags', operator: 'older_than', value: '30d' },
             ],
           },
-          action: 'delete',
-        },
+        }),
       ],
     });
     const errors = validateConfig(config);
@@ -487,11 +461,9 @@ describe('validateConfig (cross-validation)', () => {
   });
 
   test('fails when is_empty has a value', () => {
-    const config = parse({
+    const config = makeConfig({
       rules: [
-        {
-          name: 'Empty with value',
-          target: 'radarr',
+        makeRule({
           conditions: {
             operator: 'AND',
             children: [
@@ -502,8 +474,7 @@ describe('validateConfig (cross-validation)', () => {
               },
             ],
           },
-          action: 'delete',
-        },
+        }),
       ],
     });
     const errors = validateConfig(config);
@@ -513,22 +484,14 @@ describe('validateConfig (cross-validation)', () => {
   });
 
   test('fails when equals has no value', () => {
-    const config = parse({
+    const config = makeConfig({
       rules: [
-        {
-          name: 'Missing value',
-          target: 'radarr',
+        makeRule({
           conditions: {
             operator: 'AND',
-            children: [
-              {
-                field: 'radarr.monitored',
-                operator: 'equals',
-              },
-            ],
+            children: [{ field: 'radarr.monitored', operator: 'equals' }],
           },
-          action: 'delete',
-        },
+        }),
       ],
     });
     const errors = validateConfig(config);
@@ -538,23 +501,16 @@ describe('validateConfig (cross-validation)', () => {
   });
 
   test('fails when temporal operator value is not a string', () => {
-    const config = parse({
+    const config = makeConfig({
       rules: [
-        {
-          name: 'Numeric duration',
-          target: 'radarr',
+        makeRule({
           conditions: {
             operator: 'AND',
             children: [
-              {
-                field: 'radarr.added',
-                operator: 'older_than',
-                value: 30,
-              },
+              { field: 'radarr.added', operator: 'older_than', value: 30 },
             ],
           },
-          action: 'delete',
-        },
+        }),
       ],
     });
     const errors = validateConfig(config);
@@ -564,11 +520,9 @@ describe('validateConfig (cross-validation)', () => {
   });
 
   test('fails for invalid duration string', () => {
-    const config = parse({
+    const config = makeConfig({
       rules: [
-        {
-          name: 'Bad duration',
-          target: 'radarr',
+        makeRule({
           conditions: {
             operator: 'AND',
             children: [
@@ -579,8 +533,7 @@ describe('validateConfig (cross-validation)', () => {
               },
             ],
           },
-          action: 'delete',
-        },
+        }),
       ],
     });
     const errors = validateConfig(config);
@@ -590,11 +543,9 @@ describe('validateConfig (cross-validation)', () => {
   });
 
   test('validates nested condition fields recursively', () => {
-    const config = parse({
+    const config = makeConfig({
       rules: [
-        {
-          name: 'Nested with bad field',
-          target: 'radarr',
+        makeRule({
           conditions: {
             operator: 'AND',
             children: [
@@ -610,8 +561,7 @@ describe('validateConfig (cross-validation)', () => {
               },
             ],
           },
-          action: 'delete',
-        },
+        }),
       ],
     });
     const errors = validateConfig(config);
@@ -621,22 +571,14 @@ describe('validateConfig (cross-validation)', () => {
   });
 
   test('passes with is_empty and no value', () => {
-    const config = parse({
+    const config = makeConfig({
       rules: [
-        {
-          name: 'Empty tags',
-          target: 'radarr',
+        makeRule({
           conditions: {
             operator: 'AND',
-            children: [
-              {
-                field: 'radarr.tags',
-                operator: 'is_empty',
-              },
-            ],
+            children: [{ field: 'radarr.tags', operator: 'is_empty' }],
           },
-          action: 'delete',
-        },
+        }),
       ],
     });
     const errors = validateConfig(config);
@@ -644,11 +586,9 @@ describe('validateConfig (cross-validation)', () => {
   });
 
   test('passes with state fields on radarr target', () => {
-    const config = parse({
+    const config = makeConfig({
       rules: [
-        {
-          name: 'State rule',
-          target: 'radarr',
+        makeRule({
           conditions: {
             operator: 'AND',
             children: [
@@ -659,8 +599,7 @@ describe('validateConfig (cross-validation)', () => {
               },
             ],
           },
-          action: 'delete',
-        },
+        }),
       ],
     });
     const errors = validateConfig(config);
@@ -668,13 +607,9 @@ describe('validateConfig (cross-validation)', () => {
   });
 
   test('passes with state fields on sonarr target', () => {
-    const config = parse({
-      services: {
-        sonarr: { base_url: 'http://localhost:8989', api_key: 'key' },
-      },
+    const config = makeConfig({
       rules: [
-        {
-          name: 'State rule on sonarr',
+        makeRule({
           target: 'sonarr',
           conditions: {
             operator: 'AND',
@@ -686,8 +621,7 @@ describe('validateConfig (cross-validation)', () => {
               },
             ],
           },
-          action: 'delete',
-        },
+        }),
       ],
     });
     const errors = validateConfig(config);
@@ -695,11 +629,10 @@ describe('validateConfig (cross-validation)', () => {
   });
 
   test('passes with new radarr import list fields', () => {
-    const config = parse({
+    const config = makeConfig({
       rules: [
-        {
-          name: 'Import list rule',
-          target: 'radarr',
+        makeRule({
+          action: 'keep',
           conditions: {
             operator: 'AND',
             children: [
@@ -710,8 +643,7 @@ describe('validateConfig (cross-validation)', () => {
               },
             ],
           },
-          action: 'keep',
-        },
+        }),
       ],
     });
     const errors = validateConfig(config);
@@ -719,14 +651,12 @@ describe('validateConfig (cross-validation)', () => {
   });
 
   test('state fields do not require service config', () => {
-    const config = parse({
+    const config = makeConfig({
       services: {
         radarr: { base_url: 'http://localhost:7878', api_key: 'key' },
       },
       rules: [
-        {
-          name: 'State rule no config',
-          target: 'radarr',
+        makeRule({
           conditions: {
             operator: 'AND',
             children: [
@@ -737,33 +667,24 @@ describe('validateConfig (cross-validation)', () => {
               },
             ],
           },
-          action: 'delete',
-        },
+        }),
       ],
     });
-    // No services.state config needed — state is computed locally
     const errors = validateConfig(config);
     expect(errors).toEqual([]);
   });
 
   test('passes with radarr.has_file field', () => {
-    const config = parse({
+    const config = makeConfig({
       rules: [
-        {
-          name: 'Has file rule',
-          target: 'radarr',
+        makeRule({
           conditions: {
             operator: 'AND',
             children: [
-              {
-                field: 'radarr.has_file',
-                operator: 'equals',
-                value: true,
-              },
+              { field: 'radarr.has_file', operator: 'equals', value: true },
             ],
           },
-          action: 'delete',
-        },
+        }),
       ],
     });
     const errors = validateConfig(config);
@@ -771,13 +692,9 @@ describe('validateConfig (cross-validation)', () => {
   });
 
   test('passes with sonarr.season.has_file field', () => {
-    const config = parse({
-      services: {
-        sonarr: { base_url: 'http://localhost:8989', api_key: 'key' },
-      },
+    const config = makeConfig({
       rules: [
-        {
-          name: 'Season has file rule',
+        makeRule({
           target: 'sonarr',
           conditions: {
             operator: 'AND',
@@ -789,8 +706,7 @@ describe('validateConfig (cross-validation)', () => {
               },
             ],
           },
-          action: 'delete',
-        },
+        }),
       ],
     });
     const errors = validateConfig(config);
@@ -798,13 +714,9 @@ describe('validateConfig (cross-validation)', () => {
   });
 
   test('passes with sonarr season fields', () => {
-    const config = parse({
-      services: {
-        sonarr: { base_url: 'http://localhost:8989', api_key: 'key' },
-      },
+    const config = makeConfig({
       rules: [
-        {
-          name: 'Season rule',
+        makeRule({
           target: 'sonarr',
           conditions: {
             operator: 'AND',
@@ -816,8 +728,7 @@ describe('validateConfig (cross-validation)', () => {
               },
             ],
           },
-          action: 'delete',
-        },
+        }),
       ],
     });
     const errors = validateConfig(config);
