@@ -1,68 +1,21 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
-import type { RoombarrConfig } from '../config/config.schema.js';
 import type {
   EvaluationItemResult,
   EvaluationSummary,
 } from '../rules/types.js';
-import type { UnifiedMovie } from '../shared/types.js';
+import { makeConfig, makeMovie } from '../test/index.js';
 import { EvaluationService } from './evaluation.service.js';
 
-const testConfig: RoombarrConfig = {
-  dry_run: true,
-  services: {
-    radarr: { base_url: 'http://radarr:7878', api_key: 'test' },
-  },
-  schedule: '0 3 * * *',
-  performance: { concurrency: 10 },
-  audit: { retention_days: 90 },
-  rules: [
-    {
-      name: 'Delete old movies',
-      target: 'radarr',
-      action: 'delete',
-      conditions: {
-        operator: 'AND',
-        children: [
-          { field: 'radarr.monitored', operator: 'equals', value: true },
-        ],
-      },
-    },
-  ],
-};
+const testConfig = makeConfig();
 
-const testMovie: UnifiedMovie = {
-  type: 'movie',
-  radarr_id: 42,
-  tmdb_id: 603,
-  imdb_id: 'tt0133093',
-  title: 'The Matrix (1999)',
-  year: 1999,
-  radarr: {
-    added: '2024-01-01T00:00:00Z',
-    size_on_disk: 5_000_000_000,
-    has_file: true,
-    monitored: true,
-    tags: [],
-    genres: ['action'],
-    status: 'released',
-    year: 1999,
-    digital_release: null,
-    physical_release: null,
-    path: '/movies/The Matrix (1999)',
-    on_import_list: false,
-    import_list_ids: [],
-  },
-  state: null,
-  jellyfin: null,
-  jellyseerr: null,
-};
+const testMovie = makeMovie();
 
 const testEvaluationResult: EvaluationItemResult = {
-  title: 'The Matrix (1999)',
+  title: 'Test Movie',
   type: 'movie',
-  internal_id: 'movie:42',
-  external_id: 603,
-  matched_rules: ['Delete old movies'],
+  internal_id: 'movie:101',
+  external_id: 1,
+  matched_rules: ['Test rule'],
   resolved_action: 'delete',
   dry_run: true,
 };
@@ -131,7 +84,7 @@ describe('EvaluationService', () => {
       expect(run.completed_at).toBeTruthy();
       expect(run.summary).toEqual(testSummary);
       expect(run.results).toHaveLength(1);
-      expect(run.results[0].title).toBe('The Matrix (1999)');
+      expect(run.results[0].title).toBe('Test Movie');
       expect(mediaService.hydrate).toHaveBeenCalledTimes(1);
       expect(rulesService.evaluate).toHaveBeenCalledTimes(1);
       expect(actionExecutor.execute).toHaveBeenCalledTimes(1);
@@ -161,7 +114,7 @@ describe('EvaluationService', () => {
 
       // Only matched items should be in results
       expect(run.results).toHaveLength(1);
-      expect(run.results[0].title).toBe('The Matrix (1999)');
+      expect(run.results[0].title).toBe('Test Movie');
     });
 
     test('marks run as failed when hydration throws', async () => {
@@ -271,17 +224,19 @@ describe('EvaluationService', () => {
 
   describe('matchesCron (via handleCron)', () => {
     test('does not trigger when schedule does not match current time', async () => {
-      // Schedule is "0 3 * * *" (3 AM) — unlikely to be current time in tests
-      // We just verify it doesn't call hydrate for a non-matching time
+      configService.getConfig = mock(() =>
+        makeConfig({ schedule: '0 3 31 2 *' }),
+      );
       await service.handleCron();
+      expect(mediaService.hydrate).not.toHaveBeenCalled();
+    });
 
-      // If the current minute doesn't happen to be 3:00 AM,
-      // hydrate should not be called
-      const currentHour = new Date().getHours();
-      const currentMinute = new Date().getMinutes();
-      if (currentHour !== 3 || currentMinute !== 0) {
-        expect(mediaService.hydrate).not.toHaveBeenCalled();
-      }
+    test('triggers evaluation when schedule matches current time', async () => {
+      configService.getConfig = mock(() =>
+        makeConfig({ schedule: '* * * * *' }),
+      );
+      await service.handleCron();
+      expect(mediaService.hydrate).toHaveBeenCalledTimes(1);
     });
   });
 });
