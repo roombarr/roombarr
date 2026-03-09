@@ -1,13 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import type { AuditService } from '../audit/audit.service.js';
-import type { RoombarrConfig } from '../config/config.schema.js';
+import type { RuleConfig } from '../config/config.schema.js';
 import type { UnifiedMedia } from '../shared/types.js';
 import { makeMovie, makeSeason } from '../test/index.js';
 import { RulesService } from './rules.service.js';
-
-function makeRules(rules: RoombarrConfig['rules']): RoombarrConfig['rules'] {
-  return rules;
-}
 
 const mockAuditService = {
   logAction: () => {},
@@ -21,7 +17,7 @@ describe('RulesService.evaluate', () => {
       makeMovie({ radarr: { tags: ['permanent'] } }),
     ];
 
-    const rules = makeRules([
+    const rules: RuleConfig[] = [
       {
         name: 'Protect permanent',
         target: 'radarr',
@@ -33,7 +29,7 @@ describe('RulesService.evaluate', () => {
         },
         action: 'keep',
       },
-    ]);
+    ];
 
     const { results, summary } = service.evaluate(
       items,
@@ -50,7 +46,7 @@ describe('RulesService.evaluate', () => {
   test('returns null action when no rules match', () => {
     const items: UnifiedMedia[] = [makeMovie()];
 
-    const rules = makeRules([
+    const rules: RuleConfig[] = [
       {
         name: 'Protect permanent',
         target: 'radarr',
@@ -62,7 +58,7 @@ describe('RulesService.evaluate', () => {
         },
         action: 'keep',
       },
-    ]);
+    ];
 
     const { results } = service.evaluate(items, rules, 'test-eval-id', true);
     expect(results[0].resolved_action).toBeNull();
@@ -72,7 +68,7 @@ describe('RulesService.evaluate', () => {
   test('skips rules targeting wrong type', () => {
     const items: UnifiedMedia[] = [makeMovie()];
 
-    const rules = makeRules([
+    const rules: RuleConfig[] = [
       {
         name: 'Sonarr rule',
         target: 'sonarr',
@@ -88,7 +84,7 @@ describe('RulesService.evaluate', () => {
         },
         action: 'delete',
       },
-    ]);
+    ];
 
     const { results } = service.evaluate(items, rules, 'test-eval-id', true);
     expect(results[0].resolved_action).toBeNull();
@@ -106,7 +102,7 @@ describe('RulesService.evaluate', () => {
     });
     const items: UnifiedMedia[] = [movie];
 
-    const rules = makeRules([
+    const rules: RuleConfig[] = [
       {
         name: 'Delete watched',
         target: 'radarr',
@@ -137,7 +133,7 @@ describe('RulesService.evaluate', () => {
         },
         action: 'keep',
       },
-    ]);
+    ];
 
     const { results } = service.evaluate(items, rules, 'test-eval-id', true);
     expect(results[0].resolved_action).toBe('keep');
@@ -161,7 +157,7 @@ describe('RulesService.evaluate', () => {
       }),
     ];
 
-    const rules = makeRules([
+    const rules: RuleConfig[] = [
       {
         name: 'Delete untouched',
         target: 'radarr',
@@ -189,7 +185,7 @@ describe('RulesService.evaluate', () => {
         },
         action: 'unmonitor',
       },
-    ]);
+    ];
 
     const { results } = service.evaluate(items, rules, 'test-eval-id', true);
     expect(results[0].resolved_action).toBe('unmonitor');
@@ -198,7 +194,7 @@ describe('RulesService.evaluate', () => {
   test('skips rule when referenced service data is missing', () => {
     const items: UnifiedMedia[] = [makeMovie()];
 
-    const rules = makeRules([
+    const rules: RuleConfig[] = [
       {
         name: 'Needs jellyfin',
         target: 'radarr',
@@ -214,7 +210,7 @@ describe('RulesService.evaluate', () => {
         },
         action: 'delete',
       },
-    ]);
+    ];
 
     const { results, summary } = service.evaluate(
       items,
@@ -239,7 +235,7 @@ describe('RulesService.evaluate', () => {
     const items: UnifiedMedia[] = [movie];
 
     // (watched_by_all OR last_played older_than 180d) AND (tags includes seasonal OR added older_than 90d)
-    const rules = makeRules([
+    const rules: RuleConfig[] = [
       {
         name: 'Nested cleanup',
         target: 'radarr',
@@ -280,7 +276,7 @@ describe('RulesService.evaluate', () => {
         },
         action: 'delete',
       },
-    ]);
+    ];
 
     const { results } = service.evaluate(items, rules, 'test-eval-id', true);
     expect(results[0].resolved_action).toBe('delete');
@@ -292,7 +288,7 @@ describe('RulesService.evaluate', () => {
     });
     const items: UnifiedMedia[] = [movie];
 
-    const rules = makeRules([
+    const rules: RuleConfig[] = [
       {
         name: 'Deep nesting',
         target: 'radarr',
@@ -328,7 +324,7 @@ describe('RulesService.evaluate', () => {
         },
         action: 'delete',
       },
-    ]);
+    ];
 
     const { results } = service.evaluate(items, rules, 'test-eval-id', true);
     expect(results[0].resolved_action).toBe('delete');
@@ -340,7 +336,7 @@ describe('RulesService.evaluate', () => {
     });
     const items: UnifiedMedia[] = [season];
 
-    const rules = makeRules([
+    const rules: RuleConfig[] = [
       {
         name: 'Has files',
         target: 'sonarr',
@@ -356,7 +352,7 @@ describe('RulesService.evaluate', () => {
         },
         action: 'delete',
       },
-    ]);
+    ];
 
     const { results } = service.evaluate(items, rules, 'test-eval-id', true);
     expect(results[0].resolved_action).toBe('delete');
@@ -370,7 +366,7 @@ describe('RulesService.evaluate', () => {
       makeMovie({ tmdb_id: 3, title: 'Movie 2' }),
     ];
 
-    const rules = makeRules([
+    const rules: RuleConfig[] = [
       {
         name: 'Delete all movies',
         target: 'radarr',
@@ -386,7 +382,7 @@ describe('RulesService.evaluate', () => {
         },
         action: 'delete',
       },
-    ]);
+    ];
 
     const { results, summary } = service.evaluate(
       items,
@@ -414,7 +410,7 @@ describe('RulesService.evaluate', () => {
       }),
     ];
 
-    const rules = makeRules([
+    const rules: RuleConfig[] = [
       {
         name: 'Delete untouched',
         target: 'radarr',
@@ -427,7 +423,7 @@ describe('RulesService.evaluate', () => {
         },
         action: 'delete',
       },
-    ]);
+    ];
 
     const { results } = service.evaluate(items, rules, 'test-eval-id', true);
     expect(results[0].resolved_action).toBe('delete');
@@ -459,7 +455,7 @@ describe('RulesService.evaluate', () => {
       }),
     ];
 
-    const rules = makeRules([
+    const rules: RuleConfig[] = [
       {
         name: 'Delete watched',
         target: 'radarr',
@@ -490,7 +486,7 @@ describe('RulesService.evaluate', () => {
         },
         action: 'keep',
       },
-    ]);
+    ];
 
     const { summary } = service.evaluate(items, rules, 'test-eval-id', true);
     expect(summary.items_evaluated).toBe(3);
@@ -503,7 +499,7 @@ describe('RulesService.evaluate', () => {
 
   test('all results have dry_run: true', () => {
     const items: UnifiedMedia[] = [makeMovie()];
-    const rules = makeRules([
+    const rules: RuleConfig[] = [
       {
         name: 'Any rule',
         target: 'radarr',
@@ -519,7 +515,7 @@ describe('RulesService.evaluate', () => {
         },
         action: 'delete',
       },
-    ]);
+    ];
 
     const { results } = service.evaluate(items, rules, 'test-eval-id', true);
     for (const result of results) {
@@ -529,7 +525,7 @@ describe('RulesService.evaluate', () => {
 
   test('all results have dry_run: false when evaluated with false', () => {
     const items: UnifiedMedia[] = [makeMovie()];
-    const rules = makeRules([
+    const rules: RuleConfig[] = [
       {
         name: 'Any rule',
         target: 'radarr',
@@ -545,7 +541,7 @@ describe('RulesService.evaluate', () => {
         },
         action: 'delete',
       },
-    ]);
+    ];
 
     const { results } = service.evaluate(items, rules, 'test-eval-id', false);
     for (const result of results) {
