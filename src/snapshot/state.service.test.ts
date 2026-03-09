@@ -1,20 +1,23 @@
-import type { Database } from 'bun:sqlite';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { and, eq, sql } from 'drizzle-orm';
+import type { BunSQLiteDatabase } from 'drizzle-orm/bun-sqlite';
+import type * as schema from '../database/schema.js';
+import { fieldChanges } from '../database/schema.js';
 import type { UnifiedMovie, UnifiedSeason } from '../shared/types.js';
-import { createTestDatabase, makeMovie } from '../test/index.js';
+import { createTestDatabase, makeMovie, makeSeason } from '../test/index.js';
 import { SnapshotService } from './snapshot.service.js';
 import { StateService } from './state.service.js';
 
 describe('StateService', () => {
   let snapshotService: SnapshotService;
   let stateService: StateService;
-  let db: Database;
+  let drizzle: BunSQLiteDatabase<typeof schema>;
   let cleanup: () => void;
 
   beforeEach(() => {
     const testDb = createTestDatabase();
     cleanup = testDb.cleanup;
-    db = testDb.dbService.getDatabase();
+    drizzle = testDb.dbService.getDrizzle();
 
     snapshotService = new SnapshotService(testDb.dbService);
     stateService = new StateService(testDb.dbService);
@@ -73,11 +76,16 @@ describe('StateService', () => {
     await snapshotService.snapshot([movieOff], new Set(['radarr']));
 
     // Manually backdate the field_change to 5 days ago for testing
-    db.query(
-      `UPDATE field_changes
-       SET changed_at = datetime('now', '-5 days')
-       WHERE field_path = 'radarr.on_import_list' AND new_value = 'false'`,
-    ).run();
+    drizzle
+      .update(fieldChanges)
+      .set({ changedAt: sql`datetime('now', '-5 days')` })
+      .where(
+        and(
+          eq(fieldChanges.fieldPath, 'radarr.on_import_list'),
+          eq(fieldChanges.newValue, 'false'),
+        ),
+      )
+      .run();
 
     const enriched = stateService.enrich([movieOff]);
     const state = (enriched[0] as UnifiedMovie).state!;
@@ -136,31 +144,7 @@ describe('StateService', () => {
   });
 
   test('returns seasons unchanged when no registry fields target sonarr', async () => {
-    const season: UnifiedSeason = {
-      type: 'season',
-      sonarr_series_id: 201,
-      tvdb_id: 100,
-      title: 'Test Show - S01',
-      year: 2024,
-      sonarr: {
-        tags: [],
-        genres: ['Drama'],
-        status: 'continuing',
-        year: 2024,
-        path: '/tv/test',
-        season: {
-          season_number: 1,
-          monitored: true,
-          episode_count: 10,
-          episode_file_count: 10,
-          has_file: true,
-          size_on_disk: 10_000_000_000,
-        },
-      },
-      jellyfin: null,
-      jellyseerr: null,
-      state: null,
-    };
+    const season = makeSeason();
 
     // Create a snapshot so enrichment would run if applicable
     await snapshotService.snapshot([season], new Set(['sonarr']));
