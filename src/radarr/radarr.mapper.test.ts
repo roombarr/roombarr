@@ -1,17 +1,20 @@
 import { describe, expect, test } from 'bun:test';
-import { makeRadarrMovie } from '../test/index.js';
+import {
+  makeRadarrImportListMovie,
+  makeRadarrMovie,
+  makeRadarrTag,
+} from '../test/index.js';
 import {
   buildImportListIndex,
   buildTagMap,
   mapMovie,
   resolveTagNames,
 } from './radarr.mapper.js';
-import type { RadarrImportListMovie, RadarrTag } from './radarr.types.js';
 
-const TAGS: RadarrTag[] = [
-  { id: 1, label: 'keep-forever' },
-  { id: 2, label: 'classics' },
-  { id: 3, label: 'kids' },
+const TAGS = [
+  makeRadarrTag({ id: 1, label: 'keep-forever' }),
+  makeRadarrTag({ id: 2, label: 'classics' }),
+  makeRadarrTag({ id: 3, label: 'kids' }),
 ];
 
 describe('buildTagMap', () => {
@@ -24,7 +27,7 @@ describe('buildTagMap', () => {
   });
 
   test('lowercases tag labels', () => {
-    const map = buildTagMap([{ id: 1, label: 'Keep-Forever' }]);
+    const map = buildTagMap([makeRadarrTag({ id: 1, label: 'Keep-Forever' })]);
     expect(map.get(1)).toBe('keep-forever');
   });
 
@@ -52,9 +55,19 @@ describe('resolveTagNames', () => {
 
 describe('buildImportListIndex', () => {
   test('indexes existing movies by tmdbId', () => {
-    const movies: RadarrImportListMovie[] = [
-      { tmdbId: 603, lists: [1, 3], title: 'The Matrix', isExisting: true },
-      { tmdbId: 999, lists: [2], title: 'New Movie', isExisting: false },
+    const movies = [
+      makeRadarrImportListMovie({
+        tmdbId: 603,
+        lists: [1, 3],
+        title: 'The Matrix',
+        isExisting: true,
+      }),
+      makeRadarrImportListMovie({
+        tmdbId: 999,
+        lists: [2],
+        title: 'New Movie',
+        isExisting: false,
+      }),
     ];
     const index = buildImportListIndex(movies);
     expect(index.get(603)).toEqual([1, 3]);

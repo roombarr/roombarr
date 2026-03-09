@@ -2,9 +2,13 @@ import { describe, expect, test } from 'bun:test';
 import { HttpModule, HttpService } from '@nestjs/axios';
 import { Test } from '@nestjs/testing';
 import { of } from 'rxjs';
-import { axiosResponse } from '../test/index.js';
+import {
+  axiosResponse,
+  makeRadarrImportListMovie,
+  makeRadarrMovie,
+  makeRadarrTag,
+} from '../test/index.js';
 import { RadarrClient } from './radarr.client.js';
-import type { RadarrMovie, RadarrTag } from './radarr.types.js';
 
 describe('RadarrClient', () => {
   async function setup() {
@@ -21,25 +25,7 @@ describe('RadarrClient', () => {
   describe('fetchMovies', () => {
     test('returns movies from Radarr API', async () => {
       const { client, http } = await setup();
-      const fixture: RadarrMovie[] = [
-        {
-          id: 1,
-          title: 'The Matrix',
-          tmdbId: 603,
-          imdbId: 'tt0133093',
-          year: 1999,
-          path: '/movies/The Matrix (1999)',
-          status: 'released',
-          genres: ['action'],
-          tags: [1],
-          monitored: true,
-          sizeOnDisk: 8_500_000_000,
-          hasFile: true,
-          added: '2024-06-01T12:00:00Z',
-          digitalRelease: null,
-          physicalRelease: null,
-        },
-      ];
+      const fixture = [makeRadarrMovie()];
 
       http.get = () => of(axiosResponse(fixture)) as any;
       const result = await client.fetchMovies();
@@ -57,14 +43,70 @@ describe('RadarrClient', () => {
   describe('fetchTags', () => {
     test('returns tags from Radarr API', async () => {
       const { client, http } = await setup();
-      const fixture: RadarrTag[] = [
-        { id: 1, label: 'keep-forever' },
-        { id: 2, label: 'classics' },
+      const fixture = [
+        makeRadarrTag({ id: 1, label: 'keep-forever' }),
+        makeRadarrTag({ id: 2, label: 'classics' }),
       ];
 
       http.get = () => of(axiosResponse(fixture)) as any;
       const result = await client.fetchTags();
       expect(result).toEqual(fixture);
+    });
+  });
+
+  describe('fetchMovie', () => {
+    test('returns a single movie from Radarr API', async () => {
+      const { client, http } = await setup();
+      const fixture = makeRadarrMovie({ id: 42 });
+
+      http.get = () => of(axiosResponse(fixture)) as any;
+      const result = await client.fetchMovie(42);
+      expect(result).toEqual(fixture);
+    });
+  });
+
+  describe('deleteMovie', () => {
+    test('deletes a movie without error', async () => {
+      const { client, http } = await setup();
+      http.delete = () => of(axiosResponse(undefined)) as any;
+      await expect(client.deleteMovie(1)).resolves.toBeUndefined();
+    });
+
+    test('passes deleteFiles parameter', async () => {
+      const { client, http } = await setup();
+      http.delete = () => of(axiosResponse(undefined)) as any;
+      await expect(client.deleteMovie(1, false)).resolves.toBeUndefined();
+    });
+  });
+
+  describe('updateMovie', () => {
+    test('updates a movie without error', async () => {
+      const { client, http } = await setup();
+      const movie = makeRadarrMovie({ id: 1 });
+
+      http.put = () => of(axiosResponse(undefined)) as any;
+      await expect(client.updateMovie(1, movie)).resolves.toBeUndefined();
+    });
+  });
+
+  describe('fetchImportListMovies', () => {
+    test('returns import list movies from Radarr API', async () => {
+      const { client, http } = await setup();
+      const fixture = [
+        makeRadarrImportListMovie({ tmdbId: 603, isExisting: true }),
+        makeRadarrImportListMovie({ tmdbId: 999, isExisting: false }),
+      ];
+
+      http.get = () => of(axiosResponse(fixture)) as any;
+      const result = await client.fetchImportListMovies();
+      expect(result).toEqual(fixture);
+    });
+
+    test('returns empty array when no import list movies exist', async () => {
+      const { client, http } = await setup();
+      http.get = () => of(axiosResponse([])) as any;
+      const result = await client.fetchImportListMovies();
+      expect(result).toEqual([]);
     });
   });
 });
