@@ -61,7 +61,7 @@ rules:
           value: true
         - field: radarr.added
           operator: older_than
-          value: 6m
+          value: 6mo
 
   # Keep anything tagged "favorite" in Radarr
   - name: Keep favorites

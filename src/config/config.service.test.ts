@@ -630,7 +630,7 @@ describe('validateConfig (cross-validation)', () => {
     expect(errors).toEqual([]);
   });
 
-  test('passes with state fields on sonarr target', () => {
+  test('fails when state fields are used on sonarr target (state fields are Radarr-only)', () => {
     const config = makeConfig({
       rules: [
         makeRule({
@@ -649,7 +649,8 @@ describe('validateConfig (cross-validation)', () => {
       ],
     });
     const errors = validateConfig(config);
-    expect(errors).toHaveLength(0);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('state.days_off_import_list');
   });
 
   test('passes with new radarr import list fields', () => {
