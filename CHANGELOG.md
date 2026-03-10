@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/roombarr/roombarr/compare/v0.2.0...v0.2.1) (2026-03-10)
+
+
+### Features
+
+* validate cron expressions at config boundary ([#36](https://github.com/roombarr/roombarr/issues/36)) ([f3891e5](https://github.com/roombarr/roombarr/commit/f3891e52aed411ac5a4bc8998398ecba3cd80379))
+
 ## [0.2.0](https://github.com/roombarr/roombarr/compare/v0.1.1...v0.2.0) (2026-03-05)
 
 ### ⚠ BREAKING CHANGES
