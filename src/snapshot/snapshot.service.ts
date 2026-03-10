@@ -133,18 +133,16 @@ export class SnapshotService {
 
       // Content hash skip — if unchanged, just reset missed_evaluations
       if (existing.dataHash === dataHash) {
-        if (existing.missedEvaluations > 0) {
-          upserts.push({
-            mediaType,
-            mediaId,
-            title: item.title,
-            data: existing.data,
-            dataHash: existing.dataHash,
-            firstSeenAt: now,
-            lastSeenAt: now,
-            isNew: false,
-          });
-        }
+        upserts.push({
+          mediaType,
+          mediaId,
+          title: item.title,
+          data: existing.data,
+          dataHash: existing.dataHash,
+          firstSeenAt: now,
+          lastSeenAt: now,
+          isNew: false,
+        });
         continue;
       }
 
@@ -238,6 +236,13 @@ export class SnapshotService {
 
     // Step 4: Execute all writes in a single transaction
     await db.transaction(async tx => {
+      // Bulk-increment missed_evaluations for all existing rows.
+      // Current items will be reset to 0 by the upserts that follow.
+      // New items don't exist yet, so they're unaffected.
+      await tx
+        .update(mediaItems)
+        .set({ missedEvaluations: sql`${mediaItems.missedEvaluations} + 1` });
+
       // Upsert media items in chunks
       for (const batch of chunk(upserts, MEDIA_ITEMS_CHUNK_SIZE)) {
         await tx
@@ -261,7 +266,7 @@ export class SnapshotService {
               data: sql`excluded.data`,
               dataHash: sql`excluded.data_hash`,
               lastSeenAt: sql`excluded.last_seen_at`,
-              missedEvaluations: sql`0`,
+              missedEvaluations: 0,
             },
           });
       }
@@ -279,9 +284,6 @@ export class SnapshotService {
           })),
         );
       }
-
-      // Increment missed_evaluations for items not seen this cycle
-      await this.incrementMissedEvaluations(tx, currentIds);
     });
 
     this.logger.log(
@@ -369,34 +371,6 @@ export class SnapshotService {
       map.set(`${row.mediaType}:${row.mediaId}`, row);
     }
     return map;
-  }
-
-  /** Increment missed_evaluations for all items not in the current set. */
-  private async incrementMissedEvaluations(
-    tx: BunSQLiteDatabase<typeof schema>,
-    currentIds: Set<string>,
-  ): Promise<void> {
-    const allRows = tx
-      .select({
-        mediaType: mediaItems.mediaType,
-        mediaId: mediaItems.mediaId,
-      })
-      .from(mediaItems)
-      .all();
-
-    for (const row of allRows) {
-      const key = `${row.mediaType}:${row.mediaId}`;
-      if (!currentIds.has(key)) {
-        await tx
-          .update(mediaItems)
-          .set({
-            missedEvaluations: sql`${mediaItems.missedEvaluations} + 1`,
-          })
-          .where(
-            sql`${mediaItems.mediaType} = ${row.mediaType} AND ${mediaItems.mediaId} = ${row.mediaId}`,
-          );
-      }
-    }
   }
 
   /** Delete snapshots that have been missing for more than the grace period. */

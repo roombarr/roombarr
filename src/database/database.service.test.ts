@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { mediaItems } from '../database/schema';
+import { and, eq, sql } from 'drizzle-orm';
+import { fieldChanges, mediaItems } from '../database/schema';
 import { createTestDatabase } from '../test/index';
 import { DatabaseService } from './database.service';
 
@@ -19,107 +20,83 @@ describe('DatabaseService', () => {
 
     afterEach(() => cleanup());
 
-    test('provides access to the underlying database', () => {
-      const db = service.getDatabase();
-      expect(db).toBeTruthy();
-    });
-
     test('sets WAL journal mode', () => {
-      const db = service.getDatabase();
+      const db = service.getDrizzle();
 
-      const result = db
-        .query<{ journal_mode: string }, []>('PRAGMA journal_mode')
-        .get();
-      expect(result!.journal_mode).toBe('wal');
+      const [result] = db.all<{ journal_mode: string }>(
+        sql`PRAGMA journal_mode`,
+      );
+      expect(result.journal_mode).toBe('wal');
     });
 
     test('enables foreign keys', () => {
-      const db = service.getDatabase();
+      const db = service.getDrizzle();
 
-      const result = db
-        .query<{ foreign_keys: number }, []>('PRAGMA foreign_keys')
-        .get();
-      expect(result!.foreign_keys).toBe(1);
+      const [result] = db.all<{ foreign_keys: number }>(
+        sql`PRAGMA foreign_keys`,
+      );
+      expect(result.foreign_keys).toBe(1);
     });
 
     test('sets synchronous to NORMAL', () => {
-      const db = service.getDatabase();
+      const db = service.getDrizzle();
 
-      const result = db
-        .query<{ synchronous: number }, []>('PRAGMA synchronous')
-        .get();
+      const [result] = db.all<{ synchronous: number }>(sql`PRAGMA synchronous`);
       // synchronous=NORMAL is 1
-      expect(result!.synchronous).toBe(1);
-    });
-
-    test('creates media_items table via Drizzle migration', () => {
-      const db = service.getDatabase();
-
-      const table = db
-        .query<{ name: string }, [string]>(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-        )
-        .get('media_items');
-      expect(table).toBeTruthy();
-    });
-
-    test('creates field_changes table with FK', () => {
-      const db = service.getDatabase();
-
-      const table = db
-        .query<{ name: string }, [string]>(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-        )
-        .get('field_changes');
-      expect(table).toBeTruthy();
+      expect(result.synchronous).toBe(1);
     });
 
     test('creates idx_field_changes_state index', () => {
-      const db = service.getDatabase();
+      const db = service.getDrizzle();
 
-      const idx = db
-        .query<{ name: string }, [string]>(
-          "SELECT name FROM sqlite_master WHERE type='index' AND name=?",
-        )
-        .get('idx_field_changes_state');
+      const [idx] = db.all<{ name: string }>(
+        sql`SELECT name FROM sqlite_master WHERE type='index' AND name='idx_field_changes_state'`,
+      );
       expect(idx).toBeTruthy();
     });
 
-    test('exposes Drizzle instance via getDrizzle()', () => {
-      const drizzleDb = service.getDrizzle();
-
-      expect(drizzleDb).toBeTruthy();
-      const rows = drizzleDb.select().from(mediaItems).all();
-      expect(rows).toBeDefined();
-      expect(rows.length).toBeGreaterThanOrEqual(0);
-    });
-
     test('FK cascade deletes field_changes when media_item is deleted', () => {
-      const db = service.getDatabase();
+      const db = service.getDrizzle();
+      const now = new Date().toISOString();
 
       // Insert a media item
-      db.query(
-        `INSERT INTO media_items (media_type, media_id, title, data, data_hash, first_seen_at, last_seen_at)
-       VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
-      ).run('movie', '1', 'Test', '{}', 'hash');
+      db.insert(mediaItems)
+        .values({
+          mediaType: 'movie',
+          mediaId: '1',
+          title: 'Test',
+          data: '{}',
+          dataHash: 'hash',
+          firstSeenAt: now,
+          lastSeenAt: now,
+        })
+        .run();
 
       // Insert a field change referencing it
-      db.query(
-        `INSERT INTO field_changes (media_type, media_id, field_path, old_value, new_value, changed_at)
-       VALUES (?, ?, ?, ?, ?, datetime('now'))`,
-      ).run('movie', '1', 'radarr.monitored', 'true', 'false');
+      db.insert(fieldChanges)
+        .values({
+          mediaType: 'movie',
+          mediaId: '1',
+          fieldPath: 'radarr.monitored',
+          oldValue: 'true',
+          newValue: 'false',
+          changedAt: now,
+        })
+        .run();
 
       // Delete the media item
-      db.query(
-        'DELETE FROM media_items WHERE media_type = ? AND media_id = ?',
-      ).run('movie', '1');
+      db.delete(mediaItems)
+        .where(
+          and(eq(mediaItems.mediaType, 'movie'), eq(mediaItems.mediaId, '1')),
+        )
+        .run();
 
       // Field change should be cascade-deleted
       const changes = db
-        .query<{ id: number }, [string]>(
-          'SELECT id FROM field_changes WHERE media_id = ?',
-        )
-        .all('1');
+        .select()
+        .from(fieldChanges)
+        .where(eq(fieldChanges.mediaId, '1'))
+        .all();
       expect(changes).toHaveLength(0);
     });
   });
@@ -148,27 +125,35 @@ describe('DatabaseService', () => {
 
     test('does not re-run migrations on second init', () => {
       service.onModuleInit();
-      const db = service.getDatabase();
+      const db = service.getDrizzle();
+      const now = new Date().toISOString();
 
       // Insert a test row
-      db.query(
-        `INSERT INTO media_items (media_type, media_id, title, data, data_hash, first_seen_at, last_seen_at)
-       VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
-      ).run('movie', '1', 'Test', '{}', 'hash');
+      db.insert(mediaItems)
+        .values({
+          mediaType: 'movie',
+          mediaId: '1',
+          title: 'Test',
+          data: '{}',
+          dataHash: 'hash',
+          firstSeenAt: now,
+          lastSeenAt: now,
+        })
+        .run();
 
       service.onModuleDestroy();
 
       // Re-init
       service = new DatabaseService(dbPath);
       service.onModuleInit();
-      const db2 = service.getDatabase();
+      const db2 = service.getDrizzle();
 
       // Data should still be there
       const row = db2
-        .query<{ title: string }, [string]>(
-          'SELECT title FROM media_items WHERE media_id = ?',
-        )
-        .get('1');
+        .select({ title: mediaItems.title })
+        .from(mediaItems)
+        .where(eq(mediaItems.mediaId, '1'))
+        .get();
       expect(row!.title).toBe('Test');
     });
 
@@ -178,7 +163,7 @@ describe('DatabaseService', () => {
 
       // Accessing the DB after close should throw
       expect(() => {
-        service.getDatabase().query('SELECT 1').get();
+        service.getDrizzle().select().from(mediaItems).all();
       }).toThrow();
     });
   });

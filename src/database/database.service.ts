@@ -64,14 +64,6 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     return this.drizzleDb;
   }
 
-  /**
-   * Expose the raw Database instance for services that need direct access.
-   * @deprecated Migrate consumers to getDrizzle() — will be removed in Phase 5.
-   */
-  getDatabase(): Database {
-    return this.db;
-  }
-
   private configurePragmas() {
     this.db.exec('PRAGMA foreign_keys = ON');
     this.db.exec('PRAGMA journal_mode = WAL');
