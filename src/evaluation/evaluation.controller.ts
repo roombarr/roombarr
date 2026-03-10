@@ -9,7 +9,7 @@ import {
   Res,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { EvaluationService } from './evaluation.service.js';
+import { EvaluationService } from './evaluation.service';
 
 @Controller('evaluate')
 export class EvaluationController {

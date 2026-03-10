@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
-import { makeRadarrMovie } from '../test/index.js';
-import { RadarrService } from './radarr.service.js';
-import type { RadarrImportListMovie, RadarrTag } from './radarr.types.js';
+import { makeRadarrMovie } from '../test/index';
+import { RadarrService } from './radarr.service';
+import type { RadarrImportListMovie, RadarrTag } from './radarr.types';
 
 describe('RadarrService', () => {
   let client: {

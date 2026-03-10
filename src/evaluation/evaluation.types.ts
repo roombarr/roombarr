@@ -1,7 +1,4 @@
-import type {
-  EvaluationItemResult,
-  EvaluationSummary,
-} from '../rules/types.js';
+import type { EvaluationItemResult, EvaluationSummary } from '../rules/types';
 
 export type EvaluationStatus = 'running' | 'completed' | 'failed';
 

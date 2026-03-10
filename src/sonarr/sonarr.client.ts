@@ -5,7 +5,7 @@ import type {
   SonarrEpisodeFile,
   SonarrSeries,
   SonarrTag,
-} from './sonarr.types.js';
+} from './sonarr.types';
 
 @Injectable()
 export class SonarrClient {

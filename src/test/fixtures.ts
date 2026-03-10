@@ -1,4 +1,4 @@
-import type { RoombarrConfig, RuleConfig } from '../config/config.schema.js';
+import type { RoombarrConfig, RuleConfig } from '../config/config.schema';
 import type {
   JellyfinData,
   JellyseerrData,
@@ -6,7 +6,7 @@ import type {
   SonarrData,
   UnifiedMovie,
   UnifiedSeason,
-} from '../shared/types.js';
+} from '../shared/types';
 
 /** Override type for `makeMovie` — allows partial radarr sub-object merging. */
 export type MovieOverrides = Partial<

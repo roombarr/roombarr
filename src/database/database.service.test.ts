@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { mediaItems } from '../database/schema.js';
-import { createTestDatabase } from '../test/index.js';
-import { DatabaseService } from './database.service.js';
+import { mediaItems } from '../database/schema';
+import { createTestDatabase } from '../test/index';
+import { DatabaseService } from './database.service';
 
 describe('DatabaseService', () => {
   describe('initialization and schema', () => {

@@ -1,4 +1,4 @@
-import type { UnifiedMedia } from '../shared/types.js';
+import type { UnifiedMedia } from '../shared/types';
 
 /**
  * Resolves a dotted field path (e.g., "radarr.size_on_disk" or

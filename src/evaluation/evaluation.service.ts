@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { ConfigService } from '../config/config.service.js';
-import { getHydratedServices } from '../config/field-registry.js';
-import { ActionExecutorService } from '../execution/action-executor.service.js';
-import { MediaService } from '../media/media.service.js';
-import { RulesService } from '../rules/rules.service.js';
-import { SnapshotService } from '../snapshot/snapshot.service.js';
-import { StateService } from '../snapshot/state.service.js';
-import type { EvaluationRun } from './evaluation.types.js';
+import { ConfigService } from '../config/config.service';
+import { getHydratedServices } from '../config/field-registry';
+import { ActionExecutorService } from '../execution/action-executor.service';
+import { MediaService } from '../media/media.service';
+import { RulesService } from '../rules/rules.service';
+import { SnapshotService } from '../snapshot/snapshot.service';
+import { StateService } from '../snapshot/state.service';
+import type { EvaluationRun } from './evaluation.types';
 
 const MAX_STORED_RUNS = 10;
 

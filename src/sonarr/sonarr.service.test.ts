@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
-import { makeSonarrSeries } from '../test/index.js';
-import { SonarrService } from './sonarr.service.js';
-import type { SonarrTag } from './sonarr.types.js';
+import { makeSonarrSeries } from '../test/index';
+import { SonarrService } from './sonarr.service';
+import type { SonarrTag } from './sonarr.types';
 
 describe('SonarrService', () => {
   let client: {

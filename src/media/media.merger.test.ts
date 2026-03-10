@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'bun:test';
-import type { JellyseerrIndexes } from '../jellyseerr/jellyseerr.service.js';
+import type { JellyseerrIndexes } from '../jellyseerr/jellyseerr.service';
 import {
   makeJellyfinData,
   makeJellyseerrData,
   makeMovie,
   makeSeason,
-} from '../test/index.js';
-import { enrichMovies, enrichSeasons } from './media.merger.js';
+} from '../test/index';
+import { enrichMovies, enrichSeasons } from './media.merger';
 
 const jellyfinData = makeJellyfinData({
   watched_by: ['alice', 'bob'],

@@ -1,4 +1,4 @@
-import type { ConditionGroup } from '../config/config.schema.js';
+import type { ConditionGroup } from '../config/config.schema';
 
 /** Build a human-readable reasoning string from a condition tree. */
 export function buildReasoning(conditions: ConditionGroup): string {

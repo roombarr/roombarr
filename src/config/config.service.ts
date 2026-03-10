@@ -5,7 +5,7 @@ import {
   configSchema,
   type RoombarrConfig,
   validateConfig,
-} from './config.schema.js';
+} from './config.schema';
 
 const CONFIG_PATHS = [process.env.CONFIG_PATH, '/config/roombarr.yml'];
 

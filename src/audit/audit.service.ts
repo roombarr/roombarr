@@ -6,8 +6,8 @@ import {
   type OnModuleInit,
 } from '@nestjs/common';
 import pino from 'pino';
-import { ConfigService } from '../config/config.service.js';
-import type { AuditEntry, LogActionParams } from './audit.types.js';
+import { ConfigService } from '../config/config.service';
+import type { AuditEntry, LogActionParams } from './audit.types';
 
 const AUDIT_LOG_DIR = '/config/logs/';
 
