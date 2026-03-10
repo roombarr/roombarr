@@ -101,6 +101,30 @@ describe('configSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  test('rejects invalid cron expression', () => {
+    const result = configSchema.safeParse(validConfig({ schedule: 'banana' }));
+    expect(result.success).toBe(false);
+  });
+
+  test('rejects cron with wrong field count', () => {
+    const result = configSchema.safeParse(validConfig({ schedule: '0 3 * *' }));
+    expect(result.success).toBe(false);
+  });
+
+  test('rejects cron with out-of-range values', () => {
+    const result = configSchema.safeParse(
+      validConfig({ schedule: '99 * * * *' }),
+    );
+    expect(result.success).toBe(false);
+  });
+
+  test('accepts valid cron expression', () => {
+    const result = configSchema.safeParse(
+      validConfig({ schedule: '*/5 * * * *' }),
+    );
+    expect(result.success).toBe(true);
+  });
+
   test('rejects empty rules array', () => {
     const result = configSchema.safeParse(validConfig({ rules: [] }));
     expect(result.success).toBe(false);

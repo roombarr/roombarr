@@ -1,5 +1,6 @@
 import parse from 'parse-duration';
 import { z } from 'zod';
+import { isValidCron } from './cron.js';
 import {
   type FieldDefinition,
   getFieldDefinition,
@@ -132,7 +133,18 @@ const servicesSchema = z.object({
 export const configSchema = z.object({
   dry_run: z.boolean().default(true),
   services: servicesSchema,
-  schedule: z.string().min(1),
+  schedule: z
+    .string()
+    .min(1)
+    .check(ctx => {
+      if (!isValidCron(ctx.value)) {
+        ctx.issues.push({
+          code: 'custom',
+          input: ctx.value,
+          message: `Invalid cron expression "${ctx.value}". Expected a valid 5-field cron schedule (e.g., "0 3 * * *"). See https://crontab.guru for syntax help.`,
+        });
+      }
+    }),
   performance: performanceSchema,
   audit: auditSchema,
   rules: z.array(ruleSchema).min(1),

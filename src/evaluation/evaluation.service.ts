@@ -9,6 +9,7 @@ import { RulesService } from '../rules/rules.service';
 import { SnapshotService } from '../snapshot/snapshot.service';
 import { StateService } from '../snapshot/state.service';
 import type { EvaluationRun } from './evaluation.types';
+import { matchesCron } from '../config/cron';
 
 const MAX_STORED_RUNS = 10;
 
@@ -191,55 +192,7 @@ export class EvaluationService {
    */
   private shouldRunCron(): boolean {
     const schedule = this.configService.getConfig().schedule;
-    return this.matchesCron(schedule, new Date());
-  }
-
-  /**
-   * Simple cron expression matcher for standard 5-field cron.
-   * Supports: numbers, '*', step values (star/N), ranges, and lists.
-   */
-  private matchesCron(expression: string, date: Date): boolean {
-    const parts = expression.trim().split(/\s+/);
-    if (parts.length !== 5) return false;
-
-    const fields = [
-      date.getMinutes(),
-      date.getHours(),
-      date.getDate(),
-      date.getMonth() + 1,
-      date.getDay(),
-    ];
-
-    return parts.every((part, i) => this.matchesCronField(part, fields[i]));
-  }
-
-  private matchesCronField(field: string, value: number): boolean {
-    // Handle lists (e.g., "1,15,30")
-    if (field.includes(',')) {
-      return field.split(',').some(f => this.matchesCronField(f, value));
-    }
-
-    // Handle step values (e.g., "*/5")
-    if (field.includes('/')) {
-      const [range, stepStr] = field.split('/');
-      const step = Number.parseInt(stepStr, 10);
-      if (range === '*') return value % step === 0;
-      return false;
-    }
-
-    // Handle ranges (e.g., "1-5")
-    if (field.includes('-')) {
-      const [minStr, maxStr] = field.split('-');
-      const min = Number.parseInt(minStr, 10);
-      const max = Number.parseInt(maxStr, 10);
-      return value >= min && value <= max;
-    }
-
-    // Wildcard
-    if (field === '*') return true;
-
-    // Exact match
-    return Number.parseInt(field, 10) === value;
+    return matchesCron(schedule, new Date());
   }
 
   private storeRun(run: EvaluationRun): void {
