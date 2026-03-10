@@ -194,7 +194,7 @@ describe('media hydration pipeline (integration)', () => {
       }),
     ];
 
-    const results = await mediaService.hydrate(rules);
+    const { items: results } = await mediaService.hydrate(rules);
 
     expect(results).toHaveLength(1);
     const movie = results[0] as UnifiedMovie;
@@ -268,7 +268,7 @@ describe('media hydration pipeline (integration)', () => {
       }),
     ];
 
-    const results = await mediaService.hydrate(rules);
+    const { items: results } = await mediaService.hydrate(rules);
 
     expect(results).toHaveLength(1);
     const movie = results[0] as UnifiedMovie;
@@ -389,7 +389,7 @@ describe('media hydration pipeline (integration)', () => {
       }),
     ];
 
-    const results = await mediaService.hydrate(rules);
+    const { items: results } = await mediaService.hydrate(rules);
 
     // Season 0 is filtered out by SonarrService, only season 1 remains
     expect(results).toHaveLength(1);
@@ -493,7 +493,7 @@ describe('media hydration pipeline (integration)', () => {
       }),
     ];
 
-    const results = await mediaService.hydrate(rules);
+    const { items: results } = await mediaService.hydrate(rules);
 
     expect(results).toHaveLength(1);
     const movie = results[0] as UnifiedMovie;

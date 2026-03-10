@@ -23,6 +23,16 @@ interface SnapshotRow {
 const ORPHAN_GRACE_EVALUATIONS = 7;
 
 /**
+ * Maps each base service name to the media type it owns.
+ * Used to skip the missed-evaluation counter for items belonging
+ * to services that were unavailable during a given evaluation cycle.
+ */
+const SERVICE_MEDIA_TYPE: Readonly<Record<string, string>> = {
+  radarr: 'movie',
+  sonarr: 'season',
+};
+
+/**
  * SQLite supports at most 999 bound parameters per statement.
  * Chunk multi-row inserts to stay under this limit.
  */
@@ -68,10 +78,15 @@ export class SnapshotService {
    * @param hydratedServices - Set of service prefixes that were actually fetched
    *   this cycle (e.g., {'radarr', 'jellyfin'}). Only fields belonging to
    *   these services are diffed/overwritten.
+   * @param unavailableServices - Set of base service names (e.g. 'radarr', 'sonarr')
+   *   that failed to respond this cycle. Items belonging to these services will not
+   *   have their missed_evaluations counter incremented, preventing spurious
+   *   orphan eviction during temporary outages.
    */
   async snapshot(
     items: UnifiedMedia[],
     hydratedServices: Set<string>,
+    unavailableServices: Set<string> = new Set(),
   ): Promise<void> {
     const db = this.getDb();
     const now = new Date().toISOString();
@@ -281,7 +296,11 @@ export class SnapshotService {
       }
 
       // Increment missed_evaluations for items not seen this cycle
-      await this.incrementMissedEvaluations(tx, currentIds);
+      await this.incrementMissedEvaluations(
+        tx,
+        currentIds,
+        unavailableServices,
+      );
     });
 
     this.logger.log(
@@ -371,11 +390,26 @@ export class SnapshotService {
     return map;
   }
 
-  /** Increment missed_evaluations for all items not in the current set. */
+  /**
+   * Increment missed_evaluations for all items not in the current set.
+   *
+   * Items belonging to services listed in `unavailableServices` are skipped:
+   * if Radarr or Sonarr was down this cycle, we cannot distinguish "item was
+   * genuinely removed" from "item was hidden by an outage", so we leave the
+   * counter unchanged to prevent false-positive orphan evictions.
+   */
   private async incrementMissedEvaluations(
     tx: BunSQLiteDatabase<typeof schema>,
     currentIds: Set<string>,
+    unavailableServices: Set<string>,
   ): Promise<void> {
+    // Derive the set of media types to skip from the unavailable services map
+    const skipMediaTypes = new Set(
+      [...unavailableServices]
+        .map(service => SERVICE_MEDIA_TYPE[service])
+        .filter(Boolean),
+    );
+
     const allRows = tx
       .select({
         mediaType: mediaItems.mediaType,
@@ -385,6 +419,9 @@ export class SnapshotService {
       .all();
 
     for (const row of allRows) {
+      // Don't penalise items from services that were unavailable this cycle
+      if (skipMediaTypes.has(row.mediaType)) continue;
+
       const key = `${row.mediaType}:${row.mediaId}`;
       if (!currentIds.has(key)) {
         await tx
