@@ -5,12 +5,12 @@ on:
     branches:
       - main
     paths:
-      - 'website/**'
+      - "website/**"
   pull_request:
     branches:
       - main
     paths:
-      - 'website/**'
+      - "website/**"
   workflow_dispatch:
 
 concurrency:
@@ -26,6 +26,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2

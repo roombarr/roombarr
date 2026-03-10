@@ -1,14 +1,21 @@
 {
   "name": "roombarr-docs",
-  "type": "module",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "astro dev",
     "build": "astro build",
+    "dev": "astro dev",
     "preview": "astro preview"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.34.0",
-    "astro": "^5.7.0"
+    "@astrojs/starlight-tailwind": "^4.0.2",
+    "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource-variable/jetbrains-mono": "^5.2.8",
+    "@tailwindcss/vite": "^4.2.1",
+    "astro": "^5.7.0",
+    "starlight-links-validator": "^0.19.2",
+    "starlight-llms-txt": "^0.7.0",
+    "tailwindcss": "^4.2.1"
   }
 }

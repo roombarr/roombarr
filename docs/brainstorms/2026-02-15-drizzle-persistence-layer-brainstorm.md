@@ -43,38 +43,38 @@ Three approaches were considered:
 
 ### `media_items` (replaces `media_snapshots`)
 
-| Column | Type | Purpose |
-|--------|------|---------|
-| media_type | text, PK | 'movie' or 'season' |
-| media_id | text, PK | tmdb_id (movies) or tvdb_id:season_number (seasons) |
-| title | text | Human-readable title |
-| data | text | JSON blob of latest flattened field state |
-| data_hash | text | Content hash for skip-if-unchanged optimization |
-| first_seen_at | text | ISO timestamp, set once on first observation |
-| last_seen_at | text | ISO timestamp, updated every evaluation |
-| missed_evaluations | integer | Consecutive evaluations where item was absent |
+| Column             | Type     | Purpose                                             |
+| ------------------ | -------- | --------------------------------------------------- |
+| media_type         | text, PK | 'movie' or 'season'                                 |
+| media_id           | text, PK | tmdb_id (movies) or tvdb_id:season_number (seasons) |
+| title              | text     | Human-readable title                                |
+| data               | text     | JSON blob of latest flattened field state           |
+| data_hash          | text     | Content hash for skip-if-unchanged optimization     |
+| first_seen_at      | text     | ISO timestamp, set once on first observation        |
+| last_seen_at       | text     | ISO timestamp, updated every evaluation             |
+| missed_evaluations | integer  | Consecutive evaluations where item was absent       |
 
 ### `field_changes` (kept, improved)
 
-| Column | Type | Purpose |
-|--------|------|---------|
-| id | integer, PK | Auto-increment |
-| media_type | text | FK to media_items |
-| media_id | text | FK to media_items |
-| field_path | text | Dotted field path (e.g., 'radarr.on_import_list') |
-| old_value | text, nullable | JSON-serialized previous value |
-| new_value | text, nullable | JSON-serialized new value |
-| changed_at | text | ISO timestamp |
+| Column     | Type           | Purpose                                           |
+| ---------- | -------------- | ------------------------------------------------- |
+| id         | integer, PK    | Auto-increment                                    |
+| media_type | text           | FK to media_items                                 |
+| media_id   | text           | FK to media_items                                 |
+| field_path | text           | Dotted field path (e.g., 'radarr.on_import_list') |
+| old_value  | text, nullable | JSON-serialized previous value                    |
+| new_value  | text, nullable | JSON-serialized new value                         |
+| changed_at | text           | ISO timestamp                                     |
 
 Indexes: `(media_type, media_id, field_path)` for temporal lookups, `(changed_at)` for optional retention cleanup.
 
 ## Target Rules This Enables
 
-| Rule | Mechanism |
-|------|-----------|
+| Rule                                         | Mechanism                                                                                 |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | Keep if on import list or was within 30 days | `state.days_off_import_list` < 30 (derived from field_changes on `radarr.on_import_list`) |
-| Keep if requested within 3 months | `jellyseerr.requested_at` + `newer_than: 3m` (live API data, no persistence needed) |
-| Keep if ever watched | `state.ever_watched` (derived from field_changes on `jellyfin.watched_by`) |
+| Keep if requested within 3 months            | `jellyseerr.requested_at` + `newer_than: 3m` (live API data, no persistence needed)       |
+| Keep if ever watched                         | `state.ever_watched` (derived from field_changes on `jellyfin.watched_by`)                |
 
 ## Resolved Questions
 

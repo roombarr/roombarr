@@ -7,7 +7,7 @@
 
 A single, comprehensive `README.md` that serves as the complete user-facing documentation for Roombarr. The project currently has no user-facing docs — only internal design documents and an example config file. For an open source utility, this is the #1 adoption blocker.
 
-The README targets **self-hosters already running the *arr stack** (Sonarr, Radarr, Jellyfin, Jellyseerr). It assumes familiarity with Docker Compose, YAML configuration, and API keys. No need to explain what these services are.
+The README targets **self-hosters already running the \*arr stack** (Sonarr, Radarr, Jellyfin, Jellyseerr). It assumes familiarity with Docker Compose, YAML configuration, and API keys. No need to explain what these services are.
 
 ## Why This Approach
 
@@ -21,7 +21,7 @@ The README targets **self-hosters already running the *arr stack** (Sonarr, Rada
 
 **Conversational but concise tone:**
 
-- Mirrors the *arr ecosystem documentation style (Overseerr, Jellyseerr)
+- Mirrors the \*arr ecosystem documentation style (Overseerr, Jellyseerr)
 - Briefly explains "why" alongside "how" without being verbose
 - Heavy use of realistic config examples — let the YAML speak
 
@@ -51,7 +51,7 @@ The README targets **self-hosters already running the *arr stack** (Sonarr, Rada
 ### Tone
 
 - Conversational but concise — explain briefly, then show config
-- No jargon beyond what the *arr community already uses
+- No jargon beyond what the \*arr community already uses
 - Honest about v1 limitations (dry-run only) without being apologetic
 
 ### v1 Status Handling

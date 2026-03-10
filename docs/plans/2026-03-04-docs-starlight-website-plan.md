@@ -50,7 +50,7 @@ name: Deploy Docs
 on:
   push:
     branches: [main]
-    paths: ['website/**']
+    paths: ["website/**"]
   workflow_dispatch:
 
 permissions:
@@ -88,6 +88,7 @@ jobs:
 ```
 
 **Design choices:**
+
 - Uses `oven-sh/setup-bun@v2` instead of `withastro/action` — keeps Bun as the sole runtime in CI, consistent with existing workflows.
 - `paths: ['website/**']` filter — only triggers on docs changes, not on every push to main.
 - `workflow_dispatch` — allows manual deployment.
@@ -102,18 +103,18 @@ jobs:
 
 ## Files Created/Modified
 
-| File | Action |
-|------|--------|
-| `website/package.json` | Create |
-| `website/astro.config.mjs` | Create |
-| `website/tsconfig.json` | Create |
-| `website/src/content/docs/index.md` | Create |
-| `website/src/content.config.ts` | Create |
-| `.github/workflows/deploy-docs.yml` | Create |
-| `biome.json` | Modify (add website/ ignore) |
-| `.gitignore` | Modify (add website/.astro/) |
-| `website/bun.lock` | Generated (committed for reproducible CI builds) |
-| `package.json` | Modify (add docs:* scripts) |
+| File                                | Action                                           |
+| ----------------------------------- | ------------------------------------------------ |
+| `website/package.json`              | Create                                           |
+| `website/astro.config.mjs`          | Create                                           |
+| `website/tsconfig.json`             | Create                                           |
+| `website/src/content/docs/index.md` | Create                                           |
+| `website/src/content.config.ts`     | Create                                           |
+| `.github/workflows/deploy-docs.yml` | Create                                           |
+| `biome.json`                        | Modify (add website/ ignore)                     |
+| `.gitignore`                        | Modify (add website/.astro/)                     |
+| `website/bun.lock`                  | Generated (committed for reproducible CI builds) |
+| `package.json`                      | Modify (add docs:\* scripts)                     |
 
 ## Out of Scope (Future PRs)
 

@@ -1,5 +1,11 @@
 # roombarr — Rule-Based Media Cleanup Engine
 # Copy this file to /config/roombarr.yml and adjust to your setup.
+# Full documentation: https://roombarr.github.io/roombarr/
+
+# ── Dry Run ───────────────────────────────────────────────────
+# When true, Roombarr evaluates rules but does not execute actions.
+# Set to false when you're ready for live execution.
+dry_run: true
 
 # ── Services ──────────────────────────────────────────────────
 # At least one of sonarr or radarr must be configured.
@@ -28,20 +34,19 @@ schedule: "0 3 * * *"
 
 # ── Performance ───────────────────────────────────────────────
 # Max concurrent API requests to external services.
+# Range: 1–50. Default: 10.
 performance:
   concurrency: 10
 
 # ── Audit ─────────────────────────────────────────────────────
 # audit:
-#   retention_days: 90           # Default: 90. Min: 1.
+#   retention_days: 90           # Default: 90. Min: 1. Max: 3650.
 
 # ── Rules ─────────────────────────────────────────────────────
 # Each rule targets either sonarr (TV seasons) or radarr (movies).
 # Conditions are AND/OR trees referencing fields from any configured service.
 # Actions: delete | unmonitor | keep
 # Conflict resolution: keep > unmonitor > delete (least destructive wins).
-#
-# Tip: set dry_run: false at the top level when you're ready for live execution.
 
 rules:
   # Delete movies that everyone has watched and were added over 6 months ago

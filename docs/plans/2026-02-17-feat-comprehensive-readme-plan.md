@@ -15,11 +15,11 @@ Create a single, comprehensive `README.md` that serves as the complete user-faci
 
 A user evaluating Roombarr has no entry point. There is no README, no usage guide, and no documentation of the rule engine, available fields, operators, or API. The `roombarr.example.yml` is the closest thing to docs, and while well-commented, it doesn't explain the runtime behaviors, edge cases, or failure modes that users will encounter.
 
-The *arr community expects documentation similar to tools like Recyclarr, Unpackerr, and Overseerr — a README that covers installation, configuration, and usage with real examples.
+The \*arr community expects documentation similar to tools like Recyclarr, Unpackerr, and Overseerr — a README that covers installation, configuration, and usage with real examples.
 
 ## Proposed Solution
 
-A single `README.md` with 11 sections (the 10 from the brainstorm + a Troubleshooting section identified by SpecFlow analysis). Conversational but concise tone. Heavy on YAML examples. Targets self-hosters already running the *arr stack.
+A single `README.md` with 11 sections (the 10 from the brainstorm + a Troubleshooting section identified by SpecFlow analysis). Conversational but concise tone. Heavy on YAML examples. Targets self-hosters already running the \*arr stack.
 
 ## Content Specification
 
@@ -31,13 +31,14 @@ A single `README.md` with 11 sections (the 10 from the brainstorm + a Troublesho
 ### Section 2: Dry-Run Callout
 
 - Prominent blockquote or admonition near the top
-- Frame positively: v1 evaluates rules and shows what *would* happen — no media is deleted or unmonitored
+- Frame positively: v1 evaluates rules and shows what _would_ happen — no media is deleted or unmonitored
 - Mention that live execution is planned for a future release
 - Position this as a feature: "safe to experiment with your rules before committing to actions"
 
 ### Section 3: Features Overview
 
 Bullet list covering:
+
 - Declarative YAML rules with AND/OR condition trees
 - Cross-service data: combine Radarr/Sonarr metadata with Jellyfin watch history and Jellyseerr requests
 - Temporal state tracking (how long something has been off an import list)
@@ -50,6 +51,7 @@ Bullet list covering:
 ### Section 4: Quick Start
 
 ~5 steps with Docker Compose:
+
 1. Create a `config/` directory and place `roombarr.yml` inside it (be explicit about directory structure)
 2. Copy from `roombarr.example.yml` or show a minimal config inline (Radarr-only, one simple rule)
 3. Create `docker-compose.yml` (show the full file from the repo)
@@ -62,23 +64,28 @@ Bullet list covering:
 Cover each top-level key of `roombarr.yml`:
 
 **`services`**
+
 - `sonarr` and `radarr`: `base_url` (valid URL) + `api_key` (non-empty string). Optional individually but at least one required.
 - `jellyfin` and `jellyseerr`: Same shape. Optional. Only needed if rules reference their fields.
 - Note: Roombarr validates at startup that any service referenced by a rule condition is configured.
 
 **`schedule`**
+
 - Standard 5-field cron expression (minute hour day month weekday)
 - Supports wildcards, step values (`*/5`), ranges (`1-5`), lists (`1,15,30`)
 - **Important**: Schedule evaluates in the timezone set by the `TZ` environment variable. If `TZ` is unset, defaults to UTC.
 
 **`performance`**
+
 - `concurrency`: Max concurrent API requests. Integer, range 1–50, default 10.
 
 **`audit`**
+
 - `log_directory`: Path for JSONL audit logs. Default `/data/logs/`. Must be within the `DATA_PATH` directory.
 - `retention_days`: How long to keep log files. Integer, range 1–3650, default 90.
 
 **`rules`**
+
 - Brief mention here that rules are covered in depth in the next section. Show the basic shape only.
 
 ### Section 6: Writing Rules (largest section)
@@ -86,19 +93,23 @@ Cover each top-level key of `roombarr.yml`:
 This is the core of the README. Structure it as:
 
 **6a. Rule Structure**
+
 - Show the anatomy of a rule: `name`, `target`, `action`, `conditions`
 - Explain each field briefly
 
 **6b. Targets**
+
 - `radarr` — each movie is evaluated independently
 - `sonarr` — **each season** is evaluated independently, not the series as a whole. This is fundamental and must be stated prominently before any Sonarr examples. Explain that results will show "Breaking Bad — Season 3" not "Breaking Bad", and that deleting a season removes that season's files, not the entire series.
 
 **6c. Actions**
+
 - `delete` — removes from Radarr/Sonarr (and files from disk)
 - `unmonitor` — stops monitoring for new downloads
 - `keep` — explicitly protects an item from other rules
 
 **6d. Conditions**
+
 - Top-level `conditions` must be a group with `operator: AND | OR` and `children`
 - Children can be leaf conditions (`field`, `operator`, `value`) or nested groups
 - Show a simple AND example, then a nested OR-within-AND example
@@ -108,23 +119,24 @@ This is the core of the README. Structure it as:
 
 Table with columns: Operator | Compatible Types | Value Type | Description
 
-| Operator | Compatible Types | Value | Description |
-|---|---|---|---|
-| `equals` | string, number, boolean | Same as field | Strict equality |
-| `not_equals` | string, number, boolean | Same as field | Strict inequality |
-| `greater_than` | number | number | Numeric comparison |
-| `less_than` | number | number | Numeric comparison |
-| `older_than` | date | Duration string | True if date is older than duration ago. **Null dates always match.** |
-| `newer_than` | date | Duration string | True if date is within duration. **Null dates never match.** |
-| `includes` | array | string | Array contains the value |
-| `not_includes` | array | string | Array does not contain the value |
-| `includes_all` | array | **string array** | Array contains all listed values |
-| `is_empty` | array | **none** | Array has zero elements. Do not include a `value` key. |
-| `is_not_empty` | array | **none** | Array has one or more elements. Do not include a `value` key. |
+| Operator       | Compatible Types        | Value            | Description                                                           |
+| -------------- | ----------------------- | ---------------- | --------------------------------------------------------------------- |
+| `equals`       | string, number, boolean | Same as field    | Strict equality                                                       |
+| `not_equals`   | string, number, boolean | Same as field    | Strict inequality                                                     |
+| `greater_than` | number                  | number           | Numeric comparison                                                    |
+| `less_than`    | number                  | number           | Numeric comparison                                                    |
+| `older_than`   | date                    | Duration string  | True if date is older than duration ago. **Null dates always match.** |
+| `newer_than`   | date                    | Duration string  | True if date is within duration. **Null dates never match.**          |
+| `includes`     | array                   | string           | Array contains the value                                              |
+| `not_includes` | array                   | string           | Array does not contain the value                                      |
+| `includes_all` | array                   | **string array** | Array contains all listed values                                      |
+| `is_empty`     | array                   | **none**         | Array has zero elements. Do not include a `value` key.                |
+| `is_not_empty` | array                   | **none**         | Array has one or more elements. Do not include a `value` key.         |
 
 **Duration format**: `<number><unit>` — valid units: `d` (days), `w` (weeks), `m` (months), `y` (years). Examples: `30d`, `6m`, `1y`. Case-sensitive.
 
 **6f. Conflict Resolution**
+
 - When multiple rules match the same item, the least destructive action wins
 - Priority: `keep` > `unmonitor` > `delete`
 - Only relevant when a single item matches multiple rules
@@ -142,15 +154,19 @@ This subsection is critical — it addresses the #1 source of user confusion:
 **6h. Rule Examples (3-4 realistic examples)**
 
 Example 1: **Delete old, watched movies** (Radarr + Jellyfin)
+
 - Delete movies added over 6 months ago where all users have watched them
 
 Example 2: **Unmonitor ended, watched seasons** (Sonarr + Jellyfin)
+
 - Unmonitor seasons of ended series where all episodes are downloaded and watched
 
 Example 3: **Keep favorites** (Radarr, tag-based)
+
 - Keep anything tagged "favorite" regardless of other rules (demonstrates conflict resolution)
 
 Example 4: **Delete movies no longer on import lists** (Radarr + State)
+
 - Delete movies that left all import lists more than 30 days ago
 - Include a callout: state fields require at least two evaluation runs to populate. On the first run, `state.*` fields return null and rules using them will not match.
 
@@ -159,11 +175,13 @@ Example 4: **Delete movies no longer on import lists** (Radarr + State)
 Tables organized by service. Each table has columns: Field | Type | Description | Notes
 
 Include a "Notes" column for fields with non-obvious behavior:
+
 - `radarr.digital_release` / `radarr.physical_release`: Can be null. Null dates always match `older_than`, never match `newer_than`.
 - `jellyfin.*` fields: Absent when the item has never been played in Jellyfin.
 - `state.*` fields: Null on the first evaluation run. Radarr targets only.
 
 Tables:
+
 - Radarr Fields (12 fields)
 - Sonarr Fields (9 fields — series-level + season-level)
 - Jellyfin Fields (4 fields)
@@ -175,17 +193,20 @@ Tables:
 Document all three endpoints with full request/response examples:
 
 **`GET /health`**
+
 ```
 200 OK
 { "status": "ok", "version": "0.1.0" }
 ```
 
 **`POST /evaluate`**
+
 - Triggers an async evaluation. Returns immediately.
 - `202 Accepted`: `{ "run_id": "uuid", "status": "running" }`
 - `409 Conflict`: `{ "statusCode": 409, "message": "An evaluation is already running" }` — returned if a scheduled or manual run is already in progress
 
 **`GET /evaluate/:runId`**
+
 - Poll for results
 - `202 Accepted` (still running): `{ "run_id": "...", "status": "running", "started_at": "..." }` — no results yet
 - `200 OK` (completed): Full response with `summary` and `results`. Show the complete shape.
@@ -197,13 +218,13 @@ Document all three endpoints with full request/response examples:
 
 Table with columns: Variable | Default | Description
 
-| Variable | Default | Description |
-|---|---|---|
+| Variable      | Default                | Description                                                                                       |
+| ------------- | ---------------------- | ------------------------------------------------------------------------------------------------- |
 | `CONFIG_PATH` | `/config/roombarr.yml` | Path to the YAML config file. Fallback chain: env var → `/config/roombarr.yml` → `./roombarr.yml` |
-| `DATA_PATH` | `/data` | Root directory for SQLite database and audit logs |
-| `PORT` | `3000` | HTTP server listen port |
-| `TZ` | UTC | Timezone for cron schedule evaluation (e.g., `America/New_York`) |
-| `NODE_ENV` | `production` | Controls log format. `development` enables pretty-printed logs. |
+| `DATA_PATH`   | `/data`                | Root directory for SQLite database and audit logs                                                 |
+| `PORT`        | `3000`                 | HTTP server listen port                                                                           |
+| `TZ`          | UTC                    | Timezone for cron schedule evaluation (e.g., `America/New_York`)                                  |
+| `NODE_ENV`    | `production`           | Controls log format. `development` enables pretty-printed logs.                                   |
 
 ### Section 10: Troubleshooting
 
@@ -219,6 +240,7 @@ Short section (5-6 bullets) covering the most common issues:
 ### Section 11: Development
 
 Brief section for contributors:
+
 - Prerequisites: Bun
 - `bun install` — install dependencies
 - `bun run dev` — development server with hot reload
@@ -271,5 +293,5 @@ Brief section for contributors:
 
 ## References
 
-- [Recyclarr README](https://github.com/recyclarr/recyclarr) — Example of *arr ecosystem documentation style
-- [Unpackerr README](https://github.com/Unpackerr/unpackerr) — Example of utilitarian *arr tool docs
+- [Recyclarr README](https://github.com/recyclarr/recyclarr) — Example of \*arr ecosystem documentation style
+- [Unpackerr README](https://github.com/Unpackerr/unpackerr) — Example of utilitarian \*arr tool docs

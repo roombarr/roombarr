@@ -1,11 +1,125 @@
 :root {
-  --sl-color-accent-low: #000;
-  --sl-color-accent: #000;
-  --sl-color-accent-high: #000;
+  /* Fuchsia accent palette — optimized for WCAG AA on both black and white */
+  --sl-color-accent-low: #2c0727;
+  --sl-color-accent: #d11fb6;
+  --sl-color-accent-high: #de21c2;
+
+  /* Blue-shifted gray scale for dark mode */
+  --sl-color-gray-1: hsl(240, 10%, 93%);
+  --sl-color-gray-2: hsl(240, 7%, 70%);
+  --sl-color-gray-3: hsl(240, 6%, 55%);
+  --sl-color-gray-4: hsl(240, 7%, 36%);
+  --sl-color-gray-5: hsl(240, 12%, 22%);
+  --sl-color-gray-6: hsl(240, 15%, 15%);
+
+  /* Deep near-black page background (slightly blue-shifted) */
+  --sl-color-black: #0f0f14;
+  --sl-color-white: #e8e8f0;
+
+  /* Typography */
+  --sl-font:
+    "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --sl-font-mono:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Layout */
+  --sl-content-width: 50rem;
+
+  /* Font smoothing */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-:root[data-theme='dark'] {
-  --sl-color-accent-low: #fff;
-  --sl-color-accent: #fff;
-  --sl-color-accent-high: #fff;
+[data-theme="light"] {
+  /* Higher-contrast fuchsia for white backgrounds */
+  --sl-color-accent-low: #f6eef5;
+  --sl-color-accent: #d31fb8;
+  --sl-color-accent-high: #a0188b;
+
+  /* Inverted gray scale with cool undertone */
+  --sl-color-gray-1: #1a1a2e;
+  --sl-color-gray-2: hsl(240, 12%, 22%);
+  --sl-color-gray-3: hsl(240, 7%, 36%);
+  --sl-color-gray-4: hsl(240, 6%, 55%);
+  --sl-color-gray-5: #e2e2e8;
+  --sl-color-gray-6: #f8f8fa;
+  --sl-color-gray-7: hsl(240, 15%, 97%);
+
+  --sl-color-black: #ffffff;
+  --sl-color-white: #1a1a2e;
+}
+
+.sl-markdown-content :is(h1, h2, h3, h4, h5, h6) {
+  letter-spacing: -0.02em;
+}
+
+.sl-markdown-content h1 {
+  letter-spacing: -0.03em;
+}
+
+.sl-markdown-content a:not(.sl-link-button) {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 30%, transparent);
+  text-underline-offset: 0.15em;
+  transition: text-decoration-color 0.15s ease;
+}
+
+.sl-markdown-content a:not(.sl-link-button):hover {
+  text-decoration-color: currentColor;
+}
+
+.sl-link-button {
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.sl-link-button.primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px
+    color-mix(in srgb, var(--sl-color-accent) 40%, transparent);
+}
+
+.sl-link-button.minimal:hover {
+  color: var(--sl-color-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sl-link-button {
+    transition: none;
+  }
+
+  .sl-markdown-content a:not(.sl-link-button) {
+    transition: none;
+  }
+}
+
+.sl-markdown-content pre {
+  border-radius: 0.5rem;
+}
+
+.sl-markdown-content :not(pre) > code {
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 0.25rem;
+}
+
+.starlight-aside {
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+
+.site-title img {
+  height: 2.5rem;
+  width: auto;
+}
+
+.hero > img {
+  width: 175px;
+  height: auto;
+}
+
+@media (min-width: 800px) {
+  .hero > img {
+    width: 280px;
+    height: auto;
+  }
 }

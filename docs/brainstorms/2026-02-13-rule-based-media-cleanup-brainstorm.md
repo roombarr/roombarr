@@ -46,7 +46,7 @@ The problem it solves: on a shared family media server, deciding what to delete 
 19. **Logging:** nestjs-pino (structured JSON)
 20. **Scheduling:** @nestjs/schedule
 21. **Testing:** Unit tests for rule engine + integration tests for API clients with fixtures
-22. **YAML convention:** snake_case keys everywhere (matching Recyclarr/*arr ecosystem). Field paths also snake_case (roombarr maps internally to API camelCase).
+22. **YAML convention:** snake_case keys everywhere (matching Recyclarr/\*arr ecosystem). Field paths also snake_case (roombarr maps internally to API camelCase).
 23. **Nested conditions:** Fully supported — AND/OR groups can contain other AND/OR groups. Validated against Kyverno, Home Assistant, and json-rules-engine patterns.
 
 ## Config Shape
@@ -68,10 +68,10 @@ services:
     base_url: http://localhost:5055
     api_key: your-api-key
 
-schedule: "0 3 * * *"  # 3 AM daily
+schedule: "0 3 * * *" # 3 AM daily
 
 performance:
-  concurrency: 10  # max parallel API calls per service
+  concurrency: 10 # max parallel API calls per service
 
 rules:
   # === PROTECTION RULES (keep always wins) ===
@@ -136,7 +136,7 @@ rules:
       children:
         - field: radarr.size_on_disk
           operator: greater_than
-          value: 50_000_000_000  # 50 GB
+          value: 50_000_000_000 # 50 GB
         - field: jellyfin.last_played
           operator: older_than
           value: "30d"
@@ -202,13 +202,13 @@ rules:
 
 Values in conditions use native YAML types with one extension for durations:
 
-| Type | Examples | Notes |
-|------|----------|-------|
-| **Number** | `5.0`, `20_000_000_000` | Native YAML numbers. File sizes in bytes. |
-| **String** | `"permanent"`, `"1080p"` | Native YAML strings. |
-| **Boolean** | `true`, `false` | Native YAML booleans. |
-| **Duration** | `"30d"`, `"6m"`, `"1y"` | String parsed as relative duration. Units: `d` (days), `w` (weeks), `m` (months), `y` (years). Used with `older_than`/`newer_than`. |
-| **String[]** | `["Jackson", "Partner"]` | YAML arrays. Used with `includes_all`. |
+| Type         | Examples                 | Notes                                                                                                                               |
+| ------------ | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **Number**   | `5.0`, `20_000_000_000`  | Native YAML numbers. File sizes in bytes.                                                                                           |
+| **String**   | `"permanent"`, `"1080p"` | Native YAML strings.                                                                                                                |
+| **Boolean**  | `true`, `false`          | Native YAML booleans.                                                                                                               |
+| **Duration** | `"30d"`, `"6m"`, `"1y"`  | String parsed as relative duration. Units: `d` (days), `w` (weeks), `m` (months), `y` (years). Used with `older_than`/`newer_than`. |
+| **String[]** | `["Jackson", "Partner"]` | YAML arrays. Used with `includes_all`.                                                                                              |
 
 File sizes are always in bytes (no unit parsing). Use YAML's `_` separator for readability: `20_000_000_000`.
 
@@ -250,12 +250,14 @@ UnifiedSeason {
 ```
 
 **Note on derived fields:**
+
 - `watchedByAll` is computed by roombarr — Jellyfin doesn't expose it. Roombarr queries all Jellyfin users' play status and intersects the results.
 - `watchedBy` is an array of Jellyfin usernames (`Name` field from `/Users`).
 - `lastPlayed` is the most recent `LastPlayedDate` across all users. Caveat: Jellyfin only updates this on actual playback start, NOT when marking items as watched via API.
 - **Season-level Jellyfin data** is aggregated from episodes — Jellyfin has no native season watch status. Roombarr queries episodes per season per user and computes: `watchedBy` = users who played all episodes, `playCount` = min play count across episodes, `lastPlayed` = max LastPlayedDate across episodes.
 
 **Note on tags:**
+
 - Sonarr/Radarr store tags as integer ID arrays (e.g., `[1, 3, 5]`). Roombarr resolves tag names from config to IDs at startup via `GET /api/v3/tag`. If a tag name from config doesn't exist, startup fails with an error.
 - The `includes` operator on `tags` compares against resolved tag names (roombarr handles the ID→name mapping internally).
 
@@ -264,21 +266,25 @@ UnifiedSeason {
 All field paths use snake_case. Roombarr maps these to the actual API property names internally.
 
 ### Radarr (target: radarr)
+
 - **Dates:** `radarr.added` (datetime), `radarr.digital_release` (datetime), `radarr.physical_release` (datetime)
 - **Size:** `radarr.size_on_disk` (number, bytes)
 - **Metadata:** `radarr.monitored` (boolean), `radarr.tags` (string[], resolved from IDs), `radarr.genres` (string[]), `radarr.status` (string: "tba"|"announced"|"released"), `radarr.year` (number), `radarr.has_file` (boolean)
 
 ### Sonarr (target: sonarr)
+
 - **Series-level:** `sonarr.tags` (string[], resolved from IDs), `sonarr.genres` (string[]), `sonarr.status` (string: "continuing"|"ended"), `sonarr.year` (number)
 - **Season-level:** `sonarr.season.monitored` (boolean), `sonarr.season.season_number` (number), `sonarr.season.episode_count` (number), `sonarr.season.episode_file_count` (number), `sonarr.season.size_on_disk` (number, bytes)
 
 ### Jellyfin (aggregated from episodes for Sonarr seasons)
+
 - `jellyfin.watched_by` (string[]) — usernames who watched all episodes
 - `jellyfin.watched_by_all` (boolean) — true if all Jellyfin users watched it
 - `jellyfin.last_played` (date) — most recent play across all users
 - `jellyfin.play_count` (number) — minimum play count across episodes (for seasons)
 
 ### Jellyseerr
+
 - `jellyseerr.requested_by` (string) — username of requester
 - `jellyseerr.requested_at` (date) — ISO 8601 creation timestamp
 - `jellyseerr.request_status` (string: "pending"|"approved"|"declined"|"available")
@@ -289,23 +295,24 @@ All field paths use snake_case. Roombarr maps these to the actual API property n
 
 All operators use snake_case.
 
-| Operator | Applies to | Description |
-|----------|-----------|-------------|
-| `equals` | any | Exact match |
-| `not_equals` | any | Not equal |
-| `greater_than` | number | Numeric greater than |
-| `less_than` | number | Numeric less than |
-| `older_than` | date | Date is more than duration ago |
-| `newer_than` | date | Date is less than duration ago |
-| `includes` | array | Array contains value |
-| `not_includes` | array | Array does not contain value |
-| `includes_all` | array | Array contains all specified values |
-| `is_empty` | array | Array has no elements |
-| `is_not_empty` | array | Array has at least one element |
+| Operator       | Applies to | Description                         |
+| -------------- | ---------- | ----------------------------------- |
+| `equals`       | any        | Exact match                         |
+| `not_equals`   | any        | Not equal                           |
+| `greater_than` | number     | Numeric greater than                |
+| `less_than`    | number     | Numeric less than                   |
+| `older_than`   | date       | Date is more than duration ago      |
+| `newer_than`   | date       | Date is less than duration ago      |
+| `includes`     | array      | Array contains value                |
+| `not_includes` | array      | Array does not contain value        |
+| `includes_all` | array      | Array contains all specified values |
+| `is_empty`     | array      | Array has no elements               |
+| `is_not_empty` | array      | Array has at least one element      |
 
 ## Data Hydration Strategy
 
 Evaluation runs follow this sequence:
+
 1. **Analyze rules** — determine which services are referenced by active rules (lazy evaluation)
 2. **Fetch bulk data** only from services that rules actually reference (skip unused + unavailable ones)
 3. **Index by external IDs** — Sonarr by TVDB ID, Radarr by TMDB ID, Jellyfin by provider IDs, Jellyseerr by TMDB ID
@@ -331,12 +338,14 @@ Evaluation runs follow this sequence:
 **Lazy data fetching:** Before making any API calls, analyze the rule set to determine which services are actually referenced. If no rules use `jellyfin.*` fields, Jellyfin is never queried. If no rules target `sonarr`, Sonarr data is never fetched. This eliminates unnecessary work entirely.
 
 **Bounded concurrency:** Jellyfin season hydration (the expensive path) runs API calls in parallel with a configurable concurrency limit. Default: 10 concurrent requests. Configurable in YAML:
+
 ```yaml
 performance:
-  concurrency: 10  # max parallel API calls to any single service
+  concurrency: 10 # max parallel API calls to any single service
 ```
 
 **Cost estimates (5 users, 100 series, 4 avg seasons):**
+
 - Radarr + Jellyfin (movies only): ~10 API calls total (fast)
 - Sonarr + Jellyfin (seasons): ~2,000 calls at 10 concurrency = ~10 seconds wall-clock
 - All services: ~2,050 calls, dominated by season aggregation
@@ -356,6 +365,7 @@ performance:
 ## Architecture
 
 **Module structure (one module per service):**
+
 - `ConfigModule` — loads and validates YAML config (Zod schemas)
 - `SonarrModule` — Sonarr API client and data mapping
 - `RadarrModule` — Radarr API client and data mapping
@@ -366,6 +376,7 @@ performance:
 - `EvaluationModule` — Orchestrates a full evaluation run (fetch → merge → evaluate → log). Exposes `POST /evaluate` endpoint and cron trigger.
 
 **Key libraries:**
+
 - **HTTP:** `@nestjs/axios` (Axios wrapper with DI integration)
 - **Validation:** `zod` (config schema validation + TypeScript type inference)
 - **Scheduling:** `@nestjs/schedule` (cron-based evaluation triggers)
@@ -373,12 +384,14 @@ performance:
 - **YAML:** `js-yaml` or `yaml` (config file parsing)
 
 **Testing:**
+
 - **Unit tests:** Rule engine (condition evaluation, operator logic, conflict resolution, edge cases). Mocked API clients.
 - **Integration tests:** Each API client with recorded response fixtures. Verifies data mapping from real API shapes to unified model.
 
 ## Deployment
 
 **Docker image:** LinuxServer.io-style conventions for native Unraid/TrueNAS integration:
+
 - Base: Alpine Linux (via `node:alpine` or LSIO base image)
 - Environment variables: `PUID`, `PGID` for user/group mapping, `TZ` for timezone
 - Volume mount: `/config` — contains `roombarr.yml` and log output
@@ -387,6 +400,7 @@ performance:
 - Process management: s6-overlay (standard for LSIO-style images)
 
 **Docker Compose example:**
+
 ```yaml
 roombarr:
   image: roombarr/roombarr:latest
@@ -403,6 +417,7 @@ roombarr:
 ```
 
 **Config file loading priority:**
+
 1. `CONFIG_PATH` environment variable (if set)
 2. `/config/roombarr.yml` (default container path)
 3. `./roombarr.yml` (for local development)

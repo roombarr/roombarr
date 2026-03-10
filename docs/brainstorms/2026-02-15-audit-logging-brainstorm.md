@@ -37,15 +37,15 @@ SQLite audit tables (Approach 3) are queryable but heavier than needed. JSONL fi
 
 ## Key Decisions
 
-| Decision | Choice | Rationale |
-|---|---|---|
-| Scope | Destructive actions only | Keep audit log focused and meaningful |
-| Format | JSONL (one JSON object per line) | Machine-parseable, grep-friendly, jq-compatible, works with log aggregators |
-| File strategy | Daily rotation | Natural time boundaries, easy to prune, won't grow unbounded |
-| Storage location | `/data/logs/` (configurable) | Same Docker volume as SQLite; path configurable in roombarr.yml for bare-metal users |
-| Retention | Auto-prune, 90-day default | Prevent unbounded disk growth; configurable in roombarr.yml |
-| Console output | Continues via existing Pino stdout | Audit events also logged to console at info level |
-| Architecture | Dedicated AuditModule + AuditService | Typed API, testable, separation of concerns |
+| Decision         | Choice                               | Rationale                                                                            |
+| ---------------- | ------------------------------------ | ------------------------------------------------------------------------------------ |
+| Scope            | Destructive actions only             | Keep audit log focused and meaningful                                                |
+| Format           | JSONL (one JSON object per line)     | Machine-parseable, grep-friendly, jq-compatible, works with log aggregators          |
+| File strategy    | Daily rotation                       | Natural time boundaries, easy to prune, won't grow unbounded                         |
+| Storage location | `/data/logs/` (configurable)         | Same Docker volume as SQLite; path configurable in roombarr.yml for bare-metal users |
+| Retention        | Auto-prune, 90-day default           | Prevent unbounded disk growth; configurable in roombarr.yml                          |
+| Console output   | Continues via existing Pino stdout   | Audit events also logged to console at info level                                    |
+| Architecture     | Dedicated AuditModule + AuditService | Typed API, testable, separation of concerns                                          |
 
 ## Audit Log Entry Shape
 

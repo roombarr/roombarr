@@ -1,0 +1,149 @@
+---
+title: Reference
+description: Field, operator, and duration reference for Roombarr rules.
+---
+
+import Table from "../../components/Table.astro";
+import FieldEntry from "../../components/FieldEntry.astro";
+import {
+  radarrFields,
+  sonarrFields,
+  jellyfinFields,
+  jellyseerrFields,
+  stateFields,
+  operatorDefinitions,
+  durationSyntax,
+} from "../../../../src/config/field-registry";
+
+export const code = (s) => `<code>${s}</code>`;
+
+export const durationRows = () =>
+  durationSyntax.map((unit) => [
+    unit.label,
+    code(unit.suffix),
+    code(unit.example),
+  ]);
+
+export const typeCompatRows = () => {
+  const typeToOperators = new Map();
+  for (const [name, def] of Object.entries(operatorDefinitions)) {
+    for (const type of def.compatibleTypes) {
+      const existing = typeToOperators.get(type) ?? [];
+      existing.push(name);
+      typeToOperators.set(type, existing);
+    }
+  }
+  const typeOrder = ["string", "number", "boolean", "date", "array"];
+  return typeOrder.map((type) => {
+    const ops = typeToOperators.get(type) ?? [];
+    return [code(type), ops.map((o) => code(o)).join(", ")];
+  });
+};
+
+## Fields
+
+### Radarr
+
+{Object.entries(radarrFields).map(([path, def]) => (
+
+  <FieldEntry name={path} type={def.type} description={def.description} />
+))}
+
+### Sonarr
+
+{Object.entries(sonarrFields).map(([path, def]) => (
+
+  <FieldEntry
+    name={path}
+    type={def.type}
+    description={def.description}
+    level={path.includes(".season.") ? "Season" : "Series"}
+  />
+))}
+
+> Sonarr evaluates per-season. A series with 5 seasons = 5 items.
+> Season 0 (specials) is always excluded.
+> Tags are lowercased. Genres retain original casing.
+
+### Jellyfin
+
+{Object.entries(jellyfinFields).map(([path, def]) => (
+
+  <FieldEntry name={path} type={def.type} description={def.description} />
+))}
+
+:::caution[Season aggregation]
+`watched_by` only includes users who watched **every episode** in the season.
+`play_count` uses the minimum per-episode count. Partial watches don't count.
+:::
+
+### Jellyseerr
+
+{Object.entries(jellyseerrFields).map(([path, def]) => (
+
+  <FieldEntry name={path} type={def.type} description={def.description} />
+))}
+
+> Jellyseerr data is series-level — all seasons share the same values.
+
+### State
+
+{Object.entries(stateFields).map(([path, def]) => (
+
+  <FieldEntry name={path} type={def.type} description={def.description} />
+))}
+
+> Radarr-only. Computed from evaluation history — requires 2+ runs.
+> Null state values do **not** cause rules to be skipped.
+
+## Operators
+
+{Object.entries(operatorDefinitions).map(([name, def]) => (
+
+  <FieldEntry
+    name={name}
+    type={def.compatibleTypes.join(", ")}
+    description={def.description}
+    example={def.example}
+  />
+))}
+
+### Duration syntax
+
+`older_than` and `newer_than` accept durations: `<number><unit>`. Case-sensitive.
+
+<Table headers={["Unit", "Suffix", "Example"]} rows={durationRows()} />
+
+### Type compatibility
+
+<Table
+  headers={["Field Type", "Compatible Operators"]}
+  rows={typeCompatRows()}
+/>
+
+### Null handling
+
+- `older_than` **always matches** null dates — guard with an additional condition if needed:
+
+  ```yaml
+  # Without guard: matches movies with no digital release date (null = always matches)
+  - field: radarr.digital_release
+    operator: older_than
+    value: 6mo
+
+  # With guard: only matches movies that have a digital release date AND it's old
+  conditions:
+    operator: AND
+    children:
+      - field: radarr.has_file
+        operator: equals
+        value: true
+      - field: radarr.digital_release
+        operator: older_than
+        value: 6mo
+  ```
+
+- `newer_than` **never matches** null dates
+- `greater_than` / `less_than` **never match** null numbers
+- Array operators **never match** null arrays
+- Null enrichment data → rules referencing those fields are skipped for that item

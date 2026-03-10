@@ -75,37 +75,54 @@ SnapshotModule
 **`src/database/schema.ts`**
 
 ```typescript
-import { foreignKey, index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  foreignKey,
+  index,
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+} from "drizzle-orm/sqlite-core";
 
-export const mediaItems = sqliteTable("media_items", {
-  mediaType: text("media_type").notNull(),
-  mediaId: text("media_id").notNull(),
-  title: text("title").notNull(),
-  data: text("data").notNull(),
-  dataHash: text("data_hash").notNull(),
-  firstSeenAt: text("first_seen_at").notNull(),
-  lastSeenAt: text("last_seen_at").notNull(),
-  missedEvaluations: integer("missed_evaluations").notNull().default(0),
-}, (table) => [
-  primaryKey({ columns: [table.mediaType, table.mediaId] }),
-]);
+export const mediaItems = sqliteTable(
+  "media_items",
+  {
+    mediaType: text("media_type").notNull(),
+    mediaId: text("media_id").notNull(),
+    title: text("title").notNull(),
+    data: text("data").notNull(),
+    dataHash: text("data_hash").notNull(),
+    firstSeenAt: text("first_seen_at").notNull(),
+    lastSeenAt: text("last_seen_at").notNull(),
+    missedEvaluations: integer("missed_evaluations").notNull().default(0),
+  },
+  (table) => [primaryKey({ columns: [table.mediaType, table.mediaId] })],
+);
 
-export const fieldChanges = sqliteTable("field_changes", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  mediaType: text("media_type").notNull(),
-  mediaId: text("media_id").notNull(),
-  fieldPath: text("field_path").notNull(),
-  oldValue: text("old_value"),
-  newValue: text("new_value"),
-  changedAt: text("changed_at").notNull(),
-}, (table) => [
-  index("idx_field_changes_lookup").on(table.mediaType, table.mediaId, table.fieldPath),
-  index("idx_field_changes_state").on(table.fieldPath, table.changedAt),
-  foreignKey({
-    columns: [table.mediaType, table.mediaId],
-    foreignColumns: [mediaItems.mediaType, mediaItems.mediaId],
-  }).onDelete("cascade"),
-]);
+export const fieldChanges = sqliteTable(
+  "field_changes",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    mediaType: text("media_type").notNull(),
+    mediaId: text("media_id").notNull(),
+    fieldPath: text("field_path").notNull(),
+    oldValue: text("old_value"),
+    newValue: text("new_value"),
+    changedAt: text("changed_at").notNull(),
+  },
+  (table) => [
+    index("idx_field_changes_lookup").on(
+      table.mediaType,
+      table.mediaId,
+      table.fieldPath,
+    ),
+    index("idx_field_changes_state").on(table.fieldPath, table.changedAt),
+    foreignKey({
+      columns: [table.mediaType, table.mediaId],
+      foreignColumns: [mediaItems.mediaType, mediaItems.mediaId],
+    }).onDelete("cascade"),
+  ],
+);
 ```
 
 ### Research Insights — Schema
@@ -260,15 +277,28 @@ A user might restart the app after a partial bridge (crash between steps). Check
 
 **Journal seeding — read from generated metadata:**
 After `drizzle-kit generate`, the file `drizzle/meta/_journal.json` contains entries like:
+
 ```json
-{ "entries": [{ "idx": 0, "version": "7", "when": 1739577600000, "tag": "0000_...", "breakpoints": true }] }
+{
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1739577600000,
+      "tag": "0000_...",
+      "breakpoints": true
+    }
+  ]
+}
 ```
+
 Read the `tag` (which is the hash) and `when` (timestamp) from this file. Do NOT compute the hash manually — drizzle-kit's internal hashing algorithm is an implementation detail.
 
 **Backup before bridge:**
 SQLite is a single file. Copy it before the bridge starts. If anything goes wrong, restore from backup. This is the only reliable rollback mechanism for SQLite schema changes.
 
 **Verification queries (add to tests):**
+
 ```sql
 -- After bridge, verify:
 SELECT count(*) FROM media_items;                    -- should match pre-bridge count
@@ -322,6 +352,7 @@ Rewrite all raw SQL in `SnapshotService` to use Drizzle's query builder. Remove 
 
 **Multi-row batch inserts:**
 Instead of looping upserts one-by-one:
+
 ```typescript
 // Bad — loses prepared statement reuse, N round-trips
 for (const item of items) {
@@ -352,6 +383,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
 
 **`onConflictDoUpdate` with composite target:**
 Context7 docs confirm the `target` array syntax for composite keys:
+
 ```typescript
 .onConflictDoUpdate({
   target: [mediaItems.mediaType, mediaItems.mediaId],
@@ -361,6 +393,7 @@ Context7 docs confirm the `target` array syntax for composite keys:
 
 **`JSON.parse` safety:**
 The `data` column stores serialized JSON. At the load boundary (`loadAllSnapshots`), wrap parsing in try-catch to handle corrupted rows gracefully rather than crashing the entire evaluation:
+
 ```typescript
 try {
   const parsed = JSON.parse(row.data);
@@ -458,12 +491,15 @@ Using `satisfies Record<string, StateFieldPattern>` on the registry object (inst
 The batch query returns all `field_changes` matching the tracked `field_path` values. Sorting in SQL (`ORDER BY changed_at DESC`) forces SQLite to sort the full result set. Since the results will be partitioned into per-item maps anyway, it's cheaper to sort each partition in memory. The `idx_field_changes_state` index makes the `WHERE field_path IN (...)` fast without needing sort support.
 
 **Batch query pattern:**
+
 ```typescript
-const trackedPaths = [...new Set(
-  Object.values(stateFieldRegistry)
-    .filter(f => f.targets.includes(targetType))
-    .map(f => f.tracks)
-)];
+const trackedPaths = [
+  ...new Set(
+    Object.values(stateFieldRegistry)
+      .filter((f) => f.targets.includes(targetType))
+      .map((f) => f.tracks),
+  ),
+];
 
 const changes = await db
   .select()
@@ -473,6 +509,7 @@ const changes = await db
 
 **Registry extensibility:**
 The discriminated union (`type: "days_since_value" | "ever_was_value"`) is the right pattern here. Adding a new computation pattern means:
+
 1. Add a new interface to the union
 2. Add a handler case in the compute function
 3. Add entries to the registry
@@ -504,10 +541,11 @@ Ensure the full evaluation pipeline works end-to-end with the new persistence la
 
 **V1 upgrade test fixture approach:**
 Create v1 databases inline using raw `bun:sqlite`:
+
 ```typescript
 const raw = new Database(":memory:");
 raw.run("PRAGMA user_version = 1");
-raw.run("CREATE TABLE media_snapshots (...)");  // v1 schema
+raw.run("CREATE TABLE media_snapshots (...)"); // v1 schema
 raw.run("CREATE TABLE field_changes (...)");
 raw.run("INSERT INTO media_snapshots ...");
 // Then initialize DatabaseService against this database
@@ -515,6 +553,7 @@ raw.run("INSERT INTO media_snapshots ...");
 
 **Verification queries in tests:**
 After bridge migration, assert:
+
 - `SELECT count(*) FROM media_items` matches pre-bridge count
 - `SELECT count(*) FROM field_changes` unchanged
 - `PRAGMA foreign_key_check` returns empty (no violations)
@@ -526,6 +565,7 @@ After bridge migration, assert:
 
 **Temp directory pattern:**
 The existing test pattern uses temp directories for real database files. Continue this pattern for integration tests:
+
 ```typescript
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -539,28 +579,28 @@ const dbPath = join(dir, "test.db");
 
 ## Key Design Decisions
 
-| Decision | Choice | Rationale |
-|---|---|---|
-| Driver package | `drizzle-orm/bun-sqlite` | Official Drizzle driver for `bun:sqlite`. NOT `drizzle-orm/bun-sql` (which doesn't exist). |
-| Migration strategy | `drizzle-kit migrate` (SQL files) | Safer than `push` for production. SQL files shipped in Docker image. |
-| v1 bridge migration | Custom code before drizzle-kit runs | drizzle-kit cannot know about pre-existing manually-managed schemas. Bridge code checks `PRAGMA user_version` and transforms the schema to match Drizzle's expected state. |
-| Bridge FK protocol | `foreign_keys=OFF` → transaction → `foreign_keys=ON` → `foreign_key_check` | Required by SQLite when DDL modifies FK-referenced tables. Verified by integrity check after. |
-| Bridge backup | Copy SQLite file before bridge | Only reliable rollback for SQLite schema changes. File-level copy is atomic-enough for single-user app. |
-| `DatabaseService` API | Add `getDrizzle()`, remove `getDatabase()` after all consumers migrate | Phased migration: add new API in Phase 2, migrate consumers in Phases 3-4, remove old API in Phase 5. |
-| `data` column type | `text()` with manual JSON handling | Shape is dynamic (varies by field registry and hydrated services). Drizzle's JSON mode needs a static type parameter. |
-| Timestamps | Keep as ISO text strings | Changing to integer would break StateService date parsing and all stored data. No benefit. |
-| `missed_evaluations` | Keep alongside `last_seen_at` | `missed_evaluations` drives orphan cleanup (counter-based). `last_seen_at` is informational. Both are cheap. |
-| `idx_field_changes_cleanup` index | Drop it | Only served the 90-day retention query, which is being removed. Dead weight on every INSERT. |
-| `idx_field_changes_state` index | Add `(field_path, changed_at)` | Batch state query uses `WHERE field_path IN (...)`. Existing composite index has `field_path` as third column — unusable. |
-| `last_seen_at` backfill | From `last_updated_at` via `ADD COLUMN ... NOT NULL DEFAULT ''` | `ADD COLUMN ... NOT NULL` requires a DEFAULT in SQLite. Backfill immediately after with UPDATE. |
-| `SnapshotService.snapshot()` | Make async | Drizzle transactions are async. Evaluation pipeline already runs in async context. |
-| Batch insert strategy | Multi-row `.values([...])` with chunking | Single per-item loops lose prepared statement reuse. Chunk at ~120 rows to stay under SQLite's 999 parameter limit. |
-| `StateData` typing | Static interface, updated manually | Type safety is worth the small cost of adding a field to the interface when adding a registry entry. `Record<string, unknown>` would lose all type checking. |
-| Season state support | Add `state: StateData \| null` to `UnifiedSeason`, no season-specific fields yet | Makes the architecture extensible without inventing season state fields prematurely. |
-| `noDefaultExport` for `drizzle.config.ts` | Biome override | Same pattern used for `lint-staged.config.ts`. Drizzle-kit requires default export. |
-| Retention policy | No retention, keep all field_changes | ~7 MB/year for a 1000-item library. Negligible. Prevents rules from silently breaking. |
-| Migration files location | `drizzle/` at project root | drizzle-kit default. No reason to deviate. |
-| Registry type assertion | `satisfies Record<string, StateFieldPattern>` | Preserves literal types for better narrowing while enforcing shape. |
+| Decision                                  | Choice                                                                           | Rationale                                                                                                                                                                  |
+| ----------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Driver package                            | `drizzle-orm/bun-sqlite`                                                         | Official Drizzle driver for `bun:sqlite`. NOT `drizzle-orm/bun-sql` (which doesn't exist).                                                                                 |
+| Migration strategy                        | `drizzle-kit migrate` (SQL files)                                                | Safer than `push` for production. SQL files shipped in Docker image.                                                                                                       |
+| v1 bridge migration                       | Custom code before drizzle-kit runs                                              | drizzle-kit cannot know about pre-existing manually-managed schemas. Bridge code checks `PRAGMA user_version` and transforms the schema to match Drizzle's expected state. |
+| Bridge FK protocol                        | `foreign_keys=OFF` → transaction → `foreign_keys=ON` → `foreign_key_check`       | Required by SQLite when DDL modifies FK-referenced tables. Verified by integrity check after.                                                                              |
+| Bridge backup                             | Copy SQLite file before bridge                                                   | Only reliable rollback for SQLite schema changes. File-level copy is atomic-enough for single-user app.                                                                    |
+| `DatabaseService` API                     | Add `getDrizzle()`, remove `getDatabase()` after all consumers migrate           | Phased migration: add new API in Phase 2, migrate consumers in Phases 3-4, remove old API in Phase 5.                                                                      |
+| `data` column type                        | `text()` with manual JSON handling                                               | Shape is dynamic (varies by field registry and hydrated services). Drizzle's JSON mode needs a static type parameter.                                                      |
+| Timestamps                                | Keep as ISO text strings                                                         | Changing to integer would break StateService date parsing and all stored data. No benefit.                                                                                 |
+| `missed_evaluations`                      | Keep alongside `last_seen_at`                                                    | `missed_evaluations` drives orphan cleanup (counter-based). `last_seen_at` is informational. Both are cheap.                                                               |
+| `idx_field_changes_cleanup` index         | Drop it                                                                          | Only served the 90-day retention query, which is being removed. Dead weight on every INSERT.                                                                               |
+| `idx_field_changes_state` index           | Add `(field_path, changed_at)`                                                   | Batch state query uses `WHERE field_path IN (...)`. Existing composite index has `field_path` as third column — unusable.                                                  |
+| `last_seen_at` backfill                   | From `last_updated_at` via `ADD COLUMN ... NOT NULL DEFAULT ''`                  | `ADD COLUMN ... NOT NULL` requires a DEFAULT in SQLite. Backfill immediately after with UPDATE.                                                                            |
+| `SnapshotService.snapshot()`              | Make async                                                                       | Drizzle transactions are async. Evaluation pipeline already runs in async context.                                                                                         |
+| Batch insert strategy                     | Multi-row `.values([...])` with chunking                                         | Single per-item loops lose prepared statement reuse. Chunk at ~120 rows to stay under SQLite's 999 parameter limit.                                                        |
+| `StateData` typing                        | Static interface, updated manually                                               | Type safety is worth the small cost of adding a field to the interface when adding a registry entry. `Record<string, unknown>` would lose all type checking.               |
+| Season state support                      | Add `state: StateData \| null` to `UnifiedSeason`, no season-specific fields yet | Makes the architecture extensible without inventing season state fields prematurely.                                                                                       |
+| `noDefaultExport` for `drizzle.config.ts` | Biome override                                                                   | Same pattern used for `lint-staged.config.ts`. Drizzle-kit requires default export.                                                                                        |
+| Retention policy                          | No retention, keep all field_changes                                             | ~7 MB/year for a 1000-item library. Negligible. Prevents rules from silently breaking.                                                                                     |
+| Migration files location                  | `drizzle/` at project root                                                       | drizzle-kit default. No reason to deviate.                                                                                                                                 |
+| Registry type assertion                   | `satisfies Record<string, StateFieldPattern>`                                    | Preserves literal types for better narrowing while enforcing shape.                                                                                                        |
 
 ## Acceptance Criteria
 
@@ -615,19 +655,19 @@ const dbPath = join(dir, "test.db");
 
 ## Risk Analysis and Mitigation
 
-| Risk | Likelihood | Impact | Mitigation |
-|---|---|---|---|
-| v1 bridge migration destroys data | Low | Critical | Backup SQLite file before bridge. Test against fixture v1 database. Bridge uses RENAME (not DROP+CREATE). Wrap in transaction. Verify with FK check + count assertions. |
-| Bridge fails mid-transaction | Low | Medium | SQLite auto-rolls-back on transaction failure. Backup file available for manual restore. |
-| Already-bridged database not detected | Medium | High | Guard checks both `user_version` AND table existence (`media_snapshots` vs `media_items`). Test this path explicitly. |
-| drizzle-kit generates DROP+CREATE instead of RENAME | Medium | Critical | The initial migration is for fresh installs only. v1 databases are handled by bridge code before drizzle-kit runs. |
-| FK breaks after table rename | Low | High | SQLite automatically updates FK references on RENAME. Verified in SQLite docs. `PRAGMA foreign_key_check` after bridge. Test explicitly. |
-| Journal hash mismatch | Medium | High | Read hash from `drizzle/meta/_journal.json` — never compute manually. Test that drizzle-kit accepts the seeded journal. |
-| Drizzle async transactions change error handling | Low | Medium | Wrap in try/catch matching existing patterns. Drizzle propagates SQLite errors. |
-| Content hash (`Bun.hash`) behavior changes | Very Low | Medium | `Bun.hash` is stable API. Not affected by Drizzle migration. |
-| Batch insert exceeds SQLite parameter limit | Medium | Medium | Chunk at `Math.floor(999 / columns_per_table)` rows per INSERT. |
-| Missing `await` on async `snapshot()` | Medium | High | Update call site in Phase 3. Consider `noFloatingPromises` lint rule. |
-| Corrupt `data` column crashes evaluation | Low | Medium | try-catch around `JSON.parse` at load boundary. Log and skip corrupt rows. |
+| Risk                                                | Likelihood | Impact   | Mitigation                                                                                                                                                              |
+| --------------------------------------------------- | ---------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| v1 bridge migration destroys data                   | Low        | Critical | Backup SQLite file before bridge. Test against fixture v1 database. Bridge uses RENAME (not DROP+CREATE). Wrap in transaction. Verify with FK check + count assertions. |
+| Bridge fails mid-transaction                        | Low        | Medium   | SQLite auto-rolls-back on transaction failure. Backup file available for manual restore.                                                                                |
+| Already-bridged database not detected               | Medium     | High     | Guard checks both `user_version` AND table existence (`media_snapshots` vs `media_items`). Test this path explicitly.                                                   |
+| drizzle-kit generates DROP+CREATE instead of RENAME | Medium     | Critical | The initial migration is for fresh installs only. v1 databases are handled by bridge code before drizzle-kit runs.                                                      |
+| FK breaks after table rename                        | Low        | High     | SQLite automatically updates FK references on RENAME. Verified in SQLite docs. `PRAGMA foreign_key_check` after bridge. Test explicitly.                                |
+| Journal hash mismatch                               | Medium     | High     | Read hash from `drizzle/meta/_journal.json` — never compute manually. Test that drizzle-kit accepts the seeded journal.                                                 |
+| Drizzle async transactions change error handling    | Low        | Medium   | Wrap in try/catch matching existing patterns. Drizzle propagates SQLite errors.                                                                                         |
+| Content hash (`Bun.hash`) behavior changes          | Very Low   | Medium   | `Bun.hash` is stable API. Not affected by Drizzle migration.                                                                                                            |
+| Batch insert exceeds SQLite parameter limit         | Medium     | Medium   | Chunk at `Math.floor(999 / columns_per_table)` rows per INSERT.                                                                                                         |
+| Missing `await` on async `snapshot()`               | Medium     | High     | Update call site in Phase 3. Consider `noFloatingPromises` lint rule.                                                                                                   |
+| Corrupt `data` column crashes evaluation            | Low        | Medium   | try-catch around `JSON.parse` at load boundary. Log and skip corrupt rows.                                                                                              |
 
 ## References and Research
 
