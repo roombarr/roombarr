@@ -1,8 +1,8 @@
 import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
-import { ConfigService } from '../config/config.service.js';
-import { RadarrClient } from './radarr.client.js';
-import { RadarrService } from './radarr.service.js';
+import { ConfigService } from '../config/config.service';
+import { RadarrClient } from './radarr.client';
+import { RadarrService } from './radarr.service';
 
 @Module({
   imports: [

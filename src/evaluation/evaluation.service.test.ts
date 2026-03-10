@@ -1,10 +1,7 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
-import type {
-  EvaluationItemResult,
-  EvaluationSummary,
-} from '../rules/types.js';
-import { makeConfig, makeMovie } from '../test/index.js';
-import { EvaluationService } from './evaluation.service.js';
+import type { EvaluationItemResult, EvaluationSummary } from '../rules/types';
+import { makeConfig, makeMovie } from '../test/index';
+import { EvaluationService } from './evaluation.service';
 
 const testConfig = makeConfig();
 

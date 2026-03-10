@@ -7,8 +7,8 @@ import {
   makeSonarrEpisodeFile,
   makeSonarrSeries,
   makeSonarrTag,
-} from '../test/index.js';
-import { SonarrClient } from './sonarr.client.js';
+} from '../test/index';
+import { SonarrClient } from './sonarr.client';
 
 describe('SonarrClient', () => {
   async function setup() {

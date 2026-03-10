@@ -1,11 +1,11 @@
 import { describe, expect, mock, test } from 'bun:test';
-import type { RuleConfig } from '../config/config.schema.js';
-import { JellyfinService } from '../jellyfin/jellyfin.service.js';
-import type { JellyfinItem } from '../jellyfin/jellyfin.types.js';
-import { JellyseerrService } from '../jellyseerr/jellyseerr.service.js';
-import { RadarrService } from '../radarr/radarr.service.js';
-import type { UnifiedMovie, UnifiedSeason } from '../shared/types.js';
-import { SonarrService } from '../sonarr/sonarr.service.js';
+import type { RuleConfig } from '../config/config.schema';
+import { JellyfinService } from '../jellyfin/jellyfin.service';
+import type { JellyfinItem } from '../jellyfin/jellyfin.types';
+import { JellyseerrService } from '../jellyseerr/jellyseerr.service';
+import { RadarrService } from '../radarr/radarr.service';
+import type { UnifiedMovie, UnifiedSeason } from '../shared/types';
+import { SonarrService } from '../sonarr/sonarr.service';
 import {
   createMockJellyfinClient,
   createMockJellyseerrClient,
@@ -19,8 +19,8 @@ import {
   makeRule,
   makeSonarrSeries,
   makeSonarrTag,
-} from '../test/index.js';
-import { MediaService } from './media.service.js';
+} from '../test/index';
+import { MediaService } from './media.service';
 
 function makeMovieItem(overrides: Partial<JellyfinItem> = {}): JellyfinItem {
   return {

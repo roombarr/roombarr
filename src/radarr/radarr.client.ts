@@ -5,7 +5,7 @@ import type {
   RadarrImportListMovie,
   RadarrMovie,
   RadarrTag,
-} from './radarr.types.js';
+} from './radarr.types';
 
 @Injectable()
 export class RadarrClient {

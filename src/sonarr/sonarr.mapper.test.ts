@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import { makeSonarrSeries, makeSonarrTag } from '../test/index.js';
-import { buildTagMap, mapSeason, resolveTagNames } from './sonarr.mapper.js';
-import type { SonarrSeason } from './sonarr.types.js';
+import { makeSonarrSeries, makeSonarrTag } from '../test/index';
+import { buildTagMap, mapSeason, resolveTagNames } from './sonarr.mapper';
+import type { SonarrSeason } from './sonarr.types';
 
 const TAGS = [
   makeSonarrTag({ id: 1, label: 'keep-forever' }),

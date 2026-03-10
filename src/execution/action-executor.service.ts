@@ -1,16 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AxiosError } from 'axios';
-import type { Action } from '../config/config.schema.js';
-import { RadarrClient } from '../radarr/radarr.client.js';
-import type { EvaluationItemResult } from '../rules/types.js';
+import type { Action } from '../config/config.schema';
+import { RadarrClient } from '../radarr/radarr.client';
+import type { EvaluationItemResult } from '../rules/types';
 import {
   buildInternalId,
   type UnifiedMedia,
   type UnifiedMovie,
   type UnifiedSeason,
-} from '../shared/types.js';
-import { SonarrClient } from '../sonarr/sonarr.client.js';
-import type { ExecutionSummary } from './execution.types.js';
+} from '../shared/types';
+import { SonarrClient } from '../sonarr/sonarr.client';
+import type { ExecutionSummary } from './execution.types';
 
 @Injectable()
 export class ActionExecutorService {

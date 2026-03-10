@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { stateFieldRegistry } from './state-registry.js';
+import { stateFieldRegistry } from './state-registry';
 
 describe('stateFieldRegistry', () => {
   test('has exactly 2 entries', () => {

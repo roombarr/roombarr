@@ -1,5 +1,5 @@
-import type { SonarrData } from '../shared/types.js';
-import type { SonarrSeason, SonarrSeries, SonarrTag } from './sonarr.types.js';
+import type { SonarrData } from '../shared/types';
+import type { SonarrSeason, SonarrSeries, SonarrTag } from './sonarr.types';
 
 /**
  * Build a tag ID → name lookup map from the Sonarr tag list.

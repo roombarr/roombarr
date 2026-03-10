@@ -5,7 +5,7 @@ import {
   getFieldDefinition,
   getServiceFromField,
   isOperatorCompatible,
-} from './field-registry.js';
+} from './field-registry';
 
 const serviceConfigSchema = z.object({
   base_url: z.url(),

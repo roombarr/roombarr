@@ -6,9 +6,9 @@ import {
   axiosResponse,
   makeJellyfinItem,
   makeJellyfinUser,
-} from '../test/index.js';
-import { JellyfinClient } from './jellyfin.client.js';
-import type { JellyfinItemsResponse } from './jellyfin.types.js';
+} from '../test/index';
+import { JellyfinClient } from './jellyfin.client';
+import type { JellyfinItemsResponse } from './jellyfin.types';
 
 describe('JellyfinClient', () => {
   async function setup() {

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { UnifiedSeason } from '../shared/types.js';
-import { SonarrClient } from './sonarr.client.js';
-import { buildTagMap, mapSeason } from './sonarr.mapper.js';
+import type { UnifiedSeason } from '../shared/types';
+import { SonarrClient } from './sonarr.client';
+import { buildTagMap, mapSeason } from './sonarr.mapper';
 
 /**
  * Orchestrates Sonarr data fetching: retrieves all series and tags,

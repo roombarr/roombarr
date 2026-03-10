@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
+    "module": "preserve",
+    "moduleResolution": "bundler",
     "resolvePackageJsonExports": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,

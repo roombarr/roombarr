@@ -1,15 +1,15 @@
-import type { JellyfinItem, JellyfinUser } from '../jellyfin/jellyfin.types.js';
-import type { JellyseerrRequest } from '../jellyseerr/jellyseerr.types.js';
+import type { JellyfinItem, JellyfinUser } from '../jellyfin/jellyfin.types';
+import type { JellyseerrRequest } from '../jellyseerr/jellyseerr.types';
 import type {
   RadarrImportListMovie,
   RadarrMovie,
   RadarrTag,
-} from '../radarr/radarr.types.js';
+} from '../radarr/radarr.types';
 import type {
   SonarrEpisodeFile,
   SonarrSeries,
   SonarrTag,
-} from '../sonarr/sonarr.types.js';
+} from '../sonarr/sonarr.types';
 
 /** Creates a `RadarrMovie` with sensible defaults for testing. */
 export function makeRadarrMovie(

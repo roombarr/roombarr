@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import type {
   JellyseerrRequest,
   JellyseerrRequestsResponse,
-} from './jellyseerr.types.js';
+} from './jellyseerr.types';
 
 @Injectable()
 export class JellyseerrClient {

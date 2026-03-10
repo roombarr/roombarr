@@ -1,5 +1,5 @@
-import type { Action } from '../config/config.schema.js';
-import type { UnifiedMedia } from '../shared/types.js';
+import type { Action } from '../config/config.schema';
+import type { UnifiedMedia } from '../shared/types';
 
 export interface LogActionParams {
   readonly item: UnifiedMedia;

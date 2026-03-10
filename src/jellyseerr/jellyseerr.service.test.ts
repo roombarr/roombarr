@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
-import { makeJellyseerrRequest } from '../test/index.js';
-import { JellyseerrService } from './jellyseerr.service.js';
+import { makeJellyseerrRequest } from '../test/index';
+import { JellyseerrService } from './jellyseerr.service';
 
 describe('JellyseerrService', () => {
   let client: { fetchAllRequests: ReturnType<typeof mock> };

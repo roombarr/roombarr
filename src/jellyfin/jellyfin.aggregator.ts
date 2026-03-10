@@ -1,4 +1,4 @@
-import type { JellyfinData } from '../shared/types.js';
+import type { JellyfinData } from '../shared/types';
 
 /**
  * Per-user watch record for a single media item.

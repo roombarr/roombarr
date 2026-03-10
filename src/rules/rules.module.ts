@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { RulesService } from './rules.service.js';
+import { RulesService } from './rules.service';
 
 @Module({
   providers: [RulesService],

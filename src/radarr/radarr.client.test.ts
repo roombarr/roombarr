@@ -7,8 +7,8 @@ import {
   makeRadarrImportListMovie,
   makeRadarrMovie,
   makeRadarrTag,
-} from '../test/index.js';
-import { RadarrClient } from './radarr.client.js';
+} from '../test/index';
+import { RadarrClient } from './radarr.client';
 
 describe('RadarrClient', () => {
   async function setup() {

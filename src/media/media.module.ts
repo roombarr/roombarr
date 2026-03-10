@@ -1,14 +1,14 @@
 import { Module } from '@nestjs/common';
-import { ConfigService } from '../config/config.service.js';
-import { JellyfinModule } from '../jellyfin/jellyfin.module.js';
-import { JellyfinService } from '../jellyfin/jellyfin.service.js';
-import { JellyseerrModule } from '../jellyseerr/jellyseerr.module.js';
-import { JellyseerrService } from '../jellyseerr/jellyseerr.service.js';
-import { RadarrModule } from '../radarr/radarr.module.js';
-import { RadarrService } from '../radarr/radarr.service.js';
-import { SonarrModule } from '../sonarr/sonarr.module.js';
-import { SonarrService } from '../sonarr/sonarr.service.js';
-import { MediaService } from './media.service.js';
+import { ConfigService } from '../config/config.service';
+import { JellyfinModule } from '../jellyfin/jellyfin.module';
+import { JellyfinService } from '../jellyfin/jellyfin.service';
+import { JellyseerrModule } from '../jellyseerr/jellyseerr.module';
+import { JellyseerrService } from '../jellyseerr/jellyseerr.service';
+import { RadarrModule } from '../radarr/radarr.module';
+import { RadarrService } from '../radarr/radarr.service';
+import { SonarrModule } from '../sonarr/sonarr.module';
+import { SonarrService } from '../sonarr/sonarr.service';
+import { MediaService } from './media.service';
 
 /**
  * Orchestration module that imports all service modules and wires

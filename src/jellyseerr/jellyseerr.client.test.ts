@@ -2,9 +2,9 @@ import { describe, expect, test } from 'bun:test';
 import { HttpModule, HttpService } from '@nestjs/axios';
 import { Test } from '@nestjs/testing';
 import { of } from 'rxjs';
-import { axiosResponse, makeJellyseerrRequest } from '../test/index.js';
-import { JellyseerrClient } from './jellyseerr.client.js';
-import type { JellyseerrRequestsResponse } from './jellyseerr.types.js';
+import { axiosResponse, makeJellyseerrRequest } from '../test/index';
+import { JellyseerrClient } from './jellyseerr.client';
+import type { JellyseerrRequestsResponse } from './jellyseerr.types';
 
 describe('JellyseerrClient', () => {
   async function setup() {

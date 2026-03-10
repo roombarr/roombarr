@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { and, eq, sql } from 'drizzle-orm';
-import { fieldChanges } from '../database/schema.js';
-import type { UnifiedMedia, UnifiedMovie } from '../shared/types.js';
-import { makeMovie, useTestDatabase } from '../test/index.js';
-import { SnapshotService } from './snapshot.service.js';
-import { StateService } from './state.service.js';
+import { fieldChanges } from '../database/schema';
+import type { UnifiedMedia, UnifiedMovie } from '../shared/types';
+import { makeMovie, useTestDatabase } from '../test/index';
+import { SnapshotService } from './snapshot.service';
+import { StateService } from './state.service';
 
 describe('Snapshot → State integration', () => {
   const db = useTestDatabase();

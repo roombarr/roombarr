@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { makeConfig, makeRule } from '../test/index.js';
-import { configSchema, validateConfig } from './config.schema.js';
+import { makeConfig, makeRule } from '../test/index';
+import { configSchema, validateConfig } from './config.schema';
 
 function validConfig(overrides: Record<string, any> = {}) {
   return {

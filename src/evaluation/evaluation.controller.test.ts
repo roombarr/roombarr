@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { EvaluationController } from './evaluation.controller.js';
-import { EvaluationService } from './evaluation.service.js';
-import type { EvaluationRun } from './evaluation.types.js';
+import { EvaluationController } from './evaluation.controller';
+import { EvaluationService } from './evaluation.service';
+import type { EvaluationRun } from './evaluation.types';
 
 const runningRun: EvaluationRun = {
   run_id: 'run-001',

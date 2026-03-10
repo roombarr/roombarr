@@ -1,16 +1,16 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import { AxiosError } from 'axios';
-import type { RadarrClient } from '../radarr/radarr.client.js';
-import type { EvaluationItemResult } from '../rules/types.js';
-import { buildInternalId, type UnifiedMedia } from '../shared/types.js';
-import type { SonarrClient } from '../sonarr/sonarr.client.js';
+import type { RadarrClient } from '../radarr/radarr.client';
+import type { EvaluationItemResult } from '../rules/types';
+import { buildInternalId, type UnifiedMedia } from '../shared/types';
+import type { SonarrClient } from '../sonarr/sonarr.client';
 import {
   makeMovie,
   makeRadarrMovie,
   makeSeason,
   makeSonarrSeries,
-} from '../test/index.js';
-import { ActionExecutorService } from './action-executor.service.js';
+} from '../test/index';
+import { ActionExecutorService } from './action-executor.service';
 
 function makeResult(
   item: UnifiedMedia,

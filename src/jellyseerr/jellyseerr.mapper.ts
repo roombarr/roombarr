@@ -1,5 +1,5 @@
-import type { JellyseerrData } from '../shared/types.js';
-import type { JellyseerrRequest } from './jellyseerr.types.js';
+import type { JellyseerrData } from '../shared/types';
+import type { JellyseerrRequest } from './jellyseerr.types';
 
 /** Status codes from the Jellyseerr API. */
 const STATUS_LABELS: Record<number, string> = {

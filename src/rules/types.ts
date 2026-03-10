@@ -2,7 +2,7 @@ import type {
   Action,
   ConditionGroup,
   RuleConfig,
-} from '../config/config.schema.js';
+} from '../config/config.schema';
 export type { Action, ConditionGroup, RuleConfig };
 
 export type ExecutionStatus = 'success' | 'failed' | 'skipped' | 'not_found';

@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '../config/config.module.js';
-import { ExecutionModule } from '../execution/execution.module.js';
-import { MediaModule } from '../media/media.module.js';
-import { RulesModule } from '../rules/rules.module.js';
-import { SnapshotModule } from '../snapshot/snapshot.module.js';
-import { EvaluationController } from './evaluation.controller.js';
-import { EvaluationService } from './evaluation.service.js';
+import { ConfigModule } from '../config/config.module';
+import { ExecutionModule } from '../execution/execution.module';
+import { MediaModule } from '../media/media.module';
+import { RulesModule } from '../rules/rules.module';
+import { SnapshotModule } from '../snapshot/snapshot.module';
+import { EvaluationController } from './evaluation.controller';
+import { EvaluationService } from './evaluation.service';
 
 @Module({
   imports: [

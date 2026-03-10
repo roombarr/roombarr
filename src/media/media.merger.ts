@@ -1,9 +1,9 @@
-import type { JellyseerrIndexes } from '../jellyseerr/jellyseerr.service.js';
+import type { JellyseerrIndexes } from '../jellyseerr/jellyseerr.service';
 import type {
   JellyfinData,
   UnifiedMovie,
   UnifiedSeason,
-} from '../shared/types.js';
+} from '../shared/types';
 
 /**
  * Enrich unified movies with Jellyfin and Jellyseerr data.

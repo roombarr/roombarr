@@ -1,8 +1,8 @@
 import { describe, expect, mock, test } from 'bun:test';
-import type { ConfigService } from '../config/config.service.js';
-import { makeConfig, makeMovie, makeSeason } from '../test/index.js';
-import { AuditService } from './audit.service.js';
-import type { LogActionParams } from './audit.types.js';
+import type { ConfigService } from '../config/config.service';
+import { makeConfig, makeMovie, makeSeason } from '../test/index';
+import { AuditService } from './audit.service';
+import type { LogActionParams } from './audit.types';
 
 function makeLogActionParams(
   overrides: Partial<LogActionParams> = {},
@@ -139,7 +139,7 @@ describe('AuditService', () => {
       try {
         // Re-import to pick up mocked modules
         const { AuditService: MockedAuditService } = await import(
-          './audit.service.js'
+          './audit.service'
         );
 
         const configService = {

@@ -1,11 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { UnifiedMovie } from '../shared/types.js';
-import { RadarrClient } from './radarr.client.js';
-import {
-  buildImportListIndex,
-  buildTagMap,
-  mapMovie,
-} from './radarr.mapper.js';
+import type { UnifiedMovie } from '../shared/types';
+import { RadarrClient } from './radarr.client';
+import { buildImportListIndex, buildTagMap, mapMovie } from './radarr.mapper';
 
 /**
  * Orchestrates Radarr data fetching: retrieves all movies and tags,

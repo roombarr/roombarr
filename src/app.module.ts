@@ -1,17 +1,17 @@
 import { Module, RequestMethod } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { LoggerModule } from 'nestjs-pino';
-import { AuditModule } from './audit/audit.module.js';
-import { ConfigModule } from './config/config.module.js';
-import { DatabaseModule } from './database/database.module.js';
-import { EvaluationModule } from './evaluation/evaluation.module.js';
-import { HealthModule } from './health/health.module.js';
-import { JellyfinModule } from './jellyfin/jellyfin.module.js';
-import { JellyseerrModule } from './jellyseerr/jellyseerr.module.js';
-import { MediaModule } from './media/media.module.js';
-import { RadarrModule } from './radarr/radarr.module.js';
-import { RulesModule } from './rules/rules.module.js';
-import { SonarrModule } from './sonarr/sonarr.module.js';
+import { AuditModule } from './audit/audit.module';
+import { ConfigModule } from './config/config.module';
+import { DatabaseModule } from './database/database.module';
+import { EvaluationModule } from './evaluation/evaluation.module';
+import { HealthModule } from './health/health.module';
+import { JellyfinModule } from './jellyfin/jellyfin.module';
+import { JellyseerrModule } from './jellyseerr/jellyseerr.module';
+import { MediaModule } from './media/media.module';
+import { RadarrModule } from './radarr/radarr.module';
+import { RulesModule } from './rules/rules.module';
+import { SonarrModule } from './sonarr/sonarr.module';
 
 @Module({
   imports: [

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { HealthController } from './health.controller.js';
+import { HealthController } from './health.controller';
 
 describe('HealthController', () => {
   let app: INestApplication;

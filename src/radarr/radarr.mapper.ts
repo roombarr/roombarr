@@ -1,9 +1,9 @@
-import type { RadarrData } from '../shared/types.js';
+import type { RadarrData } from '../shared/types';
 import type {
   RadarrImportListMovie,
   RadarrMovie,
   RadarrTag,
-} from './radarr.types.js';
+} from './radarr.types';
 
 /**
  * Build a tag ID → name lookup map from the Radarr tag list.
