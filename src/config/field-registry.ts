@@ -227,7 +227,7 @@ export const fieldRegistry: Record<
   Record<string, FieldDefinition>
 > = {
   radarr: { ...radarrFields, ...enrichmentFields, ...stateFields },
-  sonarr: { ...sonarrFields, ...enrichmentFields, ...stateFields },
+  sonarr: { ...sonarrFields, ...enrichmentFields },
 };
 
 export const operatorDefinitions: Record<string, OperatorDefinition> = {

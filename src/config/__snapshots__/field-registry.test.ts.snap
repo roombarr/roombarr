@@ -46,7 +46,5 @@ exports[`fieldRegistry sonarr registry fields match snapshot 1`] = `
   "sonarr.status",
   "sonarr.tags",
   "sonarr.year",
-  "state.days_off_import_list",
-  "state.ever_on_import_list",
 ]
 `;
