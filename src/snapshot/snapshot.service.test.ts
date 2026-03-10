@@ -77,6 +77,22 @@ describe('SnapshotService', () => {
     expect(changes).toHaveLength(0);
   });
 
+  test('does not increment missed_evaluations for seen-but-unchanged items', async () => {
+    const movie = makeMovie();
+
+    // First snapshot
+    await snapshotService.snapshot([movie], new Set(['radarr']));
+
+    // Same movie again — unchanged
+    await snapshotService.snapshot([movie], new Set(['radarr']));
+
+    const row = db.drizzle
+      .select({ missedEvaluations: mediaItems.missedEvaluations })
+      .from(mediaItems)
+      .get();
+    expect(row!.missedEvaluations).toBe(0);
+  });
+
   test('only snapshots fields for hydrated services', async () => {
     const movie = makeMovie({
       jellyfin: makeJellyfinData(),

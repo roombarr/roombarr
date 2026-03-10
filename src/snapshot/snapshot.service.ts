@@ -133,18 +133,16 @@ export class SnapshotService {
 
       // Content hash skip — if unchanged, just reset missed_evaluations
       if (existing.dataHash === dataHash) {
-        if (existing.missedEvaluations > 0) {
-          upserts.push({
-            mediaType,
-            mediaId,
-            title: item.title,
-            data: existing.data,
-            dataHash: existing.dataHash,
-            firstSeenAt: now,
-            lastSeenAt: now,
-            isNew: false,
-          });
-        }
+        upserts.push({
+          mediaType,
+          mediaId,
+          title: item.title,
+          data: existing.data,
+          dataHash: existing.dataHash,
+          firstSeenAt: now,
+          lastSeenAt: now,
+          isNew: false,
+        });
         continue;
       }
 
