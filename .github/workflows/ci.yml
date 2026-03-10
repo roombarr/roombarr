@@ -4,13 +4,9 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - "website/**"
   pull_request:
     branches:
       - main
-    paths-ignore:
-      - "website/**"
 
 jobs:
   lint:
@@ -61,8 +57,8 @@ jobs:
       - name: Test
         run: bun test --coverage
 
-  build:
-    name: Build
+  build-app:
+    name: Build App
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -76,3 +72,23 @@ jobs:
 
       - name: Build
         run: bun run build
+
+  build-website:
+    name: Build Website
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        working-directory: website
+
+      - name: Build
+        run: bun run build
+        working-directory: website
