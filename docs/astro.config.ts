@@ -15,7 +15,7 @@ export default defineConfig({
       description: 'Rule-based media cleanup engine for the *arr stack.',
       plugins: [starlightLlmsTxt(), starlightLinksValidator()],
       editLink: {
-        baseUrl: 'https://github.com/roombarr/roombarr/edit/main/website/',
+        baseUrl: 'https://github.com/roombarr/roombarr/edit/main/docs/',
       },
       lastUpdated: true,
       head: isProduction

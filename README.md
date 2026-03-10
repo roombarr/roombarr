@@ -1,6 +1,6 @@
 <h1 align="center">
   <br>
-  <img src="website/src/assets/logo-icon.svg" alt="Roombarr" width="200">
+  <img src="docs/src/assets/logo-icon.svg" alt="Roombarr" width="200">
   <br>
   <br>
   Roombarr
