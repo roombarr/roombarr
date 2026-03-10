@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { inArray, sql } from 'drizzle-orm';
+import { inArray } from 'drizzle-orm';
 import type { BunSQLiteDatabase } from 'drizzle-orm/bun-sqlite';
 import { DatabaseService } from '../database/database.service';
 import type * as schema from '../database/schema';
@@ -43,19 +43,22 @@ export class StateService {
   enrich(items: UnifiedMedia[]): UnifiedMedia[] {
     const db = this.getDb();
 
-    // Check if any snapshots exist — if not, this is the first evaluation
-    const result = db
-      .select({ count: sql<number>`count(*)` })
+    // Batch-load all media item keys for existence checks in computeState
+    const allMediaItems = db
+      .select({ mediaType: mediaItems.mediaType, mediaId: mediaItems.mediaId })
       .from(mediaItems)
-      .get();
-    const snapshotCount = result?.count ?? 0;
+      .all();
 
-    if (snapshotCount === 0) {
+    if (allMediaItems.length === 0) {
       this.logger.debug(
         'No snapshots exist yet (first evaluation), skipping state enrichment',
       );
       return items;
     }
+
+    const snapshotKeys = new Set(
+      allMediaItems.map(row => `${row.mediaType}:${row.mediaId}`),
+    );
 
     // Collect all tracked field paths for the items in this batch
     const targetTypes = new Set(
@@ -93,6 +96,7 @@ export class StateService {
         compositeKey,
         relevantEntries,
         changeIndex,
+        snapshotKeys,
       );
 
       return { ...item, state };
@@ -137,21 +141,14 @@ export class StateService {
     compositeKey: string,
     entries: Array<[string, StateFieldPattern]>,
     changeIndex: Map<string, Map<string, FieldChangeRow[]>>,
+    snapshotKeys: Set<string>,
   ): StateData | null {
-    const db = this.getDb();
-
     // Check if this item has been snapshotted before
     const mediaType = item.type === 'movie' ? 'movie' : 'season';
     const mediaId = compositeKey.split(':')[1];
-    const snapshot = db
-      .select({ mediaId: mediaItems.mediaId })
-      .from(mediaItems)
-      .where(
-        sql`${mediaItems.mediaType} = ${mediaType} AND ${mediaItems.mediaId} = ${mediaId}`,
-      )
-      .get();
-
-    if (!snapshot) return null;
+    if (!snapshotKeys.has(`${mediaType}:${mediaId}`)) {
+      return null;
+    }
 
     const itemChanges = changeIndex.get(compositeKey);
     const result: Record<string, unknown> = {};
