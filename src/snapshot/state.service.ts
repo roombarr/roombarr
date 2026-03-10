@@ -1,15 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { inArray, sql } from 'drizzle-orm';
 import type { BunSQLiteDatabase } from 'drizzle-orm/bun-sqlite';
-import { DatabaseService } from '../database/database.service.js';
-import type * as schema from '../database/schema.js';
-import { fieldChanges, mediaItems } from '../database/schema.js';
-import { resolveField } from '../rules/field-resolver.js';
-import type { StateData, UnifiedMedia } from '../shared/types.js';
-import {
-  type StateFieldPattern,
-  stateFieldRegistry,
-} from './state-registry.js';
+import { DatabaseService } from '../database/database.service';
+import type * as schema from '../database/schema';
+import { fieldChanges, mediaItems } from '../database/schema';
+import { resolveField } from '../rules/field-resolver';
+import type { StateData, UnifiedMedia } from '../shared/types';
+import { type StateFieldPattern, stateFieldRegistry } from './state-registry';
 
 interface FieldChangeRow {
   mediaType: string;

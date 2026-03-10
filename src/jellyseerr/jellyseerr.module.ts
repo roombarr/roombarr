@@ -1,8 +1,8 @@
 import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
-import { ConfigService } from '../config/config.service.js';
-import { JellyseerrClient } from './jellyseerr.client.js';
-import { JellyseerrService } from './jellyseerr.service.js';
+import { ConfigService } from '../config/config.service';
+import { JellyseerrClient } from './jellyseerr.client';
+import { JellyseerrService } from './jellyseerr.service';
 
 @Module({
   imports: [

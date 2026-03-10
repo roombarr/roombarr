@@ -2,12 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { gt, sql } from 'drizzle-orm';
 import type { BunSQLiteDatabase } from 'drizzle-orm/bun-sqlite';
 import diff from 'microdiff';
-import { fieldRegistry } from '../config/field-registry.js';
-import { DatabaseService } from '../database/database.service.js';
-import type * as schema from '../database/schema.js';
-import { fieldChanges, mediaItems } from '../database/schema.js';
-import { resolveField } from '../rules/field-resolver.js';
-import type { UnifiedMedia } from '../shared/types.js';
+import { fieldRegistry } from '../config/field-registry';
+import { DatabaseService } from '../database/database.service';
+import type * as schema from '../database/schema';
+import { fieldChanges, mediaItems } from '../database/schema';
+import { resolveField } from '../rules/field-resolver';
+import type { UnifiedMedia } from '../shared/types';
 
 /** Row shape returned from loading media_items. */
 interface SnapshotRow {

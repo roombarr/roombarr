@@ -1,16 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { AuditService } from '../audit/audit.service.js';
-import { buildReasoning } from '../audit/reasoning.js';
+import { AuditService } from '../audit/audit.service';
+import { buildReasoning } from '../audit/reasoning';
 import type {
   Condition,
   ConditionGroup,
   LeafCondition,
   RoombarrConfig,
-} from '../config/config.schema.js';
-import { getServiceFromField } from '../config/field-registry.js';
-import { buildInternalId, type UnifiedMedia } from '../shared/types.js';
-import { resolveField } from './field-resolver.js';
-import { operators } from './operators.js';
+} from '../config/config.schema';
+import { getServiceFromField } from '../config/field-registry';
+import { buildInternalId, type UnifiedMedia } from '../shared/types';
+import { resolveField } from './field-resolver';
+import { operators } from './operators';
 import {
   ACTION_PRIORITY,
   type Action,
@@ -18,7 +18,7 @@ import {
   type EvaluationSummary,
   type RuleConfig,
   type RuleMatch,
-} from './types.js';
+} from './types';
 
 @Injectable()
 export class RulesService {

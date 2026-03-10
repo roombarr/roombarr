@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { operators } from './operators.js';
+import { operators } from './operators';
 
 describe('operators', () => {
   describe('equals', () => {

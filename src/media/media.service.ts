@@ -1,14 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { Condition, RuleConfig } from '../config/config.schema.js';
-import { getServiceFromField } from '../config/field-registry.js';
-import type { SeasonIdentifier } from '../jellyfin/jellyfin.service.js';
-import { JellyfinService } from '../jellyfin/jellyfin.service.js';
-import type { JellyseerrIndexes } from '../jellyseerr/jellyseerr.service.js';
-import { JellyseerrService } from '../jellyseerr/jellyseerr.service.js';
-import { RadarrService } from '../radarr/radarr.service.js';
-import type { JellyfinData, UnifiedMedia } from '../shared/types.js';
-import { SonarrService } from '../sonarr/sonarr.service.js';
-import { enrichMovies, enrichSeasons } from './media.merger.js';
+import type { Condition, RuleConfig } from '../config/config.schema';
+import { getServiceFromField } from '../config/field-registry';
+import type { SeasonIdentifier } from '../jellyfin/jellyfin.service';
+import { JellyfinService } from '../jellyfin/jellyfin.service';
+import type { JellyseerrIndexes } from '../jellyseerr/jellyseerr.service';
+import { JellyseerrService } from '../jellyseerr/jellyseerr.service';
+import { RadarrService } from '../radarr/radarr.service';
+import type { JellyfinData, UnifiedMedia } from '../shared/types';
+import { SonarrService } from '../sonarr/sonarr.service';
+import { enrichMovies, enrichSeasons } from './media.merger';
 
 /**
  * Orchestrates data hydration from all configured services.

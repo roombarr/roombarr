@@ -1,8 +1,8 @@
 import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
-import { ConfigService } from '../config/config.service.js';
-import { SonarrClient } from './sonarr.client.js';
-import { SonarrService } from './sonarr.service.js';
+import { ConfigService } from '../config/config.service';
+import { SonarrClient } from './sonarr.client';
+import { SonarrService } from './sonarr.service';
 
 @Module({
   imports: [

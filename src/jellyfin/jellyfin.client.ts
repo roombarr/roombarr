@@ -5,7 +5,7 @@ import type {
   JellyfinItem,
   JellyfinItemsResponse,
   JellyfinUser,
-} from './jellyfin.types.js';
+} from './jellyfin.types';
 
 @Injectable()
 export class JellyfinClient {

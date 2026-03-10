@@ -1,21 +1,21 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
-import type { RuleConfig } from '../config/config.schema.js';
-import { getHydratedServices } from '../config/field-registry.js';
-import { ActionExecutorService } from '../execution/action-executor.service.js';
-import { MediaService } from '../media/media.service.js';
-import { RadarrClient } from '../radarr/radarr.client.js';
-import { RadarrService } from '../radarr/radarr.service.js';
-import { RulesService } from '../rules/rules.service.js';
-import type { EvaluationItemResult } from '../rules/types.js';
-import { SnapshotService } from '../snapshot/snapshot.service.js';
-import { StateService } from '../snapshot/state.service.js';
+import type { RuleConfig } from '../config/config.schema';
+import { getHydratedServices } from '../config/field-registry';
+import { ActionExecutorService } from '../execution/action-executor.service';
+import { MediaService } from '../media/media.service';
+import { RadarrClient } from '../radarr/radarr.client';
+import { RadarrService } from '../radarr/radarr.service';
+import { RulesService } from '../rules/rules.service';
+import type { EvaluationItemResult } from '../rules/types';
+import { SnapshotService } from '../snapshot/snapshot.service';
+import { StateService } from '../snapshot/state.service';
 import {
   createMockRadarrClient,
   createMockSonarrClient,
   makeRadarrMovie,
   makeRule,
   useTestDatabase,
-} from '../test/index.js';
+} from '../test/index';
 
 function createMockAuditService() {
   return { logAction: mock() };

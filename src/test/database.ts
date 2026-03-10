@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DatabaseService } from '../database/database.service.js';
+import { DatabaseService } from '../database/database.service';
 
 interface TestDatabase {
   dbService: DatabaseService;

@@ -1,14 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import pLimit from 'p-limit';
-import type { JellyfinData } from '../shared/types.js';
+import type { JellyfinData } from '../shared/types';
 import {
   aggregateMovieWatchData,
   aggregateSeasonWatchData,
   type UserSeasonEpisodeData,
   type UserWatchRecord,
-} from './jellyfin.aggregator.js';
-import { JellyfinClient } from './jellyfin.client.js';
-import type { JellyfinItem, JellyfinUser } from './jellyfin.types.js';
+} from './jellyfin.aggregator';
+import { JellyfinClient } from './jellyfin.client';
+import type { JellyfinItem, JellyfinUser } from './jellyfin.types';
 
 /**
  * Identifies a Sonarr season for cross-referencing with Jellyfin.

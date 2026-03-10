@@ -8,9 +8,9 @@ export {
   makeSonarrEpisodeFile,
   makeSonarrSeries,
   makeSonarrTag,
-} from './api-fixtures.js';
-export { createTestDatabase, useTestDatabase } from './database.js';
-export type { MovieOverrides, SeasonOverrides } from './fixtures.js';
+} from './api-fixtures';
+export { createTestDatabase, useTestDatabase } from './database';
+export type { MovieOverrides, SeasonOverrides } from './fixtures';
 export {
   makeConfig,
   makeJellyfinData,
@@ -18,11 +18,11 @@ export {
   makeMovie,
   makeRule,
   makeSeason,
-} from './fixtures.js';
-export { axiosResponse } from './http.js';
+} from './fixtures';
+export { axiosResponse } from './http';
 export {
   createMockJellyfinClient,
   createMockJellyseerrClient,
   createMockRadarrClient,
   createMockSonarrClient,
-} from './mocks.js';
+} from './mocks';

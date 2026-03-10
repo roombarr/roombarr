@@ -3,13 +3,13 @@ import {
   makeRadarrImportListMovie,
   makeRadarrMovie,
   makeRadarrTag,
-} from '../test/index.js';
+} from '../test/index';
 import {
   buildImportListIndex,
   buildTagMap,
   mapMovie,
   resolveTagNames,
-} from './radarr.mapper.js';
+} from './radarr.mapper';
 
 const TAGS = [
   makeRadarrTag({ id: 1, label: 'keep-forever' }),

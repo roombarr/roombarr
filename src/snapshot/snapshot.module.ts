@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { SnapshotService } from './snapshot.service.js';
-import { StateService } from './state.service.js';
+import { SnapshotService } from './snapshot.service';
+import { StateService } from './state.service';
 
 @Module({
   providers: [SnapshotService, StateService],

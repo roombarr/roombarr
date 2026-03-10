@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'bun:test';
-import type { AuditService } from '../audit/audit.service.js';
-import type { RuleConfig } from '../config/config.schema.js';
-import type { UnifiedMedia } from '../shared/types.js';
-import { makeMovie, makeSeason } from '../test/index.js';
-import { RulesService } from './rules.service.js';
+import type { AuditService } from '../audit/audit.service';
+import type { RuleConfig } from '../config/config.schema';
+import type { UnifiedMedia } from '../shared/types';
+import { makeMovie, makeSeason } from '../test/index';
+import { RulesService } from './rules.service';
 
 const mockAuditService = {
   logAction: () => {},

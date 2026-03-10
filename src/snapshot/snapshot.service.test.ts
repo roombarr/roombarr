@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { count, eq, like } from 'drizzle-orm';
-import { fieldChanges, mediaItems } from '../database/schema.js';
-import { makeJellyfinData, makeMovie, useTestDatabase } from '../test/index.js';
-import { SnapshotService } from './snapshot.service.js';
+import { fieldChanges, mediaItems } from '../database/schema';
+import { makeJellyfinData, makeMovie, useTestDatabase } from '../test/index';
+import { SnapshotService } from './snapshot.service';
 
 describe('SnapshotService', () => {
   const db = useTestDatabase();

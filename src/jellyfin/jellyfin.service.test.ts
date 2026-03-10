@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
-import { makeJellyfinItem, makeJellyfinUser } from '../test/index.js';
-import { JellyfinService, seasonKey } from './jellyfin.service.js';
+import { makeJellyfinItem, makeJellyfinUser } from '../test/index';
+import { JellyfinService, seasonKey } from './jellyfin.service';
 
 describe('JellyfinService', () => {
   let client: {

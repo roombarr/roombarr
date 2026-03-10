@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
-import type { RuleConfig } from '../config/config.schema.js';
-import type { JellyseerrIndexes } from '../jellyseerr/jellyseerr.service.js';
-import type { UnifiedMovie } from '../shared/types.js';
+import type { RuleConfig } from '../config/config.schema';
+import type { JellyseerrIndexes } from '../jellyseerr/jellyseerr.service';
+import type { UnifiedMovie } from '../shared/types';
 import {
   makeJellyfinData,
   makeJellyseerrData,
   makeMovie,
   makeRule,
   makeSeason,
-} from '../test/index.js';
-import { MediaService } from './media.service.js';
+} from '../test/index';
+import { MediaService } from './media.service';
 
 const jellyfinMovieData = makeJellyfinData({
   last_played: '2024-12-01T20:00:00Z',

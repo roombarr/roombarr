@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import type { ConditionGroup } from '../config/config.schema.js';
-import { buildReasoning } from './reasoning.js';
+import type { ConditionGroup } from '../config/config.schema';
+import { buildReasoning } from './reasoning';
 
 describe('buildReasoning', () => {
   test('formats a single leaf condition', () => {

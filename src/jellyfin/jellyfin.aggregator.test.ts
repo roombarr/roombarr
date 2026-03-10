@@ -4,7 +4,7 @@ import {
   aggregateSeasonWatchData,
   type UserSeasonEpisodeData,
   type UserWatchRecord,
-} from './jellyfin.aggregator.js';
+} from './jellyfin.aggregator';
 
 describe('aggregateMovieWatchData', () => {
   test('aggregates watch data from multiple users', () => {

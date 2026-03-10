@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { makeJellyseerrRequest } from '../test/index.js';
-import { mapRequest } from './jellyseerr.mapper.js';
+import { makeJellyseerrRequest } from '../test/index';
+import { mapRequest } from './jellyseerr.mapper';
 
 describe('mapRequest', () => {
   test('maps approved request to JellyseerrData', () => {

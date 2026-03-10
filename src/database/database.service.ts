@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { type BunSQLiteDatabase, drizzle } from 'drizzle-orm/bun-sqlite';
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
-import * as schema from './schema.js';
+import * as schema from './schema';
 
 const DEFAULT_DB_PATH = '/config/roombarr.sqlite';
 

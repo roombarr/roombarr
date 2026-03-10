@@ -4,8 +4,8 @@ import {
   makeJellyseerrData,
   makeMovie,
   makeSeason,
-} from '../test/index.js';
-import { resolveField } from './field-resolver.js';
+} from '../test/index';
+import { resolveField } from './field-resolver';
 
 const jellyfinData = makeJellyfinData({
   watched_by: ['Alice', 'Bob'],

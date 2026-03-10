@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { JellyseerrData } from '../shared/types.js';
-import { JellyseerrClient } from './jellyseerr.client.js';
-import { mapRequest } from './jellyseerr.mapper.js';
+import type { JellyseerrData } from '../shared/types';
+import { JellyseerrClient } from './jellyseerr.client';
+import { mapRequest } from './jellyseerr.mapper';
 
 /**
  * Orchestrates Jellyseerr data fetching: retrieves all requests and
