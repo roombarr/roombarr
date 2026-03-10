@@ -16,4 +16,4 @@ todos/
 
 pnpm-lock.yaml
 
-website/.astro/
+docs/.astro/

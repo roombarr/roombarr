@@ -4,7 +4,7 @@
  * real fields, and that operators are compatible with field types.
  *
  * Also serves as the single source of truth for auto-generated
- * reference documentation (see website/src/integrations/generate-reference.ts).
+ * reference documentation.
  */
 
 export type FieldType = 'date' | 'number' | 'boolean' | 'string' | 'array';
