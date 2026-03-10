@@ -43,7 +43,9 @@ describe('EvaluationService', () => {
       getConfig: mock(() => testConfig),
     };
     mediaService = {
-      hydrate: mock(() => Promise.resolve([testMovie])),
+      hydrate: mock(() =>
+        Promise.resolve({ items: [testMovie], unavailableServices: new Set() }),
+      ),
     };
     rulesService = {
       evaluate: mock(() => ({
@@ -124,6 +126,20 @@ describe('EvaluationService', () => {
       expect(run.status).toBe('failed');
       expect(run.error).toBe('Sonarr connection refused');
       expect(run.completed_at).toBeTruthy();
+    });
+
+    test('populates services_unavailable when base service fetch fails', async () => {
+      mediaService.hydrate = mock(() =>
+        Promise.resolve({
+          items: [],
+          unavailableServices: new Set(['radarr']),
+        }),
+      );
+
+      const run = await service.runEvaluation();
+
+      expect(run.status).toBe('completed');
+      expect(run.services_unavailable).toEqual(['radarr']);
     });
 
     test('resets running flag after failure', async () => {

@@ -11,6 +11,18 @@ import { SonarrService } from '../sonarr/sonarr.service';
 import { enrichMovies, enrichSeasons } from './media.merger';
 
 /**
+ * The result of a media hydration cycle.
+ * Callers must inspect `unavailableServices` to determine whether any base
+ * service fetch failed — downstream logic (e.g. snapshot orphan tracking)
+ * should not penalise items from services that were temporarily unreachable.
+ */
+export interface HydrationResult {
+  items: UnifiedMedia[];
+  /** Names of base services (e.g. 'radarr', 'sonarr') that failed to respond this cycle. */
+  unavailableServices: Set<string>;
+}
+
+/**
  * Orchestrates data hydration from all configured services.
  * Analyzes rules to determine which services are needed,
  * fetches data lazily (only from referenced services),
@@ -31,8 +43,15 @@ export class MediaService {
    * Hydrate unified media models based on the given rules.
    * Only fetches from services that are actually referenced
    * in rule conditions (lazy fetching).
+   *
+   * When a base service (Radarr or Sonarr) is temporarily unavailable,
+   * the corresponding items are excluded from `items` but the service
+   * name is added to `unavailableServices`. Callers should propagate
+   * this information to the snapshot layer so that the orphan-eviction
+   * counter is not incremented for items whose service was simply down.
    */
-  async hydrate(rules: RuleConfig[]): Promise<UnifiedMedia[]> {
+  async hydrate(rules: RuleConfig[]): Promise<HydrationResult> {
+    const unavailableServices = new Set<string>();
     const neededServices = this.analyzeNeededServices(rules);
     const hasRadarrRules = rules.some(r => r.target === 'radarr');
     const hasSonarrRules = rules.some(r => r.target === 'sonarr');
@@ -43,8 +62,12 @@ export class MediaService {
 
     // Fetch base data from Sonarr/Radarr in parallel
     const [movies, seasons] = await Promise.all([
-      hasRadarrRules ? this.fetchMoviesSafe() : Promise.resolve([]),
-      hasSonarrRules ? this.fetchSeasonsSafe() : Promise.resolve([]),
+      hasRadarrRules
+        ? this.fetchMoviesSafe(unavailableServices)
+        : Promise.resolve([]),
+      hasSonarrRules
+        ? this.fetchSeasonsSafe(unavailableServices)
+        : Promise.resolve([]),
     ]);
 
     // Fetch enrichment data in parallel (only if needed)
@@ -73,13 +96,17 @@ export class MediaService {
       jellyseerrData,
     );
 
-    const allItems: UnifiedMedia[] = [...enrichedMovies, ...enrichedSeasons];
+    const items: UnifiedMedia[] = [...enrichedMovies, ...enrichedSeasons];
 
+    const unavailableSuffix =
+      unavailableServices.size > 0
+        ? ` (unavailable: ${[...unavailableServices].join(', ')})`
+        : '';
     this.logger.log(
-      `Hydration complete: ${enrichedMovies.length} movies, ${enrichedSeasons.length} seasons`,
+      `Hydration complete: ${enrichedMovies.length} movies, ${enrichedSeasons.length} seasons${unavailableSuffix}`,
     );
 
-    return allItems;
+    return { items, unavailableServices };
   }
 
   /**
@@ -109,7 +136,7 @@ export class MediaService {
     }
   }
 
-  private async fetchMoviesSafe() {
+  private async fetchMoviesSafe(unavailableServices: Set<string>) {
     if (!this.radarrService) {
       this.logger.warn('Radarr service not available, skipping movie fetch');
       return [];
@@ -118,11 +145,12 @@ export class MediaService {
       return await this.radarrService.fetchMovies();
     } catch (error) {
       this.logger.warn(`Radarr fetch failed, skipping: ${error}`);
+      unavailableServices.add('radarr');
       return [];
     }
   }
 
-  private async fetchSeasonsSafe() {
+  private async fetchSeasonsSafe(unavailableServices: Set<string>) {
     if (!this.sonarrService) {
       this.logger.warn('Sonarr service not available, skipping season fetch');
       return [];
@@ -131,6 +159,7 @@ export class MediaService {
       return await this.sonarrService.fetchSeasons();
     } catch (error) {
       this.logger.warn(`Sonarr fetch failed, skipping: ${error}`);
+      unavailableServices.add('sonarr');
       return [];
     }
   }

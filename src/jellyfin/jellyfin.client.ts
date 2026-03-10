@@ -7,6 +7,9 @@ import type {
   JellyfinUser,
 } from './jellyfin.types';
 
+/** Maximum number of pagination requests per query to prevent infinite loops. */
+const MAX_PAGINATION_PAGES = 1000;
+
 @Injectable()
 export class JellyfinClient {
   private readonly logger = new Logger(JellyfinClient.name);
@@ -93,6 +96,9 @@ export class JellyfinClient {
   /**
    * Paginate through all items matching the given query params.
    * Jellyfin uses startIndex/limit for pagination.
+   *
+   * Stops early at MAX_PAGINATION_PAGES to prevent infinite loops caused by a
+   * misbehaving API returning an ever-changing TotalRecordCount.
    */
   private async fetchAllItems(
     userId: string,
@@ -101,8 +107,9 @@ export class JellyfinClient {
     const pageSize = 100;
     const allItems: JellyfinItem[] = [];
     let startIndex = 0;
+    let pagesFetched = 0;
 
-    while (true) {
+    while (pagesFetched < MAX_PAGINATION_PAGES) {
       const { data } = await firstValueFrom(
         this.http.get<JellyfinItemsResponse>(`/Users/${userId}/Items`, {
           params: {
@@ -114,9 +121,16 @@ export class JellyfinClient {
       );
 
       allItems.push(...data.Items);
+      pagesFetched++;
 
       if (allItems.length >= data.TotalRecordCount) break;
       startIndex += pageSize;
+    }
+
+    if (pagesFetched >= MAX_PAGINATION_PAGES) {
+      this.logger.warn(
+        `Jellyfin pagination for user ${userId} reached the ${MAX_PAGINATION_PAGES}-page limit — results may be incomplete`,
+      );
     }
 
     return allItems;

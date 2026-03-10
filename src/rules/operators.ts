@@ -22,8 +22,11 @@ export const operators: Record<string, OperatorFn> = {
     if (field === null || field === undefined) return true;
     const ms = parse(value as string);
     if (ms === null || ms <= 0) throw new Error(`Invalid duration: "${value}"`);
+    const date = new Date(field as string);
+    if (Number.isNaN(date.getTime()))
+      throw new Error(`Invalid date: "${field}"`);
     const threshold = new Date(Date.now() - ms);
-    return new Date(field as string) < threshold;
+    return date < threshold;
   },
 
   newer_than: (field, value) => {
@@ -31,8 +34,11 @@ export const operators: Record<string, OperatorFn> = {
     if (field === null || field === undefined) return false;
     const ms = parse(value as string);
     if (ms === null || ms <= 0) throw new Error(`Invalid duration: "${value}"`);
+    const date = new Date(field as string);
+    if (Number.isNaN(date.getTime()))
+      throw new Error(`Invalid date: "${field}"`);
     const threshold = new Date(Date.now() - ms);
-    return new Date(field as string) > threshold;
+    return date > threshold;
   },
 
   includes: (field, value) => {

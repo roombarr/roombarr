@@ -78,8 +78,8 @@ describe('MediaService', () => {
 
     const result = await service.hydrate(rules);
 
-    expect(result).toHaveLength(1);
-    const movie = result[0] as UnifiedMovie;
+    expect(result.items).toHaveLength(1);
+    const movie = result.items[0] as UnifiedMovie;
     expect(movie.jellyfin).toEqual(jellyfinMovieData);
     expect(movie.jellyseerr?.requested_by).toBe('alice');
     expect(radarrService.fetchMovies).toHaveBeenCalledTimes(1);
@@ -154,7 +154,8 @@ describe('MediaService', () => {
 
     const result = await serviceWithNulls.hydrate(rules);
 
-    expect(result).toEqual([]);
+    expect(result.items).toEqual([]);
+    expect(result.unavailableServices.size).toBe(0);
   });
 
   test('handles service fetch failure gracefully', async () => {
@@ -166,8 +167,10 @@ describe('MediaService', () => {
     const result = await service.hydrate(rules);
 
     // Should return empty instead of throwing
-    const movies = result.filter(r => r.type === 'movie');
+    const movies = result.items.filter(r => r.type === 'movie');
     expect(movies).toHaveLength(0);
+    // And mark radarr as unavailable so orphan counters are not incremented
+    expect(result.unavailableServices.has('radarr')).toBe(true);
   });
 
   test('handles Jellyfin failure gracefully while still returning base data', async () => {
@@ -193,8 +196,10 @@ describe('MediaService', () => {
     const result = await service.hydrate(rules);
 
     // Movies should still be present, just without Jellyfin enrichment
-    expect(result).toHaveLength(1);
-    expect(result[0].jellyfin).toBeNull();
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].jellyfin).toBeNull();
+    // Jellyfin is an enrichment service — its failure does not mark it unavailable
+    expect(result.unavailableServices.has('jellyfin')).toBe(false);
   });
 
   test('fetches both movies and seasons when both targets present', async () => {
@@ -213,7 +218,7 @@ describe('MediaService', () => {
 
     const result = await service.hydrate(rules);
 
-    expect(result).toHaveLength(2);
+    expect(result.items).toHaveLength(2);
     expect(radarrService.fetchMovies).toHaveBeenCalledTimes(1);
     expect(sonarrService.fetchSeasons).toHaveBeenCalledTimes(1);
   });
