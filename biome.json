@@ -10,7 +10,7 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!website"]
+    "includes": ["**", "!docs"]
   },
   "formatter": {
     "enabled": true,
