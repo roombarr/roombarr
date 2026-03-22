@@ -197,17 +197,15 @@ describe('Snapshot → State integration', () => {
     expect(orphanCheck.count).toBe(0);
 
     // Step 3: Item reappears (re-requested)
+    const preReinsert = new Date();
     await snapshotService.snapshot([movie], services);
 
     // Step 4: Enrich — should get a fresh first_seen_at
     const [enriched] = stateService.enrich([movie]);
 
     expect(enriched.snapshot).not.toBeNull();
-    // first_seen_at should be very recent (within last few seconds)
     const firstSeenAt = new Date(enriched.snapshot!.first_seen_at);
-    const now = new Date();
-    const diffMs = now.getTime() - firstSeenAt.getTime();
-    expect(diffMs).toBeLessThan(5000); // Less than 5 seconds ago
+    expect(firstSeenAt.getTime()).toBeGreaterThanOrEqual(preReinsert.getTime());
   });
 
   test('late-arriving item gets state on its first cycle when other snapshots exist', async () => {

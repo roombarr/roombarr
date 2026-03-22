@@ -147,7 +147,6 @@ export class StateService {
     const mediaId = compositeKey.split(':')[1];
     const snapshot = db
       .select({
-        mediaId: mediaItems.mediaId,
         firstSeenAt: mediaItems.firstSeenAt,
       })
       .from(mediaItems)
