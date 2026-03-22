@@ -87,7 +87,7 @@ export class StateService {
       const mediaId = this.getMediaId(item);
       const compositeKey = `${item.type}:${mediaId}`;
 
-      const state = this.computeState(
+      const { state, firstSeenAt } = this.computeState(
         item,
         target,
         compositeKey,
@@ -95,7 +95,9 @@ export class StateService {
         changeIndex,
       );
 
-      return { ...item, state };
+      const snapshot = firstSeenAt ? { first_seen_at: firstSeenAt } : null;
+
+      return { ...item, state, snapshot };
     });
   }
 
@@ -137,21 +139,24 @@ export class StateService {
     compositeKey: string,
     entries: Array<[string, StateFieldPattern]>,
     changeIndex: Map<string, Map<string, FieldChangeRow[]>>,
-  ): StateData | null {
+  ): { state: StateData | null; firstSeenAt: string | null } {
     const db = this.getDb();
 
     // Check if this item has been snapshotted before
     const mediaType = item.type === 'movie' ? 'movie' : 'season';
     const mediaId = compositeKey.split(':')[1];
     const snapshot = db
-      .select({ mediaId: mediaItems.mediaId })
+      .select({
+        mediaId: mediaItems.mediaId,
+        firstSeenAt: mediaItems.firstSeenAt,
+      })
       .from(mediaItems)
       .where(
         sql`${mediaItems.mediaType} = ${mediaType} AND ${mediaItems.mediaId} = ${mediaId}`,
       )
       .get();
 
-    if (!snapshot) return null;
+    if (!snapshot) return { state: null, firstSeenAt: null };
 
     const itemChanges = changeIndex.get(compositeKey);
     const result: Record<string, unknown> = {};
@@ -180,10 +185,13 @@ export class StateService {
     }
 
     return {
-      days_off_import_list:
-        (result['state.days_off_import_list'] as number | null) ?? null,
-      ever_on_import_list:
-        (result['state.ever_on_import_list'] as boolean) ?? false,
+      state: {
+        days_off_import_list:
+          (result['state.days_off_import_list'] as number | null) ?? null,
+        ever_on_import_list:
+          (result['state.ever_on_import_list'] as boolean) ?? false,
+      },
+      firstSeenAt: snapshot.firstSeenAt,
     };
   }
 
