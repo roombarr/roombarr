@@ -39,6 +39,7 @@ export class RadarrService {
       jellyfin: null,
       jellyseerr: null,
       state: null,
+      snapshot: null,
     }));
 
     this.logger.log(`Fetched and mapped ${unified.length} movies`);

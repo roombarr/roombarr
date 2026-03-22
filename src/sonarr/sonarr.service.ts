@@ -41,6 +41,7 @@ export class SonarrService {
           jellyfin: null,
           jellyseerr: null,
           state: null,
+          snapshot: null,
         });
       }
     }

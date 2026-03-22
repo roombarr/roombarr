@@ -73,6 +73,7 @@ export function makeMovie(overrides: MovieOverrides = {}): UnifiedMovie {
     jellyfin: null,
     jellyseerr: null,
     state: null,
+    snapshot: null,
     ...topLevel,
     radarr: { ...defaultRadarr, ...radarrOverrides },
   };
@@ -96,6 +97,7 @@ export function makeSeason(overrides: SeasonOverrides = {}): UnifiedSeason {
     jellyfin: null,
     jellyseerr: null,
     state: null,
+    snapshot: null,
     ...topLevel,
     sonarr: {
       ...defaultSonarr,
