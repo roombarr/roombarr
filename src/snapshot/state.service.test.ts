@@ -144,6 +144,31 @@ describe('StateService', () => {
     expect(enrichedSeason.state).toBeNull();
   });
 
+  test('populates snapshot.first_seen_at from media_items', async () => {
+    const movie = makeMovie({ tmdb_id: 42, title: 'My Movie' });
+
+    // Create initial snapshot so item exists in DB
+    await snapshotService.snapshot([movie], new Set(['radarr']));
+
+    // Enrich should populate snapshot
+    const [enriched] = stateService.enrich([movie]);
+
+    expect(enriched.snapshot).not.toBeNull();
+    expect(enriched.snapshot!.first_seen_at).toBeTruthy();
+    // Should be a valid ISO timestamp
+    expect(new Date(enriched.snapshot!.first_seen_at).toISOString()).toBe(
+      enriched.snapshot!.first_seen_at,
+    );
+  });
+
+  test('returns null snapshot for items without a snapshot row', () => {
+    const movie = makeMovie({ tmdb_id: 999, title: 'Unknown Movie' });
+
+    const [enriched] = stateService.enrich([movie]);
+
+    expect(enriched.snapshot).toBeNull();
+  });
+
   test('batch query handles multiple items efficiently', async () => {
     const movie1 = makeMovie({
       tmdb_id: 1,

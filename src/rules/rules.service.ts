@@ -128,7 +128,10 @@ export class RulesService {
    * should never cause a rule to be skipped. State is computed locally
    * from SQLite, not fetched from an external API.
    */
-  private static readonly ALWAYS_PRESENT_SERVICES = new Set(['state']);
+  private static readonly ALWAYS_PRESENT_SERVICES = new Set([
+    'state',
+    'snapshot',
+  ]);
 
   /**
    * Check if a rule references service data that's missing on the item.

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import type { AuditService } from '../audit/audit.service';
 import type { RuleConfig } from '../config/config.schema';
 import type { UnifiedMedia } from '../shared/types';
-import { makeMovie, makeSeason } from '../test/index';
+import { makeMovie, makeRule, makeSeason } from '../test/index';
 import { RulesService } from './rules.service';
 
 const mockAuditService = {
@@ -547,5 +547,29 @@ describe('RulesService.evaluate', () => {
     for (const result of results) {
       expect(result.dry_run).toBe(false);
     }
+  });
+
+  test('does not skip rules that reference snapshot fields', () => {
+    const rule = makeRule({
+      target: 'radarr',
+      conditions: {
+        operator: 'AND',
+        children: [
+          {
+            field: 'snapshot.first_seen_at',
+            operator: 'older_than',
+            value: '7d',
+          },
+        ],
+      },
+    });
+
+    const movie = makeMovie({
+      snapshot: { first_seen_at: '2020-01-01T00:00:00Z' },
+    });
+
+    const { results } = service.evaluate([movie], [rule], 'test-run', true);
+
+    expect(results[0].matched_rules).toContain(rule.name);
   });
 });

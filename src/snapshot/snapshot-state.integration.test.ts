@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { and, eq, sql } from 'drizzle-orm';
-import { fieldChanges } from '../database/schema';
+import { and, count, eq, sql } from 'drizzle-orm';
+import { fieldChanges, mediaItems } from '../database/schema';
 import type { UnifiedMedia, UnifiedMovie } from '../shared/types';
 import { makeMovie, useTestDatabase } from '../test/index';
 import { SnapshotService } from './snapshot.service';
@@ -175,6 +175,37 @@ describe('Snapshot → State integration', () => {
     // B: just went on
     expect(stateB2.ever_on_import_list).toBe(true);
     expect(stateB2.days_off_import_list).toBeNull();
+  });
+
+  test('re-requested media gets fresh first_seen_at after orphan cleanup', async () => {
+    const movie = makeMovie({ tmdb_id: 42, title: 'Re-Requested Movie' });
+
+    // Step 1: Initial snapshot
+    await snapshotService.snapshot([movie], services);
+
+    // Step 2: Item disappears — simulate deletion from Radarr
+    // 8 evaluations with no items (grace period is 7)
+    for (let i = 0; i < 8; i++) {
+      await snapshotService.snapshot([], services);
+    }
+
+    // Verify orphan was cleaned up
+    const [orphanCheck] = db.drizzle
+      .select({ count: count() })
+      .from(mediaItems)
+      .all();
+    expect(orphanCheck.count).toBe(0);
+
+    // Step 3: Item reappears (re-requested)
+    const preReinsert = new Date();
+    await snapshotService.snapshot([movie], services);
+
+    // Step 4: Enrich — should get a fresh first_seen_at
+    const [enriched] = stateService.enrich([movie]);
+
+    expect(enriched.snapshot).not.toBeNull();
+    const firstSeenAt = new Date(enriched.snapshot!.first_seen_at);
+    expect(firstSeenAt.getTime()).toBeGreaterThanOrEqual(preReinsert.getTime());
   });
 
   test('late-arriving item gets state on its first cycle when other snapshots exist', async () => {

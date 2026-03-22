@@ -53,6 +53,10 @@ export interface StateData {
   ever_on_import_list: boolean;
 }
 
+export interface SnapshotData {
+  first_seen_at: string;
+}
+
 export interface UnifiedMovie {
   type: 'movie';
   radarr_id: number;
@@ -64,6 +68,7 @@ export interface UnifiedMovie {
   jellyfin: JellyfinData | null;
   jellyseerr: JellyseerrData | null;
   state: StateData | null;
+  snapshot: SnapshotData | null;
 }
 
 export interface UnifiedSeason {
@@ -76,6 +81,7 @@ export interface UnifiedSeason {
   jellyfin: JellyfinData | null;
   jellyseerr: JellyseerrData | null;
   state: StateData | null;
+  snapshot: SnapshotData | null;
 }
 
 export type UnifiedMedia = UnifiedMovie | UnifiedSeason;

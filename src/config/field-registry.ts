@@ -14,6 +14,7 @@ export type ServiceName =
   | 'sonarr'
   | 'jellyfin'
   | 'jellyseerr'
+  | 'snapshot'
   | 'state';
 
 export interface FieldDefinition {
@@ -217,6 +218,15 @@ export const stateFields: Record<string, FieldDefinition> = {
   },
 };
 
+export const snapshotFields: Record<string, FieldDefinition> = {
+  'snapshot.first_seen_at': {
+    type: 'date',
+    service: 'snapshot',
+    description:
+      'When roombarr first observed this item in its current lifecycle. Resets if media is removed and re-added.',
+  },
+};
+
 const enrichmentFields: Record<string, FieldDefinition> = {
   ...jellyfinFields,
   ...jellyseerrFields,
@@ -226,8 +236,18 @@ export const fieldRegistry: Record<
   'radarr' | 'sonarr',
   Record<string, FieldDefinition>
 > = {
-  radarr: { ...radarrFields, ...enrichmentFields, ...stateFields },
-  sonarr: { ...sonarrFields, ...enrichmentFields, ...stateFields },
+  radarr: {
+    ...radarrFields,
+    ...enrichmentFields,
+    ...stateFields,
+    ...snapshotFields,
+  },
+  sonarr: {
+    ...sonarrFields,
+    ...enrichmentFields,
+    ...stateFields,
+    ...snapshotFields,
+  },
 };
 
 export const operatorDefinitions: Record<string, OperatorDefinition> = {

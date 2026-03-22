@@ -60,6 +60,14 @@ describe('fieldRegistry', () => {
     }
   });
 
+  test('snapshot.first_seen_at field is registered on both targets', () => {
+    const radarrDef = fieldRegistry.radarr['snapshot.first_seen_at'];
+    const sonarrDef = fieldRegistry.sonarr['snapshot.first_seen_at'];
+    expect(radarrDef.type).toBe('date');
+    expect(radarrDef.service).toBe('snapshot');
+    expect(sonarrDef).toEqual(radarrDef);
+  });
+
   test('enrichment fields are identical across both targets', () => {
     const enrichmentKeys = [
       'jellyfin.watched_by',

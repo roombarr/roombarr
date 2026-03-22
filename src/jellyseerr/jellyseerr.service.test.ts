@@ -94,4 +94,70 @@ describe('JellyseerrService', () => {
     expect(result.byTmdbId.has(400)).toBe(true);
     expect(result.byTvdbId.has(400)).toBe(false);
   });
+
+  test('uses the most recent request when multiple exist for same movie', async () => {
+    const oldRequest = makeJellyseerrRequest({
+      id: 1,
+      type: 'movie',
+      createdAt: '2024-01-01T00:00:00Z',
+      media: { id: 1, tmdbId: 603, mediaType: 'movie', status: 5 },
+    });
+    const newRequest = makeJellyseerrRequest({
+      id: 2,
+      type: 'movie',
+      createdAt: '2025-06-01T00:00:00Z',
+      media: { id: 2, tmdbId: 603, mediaType: 'movie', status: 5 },
+    });
+    client.fetchAllRequests = mock(() =>
+      Promise.resolve([oldRequest, newRequest]),
+    );
+
+    const result = await service.fetchRequestData();
+
+    expect(result.byTmdbId.get(603)!.requested_at).toBe('2025-06-01T00:00:00Z');
+  });
+
+  test('uses latest request even when older request appears later in API response', async () => {
+    const newRequest = makeJellyseerrRequest({
+      id: 2,
+      type: 'movie',
+      createdAt: '2025-06-01T00:00:00Z',
+      media: { id: 2, tmdbId: 603, mediaType: 'movie', status: 5 },
+    });
+    const oldRequest = makeJellyseerrRequest({
+      id: 1,
+      type: 'movie',
+      createdAt: '2024-01-01T00:00:00Z',
+      media: { id: 1, tmdbId: 603, mediaType: 'movie', status: 5 },
+    });
+    client.fetchAllRequests = mock(() =>
+      Promise.resolve([newRequest, oldRequest]),
+    );
+
+    const result = await service.fetchRequestData();
+
+    expect(result.byTmdbId.get(603)!.requested_at).toBe('2025-06-01T00:00:00Z');
+  });
+
+  test('uses the most recent request when multiple exist for same TV show', async () => {
+    const newRequest = makeJellyseerrRequest({
+      id: 2,
+      type: 'tv',
+      createdAt: '2025-06-01T00:00:00Z',
+      media: { id: 2, tmdbId: 200, tvdbId: 300, mediaType: 'tv', status: 5 },
+    });
+    const oldRequest = makeJellyseerrRequest({
+      id: 1,
+      type: 'tv',
+      createdAt: '2024-01-01T00:00:00Z',
+      media: { id: 1, tmdbId: 200, tvdbId: 300, mediaType: 'tv', status: 5 },
+    });
+    client.fetchAllRequests = mock(() =>
+      Promise.resolve([newRequest, oldRequest]),
+    );
+
+    const result = await service.fetchRequestData();
+
+    expect(result.byTvdbId.get(300)!.requested_at).toBe('2025-06-01T00:00:00Z');
+  });
 });
