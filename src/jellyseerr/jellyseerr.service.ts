@@ -29,9 +29,15 @@ export class JellyseerrService {
       const mapped = mapRequest(request);
 
       if (request.type === 'movie') {
-        byTmdbId.set(request.media.tmdbId, mapped);
+        const existing = byTmdbId.get(request.media.tmdbId);
+        if (!existing || request.createdAt > existing.requested_at) {
+          byTmdbId.set(request.media.tmdbId, mapped);
+        }
       } else if (request.type === 'tv' && request.media.tvdbId !== undefined) {
-        byTvdbId.set(request.media.tvdbId, mapped);
+        const existing = byTvdbId.get(request.media.tvdbId);
+        if (!existing || request.createdAt > existing.requested_at) {
+          byTvdbId.set(request.media.tvdbId, mapped);
+        }
       }
     }
 
