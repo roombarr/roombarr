@@ -134,6 +134,31 @@ describe('JellyfinClient', () => {
       expect(result).toHaveLength(150);
       expect(callCount).toBe(2);
     });
+
+    test('stops pagination after MAX_PAGINATION_PAGES (1000) and returns partial results', async () => {
+      const { client, http } = await setup();
+
+      // Simulate an API that always reports TotalRecordCount > fetched so far
+      const singlePageItems = Array.from({ length: 100 }, (_, i) =>
+        makeJellyfinItem({ Id: `item-${i}`, Name: `Movie ${i}` }),
+      );
+
+      let callCount = 0;
+      http.get = () => {
+        callCount++;
+        return of(
+          axiosResponse({
+            Items: singlePageItems,
+            TotalRecordCount: 9_999_999, // Always larger — would loop forever without a guard
+          }),
+        ) as any;
+      };
+
+      const result = await client.fetchPlayedMovies('user-1');
+      // Should stop at MAX_PAGINATION_PAGES = 1000
+      expect(callCount).toBe(1000);
+      expect(result).toHaveLength(100_000);
+    });
   });
 
   describe('fetchSeriesItems', () => {

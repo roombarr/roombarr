@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { count, eq, like } from 'drizzle-orm';
 import { fieldChanges, mediaItems } from '../database/schema';
-import { makeJellyfinData, makeMovie, useTestDatabase } from '../test/index';
+import {
+  makeJellyfinData,
+  makeMovie,
+  makeSeason,
+  useTestDatabase,
+} from '../test/index';
 import { SnapshotService } from './snapshot.service';
 
 describe('SnapshotService', () => {
@@ -133,6 +138,55 @@ describe('SnapshotService', () => {
       .from(mediaItems)
       .get();
     expect(row!.missedEvaluations).toBe(1);
+  });
+
+  test('does not increment missed_evaluations when owning service is unavailable', async () => {
+    const movie = makeMovie();
+    await snapshotService.snapshot([movie], new Set(['radarr']));
+
+    // Radarr is down — items array is empty, but radarr is marked unavailable
+    await snapshotService.snapshot(
+      [],
+      new Set(['radarr']),
+      new Set(['radarr']),
+    );
+
+    const row = db.drizzle
+      .select({ missedEvaluations: mediaItems.missedEvaluations })
+      .from(mediaItems)
+      .get();
+    // Counter must not have incremented — item is not actually missing
+    expect(row!.missedEvaluations).toBe(0);
+  });
+
+  test('increments missed_evaluations for sonarr items but not radarr when only radarr is unavailable', async () => {
+    const movie = makeMovie();
+    const season = makeSeason();
+    await snapshotService.snapshot(
+      [movie, season],
+      new Set(['radarr', 'sonarr']),
+    );
+
+    // Radarr is unavailable — only sonarr items should be incremented if absent
+    await snapshotService.snapshot(
+      [],
+      new Set(['radarr', 'sonarr']),
+      new Set(['radarr']),
+    );
+
+    const movieRow = db.drizzle
+      .select({ missedEvaluations: mediaItems.missedEvaluations })
+      .from(mediaItems)
+      .where(eq(mediaItems.mediaType, 'movie'))
+      .get();
+    const seasonRow = db.drizzle
+      .select({ missedEvaluations: mediaItems.missedEvaluations })
+      .from(mediaItems)
+      .where(eq(mediaItems.mediaType, 'season'))
+      .get();
+
+    expect(movieRow!.missedEvaluations).toBe(0); // radarr unavailable — not incremented
+    expect(seasonRow!.missedEvaluations).toBe(1); // sonarr available — incremented
   });
 
   test('resets missed_evaluations when item reappears', async () => {

@@ -130,11 +130,18 @@ export class EvaluationService {
       );
 
       // Step 1: Hydrate unified models from all services
-      const items = await this.mediaService.hydrate(rules);
+      const { items, unavailableServices } =
+        await this.mediaService.hydrate(rules);
+
+      run.services_unavailable = [...unavailableServices];
 
       // Step 2: Snapshot — persist unified models, detect field changes
       const hydratedServices = getHydratedServices(rules);
-      await this.snapshotService.snapshot(items, hydratedServices);
+      await this.snapshotService.snapshot(
+        items,
+        hydratedServices,
+        unavailableServices,
+      );
 
       // Step 3: Enrich — compute temporal state fields from change history
       const enrichedItems = this.stateService.enrich(items);

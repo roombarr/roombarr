@@ -61,11 +61,15 @@ describe('full evaluation pipeline (e2e)', () => {
     const evaluationId = 'e2e-test-run';
 
     // Step 1: Hydrate
-    const items = await mediaService.hydrate(rules);
+    const { items, unavailableServices } = await mediaService.hydrate(rules);
 
     // Step 2: Snapshot
     const hydratedServices = getHydratedServices(rules);
-    await snapshotService.snapshot(items, hydratedServices);
+    await snapshotService.snapshot(
+      items,
+      hydratedServices,
+      unavailableServices,
+    );
 
     // Step 3: Enrich
     const enrichedItems = stateService.enrich(items);

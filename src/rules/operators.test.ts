@@ -117,6 +117,12 @@ describe('operators', () => {
         operators.older_than('2026-01-01T00:00:00Z', 'notaduration'),
       ).toThrow('Invalid duration');
     });
+
+    test('throws on malformed (non-null) date string', () => {
+      expect(() => operators.older_than('not-a-date', '30d')).toThrow(
+        'Invalid date',
+      );
+    });
   });
 
   describe('newer_than', () => {
@@ -148,6 +154,12 @@ describe('operators', () => {
       expect(() =>
         operators.newer_than('2026-06-10T00:00:00Z', 'notaduration'),
       ).toThrow('Invalid duration');
+    });
+
+    test('throws on malformed (non-null) date string', () => {
+      expect(() => operators.newer_than('not-a-date', '30d')).toThrow(
+        'Invalid date',
+      );
     });
   });
 
