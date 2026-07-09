@@ -1,40 +1,3 @@
-## Available Scripts
-
-This project uses **Bun** as the runtime and package manager.
-
-Developers and AI agents should use **`bun`** and **`bunx`** when running scripts or executing packages. Other tools such as **npm**, **pnpm**, **npx**, and **pnpx** should not be used directly.
-
-AI agents should use the following scripts during development. All scripts are run with `bun run`.
-
-- **`dev`**
-  Starts the application in development mode with file watching.
-
-- **`build`**
-  Compiles the TypeScript project into the `dist` directory.
-
-- **`typecheck`**
-  Runs TypeScript type checking without emitting files.
-
-- **`lint`**
-  Runs Biome to check the codebase for linting issues.
-
-- **`lint:fix`**
-  Runs Biome and automatically fixes issues where possible.
-
-- **`format`**
-  Formats the codebase using Biome.
-
-- **`test`**
-  Runs the test suite.
-
-- **`test:watch`**
-  Runs tests in watch mode.
-
-- **`test:coverage`**
-  Runs tests with coverage reporting enabled.
-
----
-
 ## General Notes
 
 - **Always verify changes before finishing a task.**
@@ -150,3 +113,17 @@ AI agents should use the following scripts during development. All scripts are r
   Raw SQL should only be used when it is **strictly necessary**, such as when the ORM cannot express a required query or when a proven performance issue requires it.
 
   When raw SQL is unavoidable, keep the query isolated, well-documented, and typed where possible.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues in `roombarr/roombarr` via the `gh` CLI. External PRs are not a triage surface. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary — role names equal label strings (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context — one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
