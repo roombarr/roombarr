@@ -4,6 +4,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "commit": "cz",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
     "dev": "bun --watch src/main.ts",
     "docs:build": "bun run --cwd docs build",
     "docs:dev": "bun run --cwd docs dev",
