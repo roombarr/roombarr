@@ -83,6 +83,20 @@ audit:
   retention_days: 90 # 1–3650, default: 90
 ```
 
+## Safety
+
+**Optional.** Bounds on a single evaluation. Both have defaults; you only need this block to change them.
+
+```yaml
+safety:
+  evaluation_timeout: 1h # default: 1h, max: ~24.8 days
+  max_deletes_per_run: 50 # default: 50, null to disable
+```
+
+`evaluation_timeout` is the wall-clock budget for one run. A run still going when it elapses is abandoned and the scheduler is released, so a single hung request can't stop Roombarr from ever running again. The abandoned run stops at its next step boundary and does not execute further actions.
+
+`max_deletes_per_run` refuses a run that resolves more deletes than the limit — nothing is executed and an error is logged. A rule change or an upstream data shift can unprotect a large share of a library at once; refusing the run is recoverable, deleting it is not. Size it above your normal run and revisit it after a rule change: check a `dry_run` first, raise the limit deliberately for a one-off catch-up, then put it back.
+
 ## Rules
 
 Rules are the core of Roombarr. Each rule targets either `radarr` or `sonarr`, defines conditions using a composable AND/OR tree, and specifies an action.
@@ -183,7 +197,7 @@ conditions:
 A rule is skipped for an item when the enrichment data it needs is missing — Roombarr won't act on incomplete information.
 
 - **Missing item data** — If Jellyfin has no data for a specific movie, rules referencing `jellyfin.*` fields are skipped for that movie only.
-- **Unreachable service** — If Jellyfin is down, all items have null Jellyfin data and every rule referencing Jellyfin fields is skipped for that run.
+- **Unreachable service** — If a service a rule depends on cannot be reached, the whole run fails and nothing is executed. A skipped `keep` rule is an unprotected item, so Roombarr will not act on a library it could not fully see.
 
 :::note
 State fields (`state.*`) are exempt from skipping. A null state value means "no history yet" — it's meaningful data, not missing data.

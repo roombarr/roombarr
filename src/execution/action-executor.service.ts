@@ -27,11 +27,16 @@ export class ActionExecutorService {
    * Execute resolved actions against Radarr/Sonarr.
    * In dry-run mode, every result is marked as 'skipped' with no API calls.
    * In live mode, each actionable item is executed sequentially.
+   *
+   * @param isAbandoned polled before each action. Executing a queue of deletes
+   * can outlive the evaluation's deadline, and once that passes the scheduler
+   * is free to start another run — so the caller gets a say in stopping.
    */
   async execute(
     results: EvaluationItemResult[],
     items: UnifiedMedia[],
     dryRun: boolean,
+    isAbandoned?: () => boolean,
   ): Promise<{
     results: EvaluationItemResult[];
     executionSummary?: ExecutionSummary;
@@ -78,7 +83,30 @@ export class ActionExecutorService {
     const counts: Record<Action, number> = { keep: 0, unmonitor: 0, delete: 0 };
     let failedCount = 0;
 
-    for (const result of results) {
+    for (const [index, result] of results.entries()) {
+      // The deadline can elapse mid-queue. Everything still pending belongs to
+      // a run that has already been written off, so stop here rather than
+      // deleting against a library another evaluation may now be acting on.
+      if (isAbandoned?.()) {
+        this.logger.error(
+          `Execution stopped after ${index} of ${results.length} results: the evaluation exceeded its deadline mid-run. ` +
+            `${counts.delete} deletes, ${counts.unmonitor} unmonitors already executed; the rest were skipped.`,
+        );
+
+        for (const pending of results.slice(index)) {
+          executed.push({ ...pending, execution_status: 'skipped' });
+        }
+
+        return {
+          results: executed,
+          executionSummary: {
+            actions_executed: counts,
+            actions_failed: failedCount,
+            aborted_reason: 'evaluation_abandoned',
+          },
+        };
+      }
+
       if (!result.resolved_action || result.resolved_action === 'keep') {
         executed.push({ ...result, execution_status: 'skipped' });
         continue;

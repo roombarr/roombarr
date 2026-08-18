@@ -136,21 +136,23 @@ export class JellyfinClient {
       // TotalRecordCount, which is what a misreporting server gets wrong.
       if (data.Items.length < pageSize) return allItems;
 
+      // A full page with no total means more items may exist and there is no
+      // way to know. Returning what we have would look like a complete library
+      // to every caller, and an item missing from watch data is an item nothing
+      // is protecting — so refuse rather than under-report.
       const total = data.TotalRecordCount;
       if (!Number.isFinite(total)) {
-        this.logger.warn(
-          `Jellyfin omitted TotalRecordCount for /Users/${userId}/Items — stopping after ${allItems.length} items`,
+        throw new Error(
+          `Jellyfin omitted TotalRecordCount for /Users/${userId}/Items after a full page — cannot determine whether ${allItems.length} items is the complete set`,
         );
-        return allItems;
       }
 
       if (allItems.length >= total) return allItems;
       startIndex += pageSize;
     }
 
-    this.logger.error(
-      `Jellyfin pagination for /Users/${userId}/Items exceeded ${MAX_PAGES} pages — returning ${allItems.length} items collected so far`,
+    throw new Error(
+      `Jellyfin pagination for /Users/${userId}/Items exceeded ${MAX_PAGES} pages — refusing to return ${allItems.length} items as a complete set`,
     );
-    return allItems;
   }
 }

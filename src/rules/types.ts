@@ -3,6 +3,7 @@ import type {
   ConditionGroup,
   RuleConfig,
 } from '../config/config.schema';
+import type { AbortReason } from '../execution/execution.types';
 export type { Action, ConditionGroup, RuleConfig };
 
 export type ExecutionStatus = 'success' | 'failed' | 'skipped' | 'not_found';
@@ -35,6 +36,11 @@ export interface EvaluationSummary {
   /** Present only when dry_run is false. */
   actions_executed?: Record<Action, number>;
   actions_failed?: number;
+  /**
+   * Present only when a safety limit stopped execution short. Its absence on a
+   * completed run means every resolved action was attempted.
+   */
+  aborted_reason?: AbortReason;
 }
 
 export interface RuleMatch {

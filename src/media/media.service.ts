@@ -31,6 +31,11 @@ export class MediaService {
    * Hydrate unified media models based on the given rules.
    * Only fetches from services that are actually referenced
    * in rule conditions (lazy fetching).
+   *
+   * @throws if an enrichment service that some rule depends on cannot be
+   * reached. Absent enrichment data is indistinguishable from "this item has
+   * no watch history", which silently drops the `keep` rules guarding the
+   * library, so a failed fetch must fail the run rather than degrade it.
    */
   async hydrate(rules: RuleConfig[]): Promise<UnifiedMedia[]> {
     const neededServices = this.analyzeNeededServices(rules);
@@ -51,13 +56,13 @@ export class MediaService {
     const [jellyfinMovieData, jellyfinSeasonData, jellyseerrData] =
       await Promise.all([
         neededServices.has('jellyfin') && movies.length > 0
-          ? this.fetchJellyfinMoviesSafe()
+          ? this.fetchJellyfinMovieData()
           : Promise.resolve(null),
         neededServices.has('jellyfin') && seasons.length > 0
-          ? this.fetchJellyfinSeasonsSafe(seasons)
+          ? this.fetchJellyfinSeasonData(seasons)
           : Promise.resolve(null),
         neededServices.has('jellyseerr')
-          ? this.fetchJellyseerrSafe()
+          ? this.fetchJellyseerrData()
           : Promise.resolve(null),
       ]);
 
@@ -135,7 +140,7 @@ export class MediaService {
     }
   }
 
-  private async fetchJellyfinMoviesSafe(): Promise<Map<
+  private async fetchJellyfinMovieData(): Promise<Map<
     number,
     JellyfinData
   > | null> {
@@ -145,15 +150,10 @@ export class MediaService {
       );
       return null;
     }
-    try {
-      return await this.jellyfinService.fetchMovieWatchData();
-    } catch (error) {
-      this.logger.warn(`Jellyfin movie fetch failed, skipping: ${error}`);
-      return null;
-    }
+    return this.jellyfinService.fetchMovieWatchData();
   }
 
-  private async fetchJellyfinSeasonsSafe(
+  private async fetchJellyfinSeasonData(
     seasons: Array<{
       tvdb_id: number;
       sonarr: { season: { season_number: number } };
@@ -165,30 +165,20 @@ export class MediaService {
       );
       return null;
     }
-    try {
-      const identifiers: SeasonIdentifier[] = seasons.map(s => ({
-        tvdbId: s.tvdb_id,
-        seasonNumber: s.sonarr.season.season_number,
-      }));
-      return await this.jellyfinService.fetchSeasonWatchData(identifiers);
-    } catch (error) {
-      this.logger.warn(`Jellyfin season fetch failed, skipping: ${error}`);
-      return null;
-    }
+    const identifiers: SeasonIdentifier[] = seasons.map(s => ({
+      tvdbId: s.tvdb_id,
+      seasonNumber: s.sonarr.season.season_number,
+    }));
+    return this.jellyfinService.fetchSeasonWatchData(identifiers);
   }
 
-  private async fetchJellyseerrSafe(): Promise<JellyseerrIndexes | null> {
+  private async fetchJellyseerrData(): Promise<JellyseerrIndexes | null> {
     if (!this.jellyseerrService) {
       this.logger.warn(
         'Jellyseerr service not available, skipping request data',
       );
       return null;
     }
-    try {
-      return await this.jellyseerrService.fetchRequestData();
-    } catch (error) {
-      this.logger.warn(`Jellyseerr fetch failed, skipping: ${error}`);
-      return null;
-    }
+    return this.jellyseerrService.fetchRequestData();
   }
 }

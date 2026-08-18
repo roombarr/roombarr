@@ -397,6 +397,74 @@ describe('ActionExecutorService', () => {
       expect(executionSummary?.actions_failed).toBe(0);
     });
   });
+  describe('abandonment mid-queue', () => {
+    function makeDeletes(count: number) {
+      const movies = Array.from({ length: count }, (_, i) =>
+        makeMovie({ radarr_id: 600 + i, tmdb_id: 7000 + i }),
+      );
+      return { movies, results: movies.map(m => makeResult(m, 'delete')) };
+    }
+
+    test('stops executing once the run is abandoned', async () => {
+      const { movies, results } = makeDeletes(5);
+
+      // Abandoned after the second delete lands.
+      let abandoned = false;
+      (radarrClient.deleteMovie as ReturnType<typeof mock>).mockImplementation(
+        () => {
+          if ((radarrClient.deleteMovie as any).mock.calls.length >= 2) {
+            abandoned = true;
+          }
+          return Promise.resolve();
+        },
+      );
+
+      const { results: out, executionSummary } = await service.execute(
+        results,
+        movies,
+        false,
+        () => abandoned,
+      );
+
+      expect(radarrClient.deleteMovie).toHaveBeenCalledTimes(2);
+      expect(executionSummary?.aborted_reason).toBe('evaluation_abandoned');
+      expect(executionSummary?.actions_executed.delete).toBe(2);
+
+      // Every result is still accounted for, so nothing looks silently dropped.
+      expect(out).toHaveLength(5);
+      expect(out.filter(r => r.execution_status === 'skipped')).toHaveLength(3);
+    });
+
+    test('executes nothing when abandoned before the first action', async () => {
+      const { movies, results } = makeDeletes(3);
+
+      const { results: out, executionSummary } = await service.execute(
+        results,
+        movies,
+        false,
+        () => true,
+      );
+
+      expect(radarrClient.deleteMovie).not.toHaveBeenCalled();
+      expect(out.every(r => r.execution_status === 'skipped')).toBe(true);
+      expect(executionSummary?.aborted_reason).toBe('evaluation_abandoned');
+    });
+
+    test('runs to completion when never abandoned', async () => {
+      const { movies, results } = makeDeletes(3);
+
+      const { executionSummary } = await service.execute(
+        results,
+        movies,
+        false,
+        () => false,
+      );
+
+      expect(radarrClient.deleteMovie).toHaveBeenCalledTimes(3);
+      expect(executionSummary?.aborted_reason).toBeUndefined();
+    });
+  });
+
   describe('safety.max_deletes_per_run', () => {
     /** N distinct movies each resolved to `delete`. */
     function makeDeletes(count: number) {

@@ -337,6 +337,70 @@ describe('configSchema', () => {
     );
     expect(result.success).toBe(false);
   });
+
+  test('applies default for safety.evaluation_timeout', () => {
+    const result = configSchema.safeParse(validConfig());
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.safety.evaluation_timeout).toBe('1h');
+    }
+  });
+
+  test('accepts common safety.evaluation_timeout values', () => {
+    for (const evaluation_timeout of ['1h', '30m']) {
+      const result = configSchema.safeParse(
+        validConfig({
+          safety: { evaluation_timeout, max_deletes_per_run: 50 },
+        }),
+      );
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.safety.evaluation_timeout).toBe(evaluation_timeout);
+      }
+    }
+  });
+
+  test('rejects invalid safety.evaluation_timeout duration', () => {
+    const result = configSchema.safeParse(
+      validConfig({
+        safety: { evaluation_timeout: 'banana', max_deletes_per_run: 50 },
+      }),
+    );
+    expect(result.success).toBe(false);
+  });
+
+  test('rejects safety.evaluation_timeout above the 32-bit timer limit', () => {
+    const result = configSchema.safeParse(
+      validConfig({
+        safety: { evaluation_timeout: '30d', max_deletes_per_run: 50 },
+      }),
+    );
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toContain('24.8 days');
+    }
+  });
+
+  test('accepts safety.evaluation_timeout exactly at the 32-bit timer limit', () => {
+    const result = configSchema.safeParse(
+      validConfig({
+        safety: {
+          evaluation_timeout: '2147483647ms',
+          max_deletes_per_run: 50,
+        },
+      }),
+    );
+    expect(result.success).toBe(true);
+  });
+
+  test('accepts safety.evaluation_timeout just under the 32-bit timer limit', () => {
+    const result = configSchema.safeParse(
+      validConfig({
+        safety: { evaluation_timeout: '24d', max_deletes_per_run: 50 },
+      }),
+    );
+    expect(result.success).toBe(true);
+  });
 });
 
 describe('validateConfig (cross-validation)', () => {

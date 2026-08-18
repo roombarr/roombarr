@@ -197,12 +197,17 @@ export class EvaluationService {
    * which is the closest a non-cancellable pipeline can get to stopping.
    */
   private isAbandoned(run: EvaluationRun): boolean {
-    if (run.status === 'running') return false;
+    if (!this.hasBeenAbandoned(run)) return false;
 
     this.logger.warn(
       `Evaluation ${run.run_id} continued after being abandoned — discarding its results`,
     );
     return true;
+  }
+
+  /** Silent form of {@link isAbandoned}, for polling inside a loop. */
+  private hasBeenAbandoned(run: EvaluationRun): boolean {
+    return run.status !== 'running';
   }
 
   private async runPipeline(run: EvaluationRun): Promise<void> {
@@ -236,11 +241,17 @@ export class EvaluationService {
 
     // Step 5: Execute actions (no-op in dry-run mode)
     const { results: executedResults, executionSummary } =
-      await this.actionExecutor.execute(results, enrichedItems, run.dry_run);
+      await this.actionExecutor.execute(
+        results,
+        enrichedItems,
+        run.dry_run,
+        () => this.hasBeenAbandoned(run),
+      );
 
     if (executionSummary) {
       summary.actions_executed = executionSummary.actions_executed;
       summary.actions_failed = executionSummary.actions_failed;
+      summary.aborted_reason = executionSummary.aborted_reason;
     }
 
     if (this.isAbandoned(run)) return;
@@ -261,6 +272,7 @@ export class EvaluationService {
       rules_skipped_missing_data: summary.rules_skipped_missing_data,
       actions_executed: summary.actions_executed ?? null,
       actions_failed: summary.actions_failed ?? null,
+      aborted_reason: summary.aborted_reason ?? null,
     });
   }
 

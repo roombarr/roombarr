@@ -132,6 +132,14 @@ const SAFETY_DEFAULTS = {
   max_deletes_per_run: 50,
 } as const;
 
+/**
+ * Largest delay `setTimeout` can represent. Node and Bun store the delay as a
+ * signed 32-bit integer, so anything larger silently wraps to `1`ms and fires
+ * immediately. Timeouts beyond this are rejected at config time rather than
+ * quietly aborting every evaluation the instant it starts.
+ */
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
+
 const safetySchema = z
   .object({
     /**
@@ -145,11 +153,21 @@ const safetySchema = z
       .default(SAFETY_DEFAULTS.evaluation_timeout)
       .check(ctx => {
         const ms = parse(ctx.value);
+
         if (ms === null || ms <= 0) {
           ctx.issues.push({
             code: 'custom',
             input: ctx.value,
             message: `Invalid duration "${ctx.value}" for safety.evaluation_timeout. Examples: 30m, 1h, 2h.`,
+          });
+          return;
+        }
+
+        if (!Number.isFinite(ms) || ms > MAX_TIMER_DELAY_MS) {
+          ctx.issues.push({
+            code: 'custom',
+            input: ctx.value,
+            message: `Duration "${ctx.value}" for safety.evaluation_timeout is too large. The maximum supported timeout is ${MAX_TIMER_DELAY_MS}ms (~24.8 days); larger values overflow the underlying timer and would abort every evaluation immediately. Use a shorter duration, e.g. 1h or 24d.`,
           });
         }
       }),

@@ -47,6 +47,7 @@ performance:
 #   # Wall-clock budget for one evaluation. If a run is still going when this
 #   # elapses it is abandoned and the scheduler is released, so a single hung
 #   # request cannot stop Roombarr from running again. Default: 1h.
+#   # Maximum ~24.8 days — the underlying timer cannot represent more.
 #   evaluation_timeout: 1h
 #
 #   # Refuse to execute a run that resolves more than this many deletes.

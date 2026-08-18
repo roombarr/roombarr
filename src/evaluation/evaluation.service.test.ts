@@ -89,6 +89,7 @@ describe('EvaluationService', () => {
         [testEvaluationResult],
         [testMovie],
         testConfig.dry_run,
+        expect.any(Function),
       );
     });
 
@@ -269,22 +270,37 @@ describe('EvaluationService', () => {
       expect(mediaService.hydrate).toHaveBeenCalledTimes(1);
     });
 
+    /**
+     * A pipeline step the test holds open. Nothing but `release` can settle it,
+     * so "the deadline fires first" is a fixed ordering rather than a race
+     * between two wall-clock timers on a loaded machine.
+     */
+    function heldStep<T>(): {
+      promise: Promise<T>;
+      release: (value: T) => void;
+    } {
+      let resolveStep: (value: T) => void = () => {};
+      const promise = new Promise<T>(resolve => {
+        resolveStep = resolve;
+      });
+      return { promise, release: value => resolveStep(value) };
+    }
+
     test('does not execute actions for a run that already timed out', async () => {
       configService.getConfig = mock(() =>
         makeConfig({
           safety: { evaluation_timeout: '30ms', max_deletes_per_run: 50 },
         }),
       );
-      // Settles well after the deadline has passed.
-      mediaService.hydrate = mock(
-        () =>
-          new Promise(resolve => setTimeout(() => resolve([testMovie]), 120)),
-      );
+      const hydrate = heldStep<any>();
+      mediaService.hydrate = mock(() => hydrate.promise);
 
       const run = await service.runEvaluation();
       expect(run.status).toBe('failed');
 
-      await new Promise(resolve => setTimeout(resolve, 200));
+      hydrate.release([testMovie]);
+      await tick();
+
       expect(actionExecutor.execute).not.toHaveBeenCalled();
     });
 
@@ -294,14 +310,14 @@ describe('EvaluationService', () => {
           safety: { evaluation_timeout: '30ms', max_deletes_per_run: 50 },
         }),
       );
-      mediaService.hydrate = mock(
-        () =>
-          new Promise(resolve => setTimeout(() => resolve([testMovie]), 120)),
-      );
+      const hydrate = heldStep<any>();
+      mediaService.hydrate = mock(() => hydrate.promise);
 
       await service.runEvaluation();
 
-      await new Promise(resolve => setTimeout(resolve, 200));
+      hydrate.release([testMovie]);
+      await tick();
+
       expect(snapshotService.snapshot).not.toHaveBeenCalled();
     });
 
@@ -311,17 +327,63 @@ describe('EvaluationService', () => {
           safety: { evaluation_timeout: '30ms', max_deletes_per_run: 50 },
         }),
       );
-      actionExecutor.execute = mock(
-        (results: any) =>
-          new Promise(resolve => setTimeout(() => resolve({ results }), 120)),
+      const execute = heldStep<any>();
+      actionExecutor.execute = mock((results: any) =>
+        execute.promise.then(() => ({ results })),
       );
 
       const run = await service.runEvaluation();
       expect(run.status).toBe('failed');
 
-      await new Promise(resolve => setTimeout(resolve, 200));
+      execute.release(null);
+      await tick();
+
       expect(run.status).toBe('failed');
       expect(run.results).toEqual([]);
+    });
+
+    test('tells the executor to stop once the run is abandoned', async () => {
+      configService.getConfig = mock(() =>
+        makeConfig({
+          safety: { evaluation_timeout: '30ms', max_deletes_per_run: 50 },
+        }),
+      );
+
+      let isAbandoned: (() => boolean) | undefined;
+      const execute = heldStep<any>();
+      actionExecutor.execute = mock(
+        (results: any, _items: any, _dryRun: any, abandoned: () => boolean) => {
+          isAbandoned = abandoned;
+          return execute.promise.then(() => ({ results }));
+        },
+      );
+
+      const run = await service.runEvaluation();
+      expect(run.status).toBe('failed');
+
+      // The executor is still mid-queue here; its next poll must say stop.
+      expect(isAbandoned?.()).toBe(true);
+
+      execute.release(null);
+      await tick();
+    });
+
+    test('carries an execution abort reason into the run summary', async () => {
+      actionExecutor.execute = mock((results: any) =>
+        Promise.resolve({
+          results,
+          executionSummary: {
+            actions_executed: { keep: 0, unmonitor: 0, delete: 0 },
+            actions_failed: 0,
+            aborted_reason: 'max_deletes_per_run_exceeded' as const,
+          },
+        }),
+      );
+
+      const run = await service.runEvaluation();
+
+      expect(run.status).toBe('completed');
+      expect(run.summary?.aborted_reason).toBe('max_deletes_per_run_exceeded');
     });
 
     test('completes normally when within the deadline', async () => {

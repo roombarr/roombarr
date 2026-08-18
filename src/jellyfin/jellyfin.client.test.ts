@@ -315,26 +315,61 @@ describe('JellyfinClient', () => {
       expect(calls).toBe(1);
     });
 
-    test('stops when TotalRecordCount is missing', async () => {
+    test('throws when TotalRecordCount is missing after a full page', async () => {
       const { client, http } = await setup();
-      let calls = 0;
 
-      // A full page, so termination can only come from the missing count.
-      http.get = () => {
-        calls++;
-        return of(
+      // A full page means more items may exist; without a total there is no
+      // way to know, and a short library silently unprotects everything.
+      http.get = () =>
+        of(
           axiosResponse({
             Items: Array.from({ length: 100 }, (_, i) =>
               makeJellyfinItem({ Id: `item-${i}` }),
             ),
           }),
         ) as any;
+
+      await expect(client.fetchSeriesItems('user-1')).rejects.toThrow(
+        /omitted TotalRecordCount/,
+      );
+    });
+
+    test('accepts a short page with no TotalRecordCount', async () => {
+      const { client, http } = await setup();
+      let calls = 0;
+
+      // Short page — the result set is provably exhausted, so the missing
+      // total is not load-bearing.
+      http.get = () => {
+        calls++;
+        return of(
+          axiosResponse({ Items: [makeJellyfinItem({ Id: 'item-1' })] }),
+        ) as any;
       };
 
       const result = await client.fetchSeriesItems('user-1');
 
-      expect(result).toHaveLength(100);
+      expect(result).toHaveLength(1);
       expect(calls).toBe(1);
+    });
+
+    test('throws rather than returning a truncated set at the page ceiling', async () => {
+      const { client, http } = await setup();
+
+      // A server whose TotalRecordCount never becomes reachable.
+      http.get = () =>
+        of(
+          axiosResponse({
+            Items: Array.from({ length: 100 }, (_, i) =>
+              makeJellyfinItem({ Id: `item-${i}` }),
+            ),
+            TotalRecordCount: Number.MAX_SAFE_INTEGER,
+          }),
+        ) as any;
+
+      await expect(client.fetchPlayedMovies('user-1')).rejects.toThrow(
+        /exceeded 1000 pages/,
+      );
     });
 
     test('throws when a page is missing its Items array', async () => {

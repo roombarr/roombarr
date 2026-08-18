@@ -170,9 +170,12 @@ describe('MediaService', () => {
     expect(movies).toHaveLength(0);
   });
 
-  test('handles Jellyfin failure gracefully while still returning base data', async () => {
+  test('propagates a Jellyfin movie fetch failure instead of degrading', async () => {
+    // Swallowing this would leave every movie with jellyfin: null, which is
+    // indistinguishable from "nobody watched it" — silently dropping the keep
+    // rules that protect the library.
     jellyfinService.fetchMovieWatchData = mock(() =>
-      Promise.reject(new Error('Jellyfin offline')),
+      Promise.reject(new Error('Jellyfin unreachable')),
     );
 
     const rules: RuleConfig[] = [
@@ -190,11 +193,34 @@ describe('MediaService', () => {
       }),
     ];
 
-    const result = await service.hydrate(rules);
+    await expect(service.hydrate(rules)).rejects.toThrow(
+      'Jellyfin unreachable',
+    );
+  });
 
-    // Movies should still be present, just without Jellyfin enrichment
-    expect(result).toHaveLength(1);
-    expect(result[0].jellyfin).toBeNull();
+  test('propagates a Jellyseerr fetch failure instead of degrading', async () => {
+    jellyseerrService.fetchRequestData = mock(() =>
+      Promise.reject(new Error('Jellyseerr unreachable')),
+    );
+
+    const rules: RuleConfig[] = [
+      makeRule({
+        conditions: {
+          operator: 'AND',
+          children: [
+            {
+              field: 'jellyseerr.request_status',
+              operator: 'equals',
+              value: 'approved',
+            },
+          ],
+        },
+      }),
+    ];
+
+    await expect(service.hydrate(rules)).rejects.toThrow(
+      'Jellyseerr unreachable',
+    );
   });
 
   test('fetches both movies and seasons when both targets present', async () => {
