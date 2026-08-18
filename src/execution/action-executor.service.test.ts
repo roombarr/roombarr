@@ -5,6 +5,7 @@ import type { EvaluationItemResult } from '../rules/types';
 import { buildInternalId, type UnifiedMedia } from '../shared/types';
 import type { SonarrClient } from '../sonarr/sonarr.client';
 import {
+  makeConfig,
   makeMovie,
   makeRadarrMovie,
   makeSeason,
@@ -105,6 +106,7 @@ describe('ActionExecutorService', () => {
     service = new ActionExecutorService(
       radarrClient as unknown as RadarrClient,
       sonarrClient as unknown as SonarrClient,
+      { getConfig: () => makeConfig() } as any,
     );
   });
 
@@ -393,6 +395,87 @@ describe('ActionExecutorService', () => {
       expect(executionSummary?.actions_executed.delete).toBe(2);
       expect(executionSummary?.actions_executed.unmonitor).toBe(1);
       expect(executionSummary?.actions_failed).toBe(0);
+    });
+  });
+  describe('safety.max_deletes_per_run', () => {
+    /** N distinct movies each resolved to `delete`. */
+    function makeDeletes(count: number) {
+      const movies = Array.from({ length: count }, (_, i) =>
+        makeMovie({ radarr_id: 500 + i, tmdb_id: 9000 + i }),
+      );
+      return { movies, results: movies.map(m => makeResult(m, 'delete')) };
+    }
+
+    function serviceWithLimit(max_deletes_per_run: number | null) {
+      return new ActionExecutorService(
+        radarrClient as unknown as RadarrClient,
+        sonarrClient as unknown as SonarrClient,
+        {
+          getConfig: () =>
+            makeConfig({
+              safety: { evaluation_timeout: '1h', max_deletes_per_run },
+            }),
+        } as any,
+      );
+    }
+
+    test('executes nothing when resolved deletes exceed the limit', async () => {
+      const { movies, results } = makeDeletes(4);
+      const limited = serviceWithLimit(3);
+
+      const { results: out, executionSummary } = await limited.execute(
+        results,
+        movies,
+        false,
+      );
+
+      expect(radarrClient.deleteMovie).not.toHaveBeenCalled();
+      expect(out.every(r => r.execution_status === 'skipped')).toBe(true);
+      expect(executionSummary?.aborted_reason).toBe(
+        'max_deletes_per_run_exceeded',
+      );
+      expect(executionSummary?.actions_executed.delete).toBe(0);
+    });
+
+    test('executes normally when deletes are at the limit', async () => {
+      const { movies, results } = makeDeletes(3);
+      const limited = serviceWithLimit(3);
+
+      const { executionSummary } = await limited.execute(
+        results,
+        movies,
+        false,
+      );
+
+      expect(radarrClient.deleteMovie).toHaveBeenCalledTimes(3);
+      expect(executionSummary?.aborted_reason).toBeUndefined();
+      expect(executionSummary?.actions_executed.delete).toBe(3);
+    });
+
+    test('null disables the limit', async () => {
+      const { movies, results } = makeDeletes(25);
+      const limited = serviceWithLimit(null);
+
+      await limited.execute(results, movies, false);
+
+      expect(radarrClient.deleteMovie).toHaveBeenCalledTimes(25);
+    });
+
+    test('keep actions do not count toward the delete limit', async () => {
+      const keeps = Array.from({ length: 30 }, (_, i) =>
+        makeMovie({ radarr_id: 700 + i, tmdb_id: 8000 + i }),
+      );
+      const { movies, results } = makeDeletes(2);
+      const limited = serviceWithLimit(3);
+
+      const { executionSummary } = await limited.execute(
+        [...keeps.map(m => makeResult(m, 'keep')), ...results],
+        [...keeps, ...movies],
+        false,
+      );
+
+      expect(executionSummary?.aborted_reason).toBeUndefined();
+      expect(radarrClient.deleteMovie).toHaveBeenCalledTimes(2);
     });
   });
 });

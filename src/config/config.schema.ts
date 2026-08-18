@@ -71,6 +71,10 @@ export interface RoombarrConfig {
   audit: {
     retention_days: number;
   };
+  safety: {
+    evaluation_timeout: string;
+    max_deletes_per_run: number | null;
+  };
   rules: RuleConfig[];
 }
 
@@ -123,6 +127,47 @@ const auditSchema = z
   })
   .default(AUDIT_DEFAULTS);
 
+const SAFETY_DEFAULTS = {
+  evaluation_timeout: '1h',
+  max_deletes_per_run: 50,
+} as const;
+
+const safetySchema = z
+  .object({
+    /**
+     * Wall-clock budget for a single evaluation. If an evaluation is still
+     * running when this elapses it is abandoned and the scheduler is released,
+     * so one wedged request cannot disable Roombarr indefinitely.
+     */
+    evaluation_timeout: z
+      .string()
+      .min(1)
+      .default(SAFETY_DEFAULTS.evaluation_timeout)
+      .check(ctx => {
+        const ms = parse(ctx.value);
+        if (ms === null || ms <= 0) {
+          ctx.issues.push({
+            code: 'custom',
+            input: ctx.value,
+            message: `Invalid duration "${ctx.value}" for safety.evaluation_timeout. Examples: 30m, 1h, 2h.`,
+          });
+        }
+      }),
+    /**
+     * Upper bound on delete actions a single evaluation may execute. When a
+     * run resolves more deletes than this, nothing is executed — a rule or
+     * upstream data change that unprotects the library en masse should stop
+     * for review rather than empty the disk. `null` disables the check.
+     */
+    max_deletes_per_run: z
+      .number()
+      .int()
+      .min(0)
+      .nullable()
+      .default(SAFETY_DEFAULTS.max_deletes_per_run),
+  })
+  .default(SAFETY_DEFAULTS);
+
 const servicesSchema = z.object({
   sonarr: serviceConfigSchema.optional(),
   radarr: serviceConfigSchema.optional(),
@@ -147,6 +192,7 @@ export const configSchema = z.object({
     }),
   performance: performanceSchema,
   audit: auditSchema,
+  safety: safetySchema,
   rules: z.array(ruleSchema).min(1),
 });
 

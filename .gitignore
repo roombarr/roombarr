@@ -17,3 +17,5 @@ todos/
 pnpm-lock.yaml
 
 docs/.astro/
+
+temp/

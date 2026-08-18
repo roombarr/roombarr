@@ -12,6 +12,7 @@ import { StateService } from '../snapshot/state.service';
 import {
   createMockRadarrClient,
   createMockSonarrClient,
+  makeConfig,
   makeRadarrMovie,
   makeRule,
   useTestDatabase,
@@ -43,6 +44,7 @@ describe('full evaluation pipeline (e2e)', () => {
     actionExecutor = new ActionExecutorService(
       mockRadarrClient,
       createMockSonarrClient(),
+      { getConfig: () => makeConfig() } as any,
     );
   });
 

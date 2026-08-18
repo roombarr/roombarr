@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AxiosError } from 'axios';
 import type { Action } from '../config/config.schema';
+import { ConfigService } from '../config/config.service';
 import { RadarrClient } from '../radarr/radarr.client';
 import type { EvaluationItemResult } from '../rules/types';
 import {
@@ -19,6 +20,7 @@ export class ActionExecutorService {
   constructor(
     private readonly radarrClient: RadarrClient,
     private readonly sonarrClient: SonarrClient,
+    private readonly configService: ConfigService,
   ) {}
 
   /**
@@ -41,6 +43,32 @@ export class ActionExecutorService {
           execution_status: 'skipped' as const,
         })),
       };
+
+    const { max_deletes_per_run } = this.configService.getConfig().safety;
+    const deleteCount = results.filter(
+      r => r.resolved_action === 'delete',
+    ).length;
+
+    // A rule change or upstream data shift can unprotect a large share of the
+    // library at once. Refusing the whole run is recoverable; deleting it is not.
+    if (max_deletes_per_run !== null && deleteCount > max_deletes_per_run) {
+      this.logger.error(
+        `Aborting execution: ${deleteCount} deletes resolved, exceeding safety.max_deletes_per_run (${max_deletes_per_run}). ` +
+          'No actions were executed. Review the pending deletions, then either raise the limit or correct the rules.',
+      );
+
+      return {
+        results: results.map(r => ({
+          ...r,
+          execution_status: 'skipped' as const,
+        })),
+        executionSummary: {
+          actions_executed: { keep: 0, unmonitor: 0, delete: 0 },
+          actions_failed: 0,
+          aborted_reason: 'max_deletes_per_run_exceeded',
+        },
+      };
+    }
 
     const itemsByInternalId = new Map(
       items.map(item => [buildInternalId(item), item]),

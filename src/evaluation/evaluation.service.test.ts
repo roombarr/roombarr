@@ -236,4 +236,62 @@ describe('EvaluationService', () => {
       expect(mediaService.hydrate).toHaveBeenCalledTimes(1);
     });
   });
+  describe('evaluation deadline (safety.evaluation_timeout)', () => {
+    test('releases the scheduler when hydrate never settles', async () => {
+      configService.getConfig = mock(() =>
+        makeConfig({
+          safety: { evaluation_timeout: '50ms', max_deletes_per_run: 50 },
+        }),
+      );
+      // A promise that never settles — the production wedge, reproduced.
+      mediaService.hydrate = mock(() => new Promise(() => {}));
+
+      const run = await service.runEvaluation();
+
+      expect(service.isRunning()).toBe(false);
+      expect(run.status).toBe('failed');
+      expect(run.error).toContain('50ms');
+    });
+
+    test('a later cron run proceeds after a timed-out run', async () => {
+      configService.getConfig = mock(() =>
+        makeConfig({
+          schedule: '* * * * *',
+          safety: { evaluation_timeout: '50ms', max_deletes_per_run: 50 },
+        }),
+      );
+      mediaService.hydrate = mock(() => new Promise(() => {}));
+      await service.handleCron();
+      expect(service.isRunning()).toBe(false);
+
+      mediaService.hydrate = mock(() => Promise.resolve([testMovie]));
+      await service.handleCron();
+      expect(mediaService.hydrate).toHaveBeenCalledTimes(1);
+    });
+
+    test('does not execute actions for a run that already timed out', async () => {
+      configService.getConfig = mock(() =>
+        makeConfig({
+          safety: { evaluation_timeout: '30ms', max_deletes_per_run: 50 },
+        }),
+      );
+      // Settles well after the deadline has passed.
+      mediaService.hydrate = mock(
+        () =>
+          new Promise(resolve => setTimeout(() => resolve([testMovie]), 120)),
+      );
+
+      const run = await service.runEvaluation();
+      expect(run.status).toBe('failed');
+
+      await new Promise(resolve => setTimeout(resolve, 200));
+      expect(actionExecutor.execute).not.toHaveBeenCalled();
+    });
+
+    test('completes normally when within the deadline', async () => {
+      const run = await service.runEvaluation();
+      expect(run.status).toBe('completed');
+      expect(service.isRunning()).toBe(false);
+    });
+  });
 });
