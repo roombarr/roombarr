@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, mock, test } from 'bun:test';
 import { HttpModule, HttpService } from '@nestjs/axios';
 import { Test } from '@nestjs/testing';
 import { of } from 'rxjs';
@@ -291,28 +291,50 @@ describe('JellyfinClient', () => {
       expect(calls).toBe(2);
     });
 
-    test('stops on a short page even when TotalRecordCount is larger', async () => {
+    test('reads the whole set from a server that caps its page size', async () => {
       const { client, http } = await setup();
       let calls = 0;
 
-      // Fewer items than the page size means the result set is exhausted;
-      // asking for the next page would only skip records.
-      http.get = () => {
+      // Serves a 100-item library 40 at a time despite Limit=100. Advancing by
+      // the requested limit instead of the received count would read 40 items
+      // and silently report them as the entire library.
+      const corpus = Array.from({ length: 100 }, (_, i) =>
+        makeJellyfinItem({ Id: `item-${i}` }),
+      );
+
+      http.get = (_url: string, config: any) => {
         calls++;
+        const start = config.params.StartIndex;
         return of(
           axiosResponse({
-            Items: Array.from({ length: 40 }, (_, i) =>
-              makeJellyfinItem({ Id: `item-${i}` }),
-            ),
-            TotalRecordCount: 5000,
+            Items: corpus.slice(start, start + 40),
+            TotalRecordCount: corpus.length,
           }),
         ) as any;
       };
 
       const result = await client.fetchPlayedMovies('user-1');
 
-      expect(result).toHaveLength(40);
-      expect(calls).toBe(1);
+      expect(result).toHaveLength(100);
+      expect(result.map(i => i.Id)).toEqual(corpus.map(i => i.Id));
+      expect(calls).toBe(3);
+    });
+
+    test('warns when a short page ends a set with no TotalRecordCount', async () => {
+      const { client, http } = await setup();
+      const warn = mock();
+      (client as any).logger = { debug: mock(), warn };
+
+      http.get = () =>
+        of(
+          axiosResponse({ Items: [makeJellyfinItem({ Id: 'item-1' })] }),
+        ) as any;
+
+      const result = await client.fetchSeriesItems('user-1');
+
+      expect(result).toHaveLength(1);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0][0]).toMatch(/omitted TotalRecordCount/);
     });
 
     test('throws when TotalRecordCount is missing after a full page', async () => {

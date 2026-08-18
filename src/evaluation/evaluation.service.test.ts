@@ -321,6 +321,31 @@ describe('EvaluationService', () => {
       expect(snapshotService.snapshot).not.toHaveBeenCalled();
     });
 
+    test('does not evaluate rules when the deadline elapses during the snapshot', async () => {
+      configService.getConfig = mock(() =>
+        makeConfig({
+          safety: { evaluation_timeout: '30ms', max_deletes_per_run: 50 },
+        }),
+      );
+      const snapshot = heldStep<void>();
+      snapshotService.snapshot = mock(() => snapshot.promise);
+
+      const run = await service.runEvaluation();
+      expect(run.status).toBe('failed');
+
+      // The snapshot rows land regardless — but rule evaluation writes audit
+      // entries, and an abandoned run must not leave an audit trail behind.
+      snapshot.release();
+      await tick();
+
+      expect(snapshotService.snapshot).toHaveBeenCalledTimes(1);
+      expect(rulesService.evaluate).not.toHaveBeenCalled();
+      expect(stateService.enrich).not.toHaveBeenCalled();
+      expect(actionExecutor.execute).not.toHaveBeenCalled();
+      expect(run.status).toBe('failed');
+      expect(run.results).toEqual([]);
+    });
+
     test('does not report completed when the deadline elapses mid-execution', async () => {
       configService.getConfig = mock(() =>
         makeConfig({

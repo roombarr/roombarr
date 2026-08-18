@@ -130,25 +130,35 @@ export class JellyfinClient {
 
       allItems.push(...data.Items);
 
-      // A page smaller than the limit means the result set is exhausted —
-      // an empty page makes no progress at all, and a short one would only
-      // skip records if we advanced past it. Neither depends on
-      // TotalRecordCount, which is what a misreporting server gets wrong.
-      if (data.Items.length < pageSize) return allItems;
+      // An empty page makes no progress, so nothing more is coming regardless
+      // of what the server claims the total to be.
+      if (data.Items.length === 0) return allItems;
 
-      // A full page with no total means more items may exist and there is no
-      // way to know. Returning what we have would look like a complete library
-      // to every caller, and an item missing from watch data is an item nothing
-      // is protecting — so refuse rather than under-report.
+      // Advance by what arrived rather than by what was asked for. A server
+      // that caps its page size below our limit still paginates correctly
+      // this way; advancing by the limit would skip every record in the gap.
+      startIndex += data.Items.length;
+
       const total = data.TotalRecordCount;
-      if (!Number.isFinite(total)) {
-        throw new Error(
-          `Jellyfin omitted TotalRecordCount for /Users/${userId}/Items after a full page — cannot determine whether ${allItems.length} items is the complete set`,
-        );
+      if (Number.isFinite(total)) {
+        if (allItems.length >= total) return allItems;
+        continue;
       }
 
-      if (allItems.length >= total) return allItems;
-      startIndex += pageSize;
+      // With no total there is nothing to check the result against. A short
+      // page is the end of the set. A full one means more may exist with no
+      // way to tell, and an item missing from watch data is an item nothing is
+      // protecting — so refuse rather than silently under-report.
+      if (data.Items.length < pageSize) {
+        this.logger.warn(
+          `Jellyfin omitted TotalRecordCount for /Users/${userId}/Items — treating the short page that followed as the end of the set at ${allItems.length} items`,
+        );
+        return allItems;
+      }
+
+      throw new Error(
+        `Jellyfin omitted TotalRecordCount for /Users/${userId}/Items after a full page — cannot determine whether ${allItems.length} items is the complete set`,
+      );
     }
 
     throw new Error(

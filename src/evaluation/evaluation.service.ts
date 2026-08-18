@@ -226,6 +226,12 @@ export class EvaluationService {
     const hydratedServices = getHydratedServices(rules);
     await this.snapshotService.snapshot(items, hydratedServices);
 
+    // The snapshot rows are already written by the time this returns — this
+    // guard cannot unwrite them. What it stops is everything downstream: rule
+    // evaluation emits audit-log entries as a side effect, and an abandoned run
+    // must not leave an audit trail for a run already recorded as failed.
+    if (this.isAbandoned(run)) return;
+
     // Step 3: Enrich — compute temporal state fields from change history
     const enrichedItems = this.stateService.enrich(items);
 
