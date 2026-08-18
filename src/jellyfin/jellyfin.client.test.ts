@@ -267,4 +267,78 @@ describe('JellyfinClient', () => {
       expect(result).toEqual([]);
     });
   });
+  describe('pagination termination', () => {
+    test('stops on an empty page even when TotalRecordCount is larger', async () => {
+      const { client, http } = await setup();
+      let calls = 0;
+
+      // The shape that previously spun forever: a short first page, then empty
+      // pages, with the server still claiming more records exist.
+      http.get = () => {
+        calls++;
+        const Items =
+          calls === 1
+            ? Array.from({ length: 100 }, (_, i) =>
+                makeJellyfinItem({ Id: `item-${i}` }),
+              )
+            : [];
+        return of(axiosResponse({ Items, TotalRecordCount: 5000 })) as any;
+      };
+
+      const result = await client.fetchPlayedMovies('user-1');
+
+      expect(result).toHaveLength(100);
+      expect(calls).toBe(2);
+    });
+
+    test('stops when TotalRecordCount is missing', async () => {
+      const { client, http } = await setup();
+      let calls = 0;
+
+      http.get = () => {
+        calls++;
+        return of(
+          axiosResponse({
+            Items: [makeJellyfinItem({ Id: `item-${calls}` })],
+          }),
+        ) as any;
+      };
+
+      const result = await client.fetchSeriesItems('user-1');
+
+      expect(result).toHaveLength(1);
+      expect(calls).toBe(1);
+    });
+
+    test('throws when a page is missing its Items array', async () => {
+      const { client, http } = await setup();
+      http.get = () => of(axiosResponse({ TotalRecordCount: 10 })) as any;
+
+      expect(client.fetchSeriesItems('user-1')).rejects.toThrow(
+        /malformed page/,
+      );
+    });
+
+    test('paginates until TotalRecordCount is reached', async () => {
+      const { client, http } = await setup();
+      let calls = 0;
+
+      http.get = () => {
+        calls++;
+        return of(
+          axiosResponse({
+            Items: Array.from({ length: 100 }, (_, i) =>
+              makeJellyfinItem({ Id: `page-${calls}-item-${i}` }),
+            ),
+            TotalRecordCount: 250,
+          }),
+        ) as any;
+      };
+
+      const result = await client.fetchSeriesItems('user-1');
+
+      expect(result).toHaveLength(300);
+      expect(calls).toBe(3);
+    });
+  });
 });

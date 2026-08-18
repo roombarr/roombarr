@@ -7,6 +7,13 @@ import type {
   JellyfinUser,
 } from './jellyfin.types';
 
+/**
+ * Hard ceiling on pagination requests for a single query. At the 100-item page
+ * size this covers libraries far larger than Jellyfin is used for, and stops a
+ * server that reports an inconsistent TotalRecordCount from looping forever.
+ */
+const MAX_PAGES = 1000;
+
 @Injectable()
 export class JellyfinClient {
   private readonly logger = new Logger(JellyfinClient.name);
@@ -102,7 +109,9 @@ export class JellyfinClient {
     const allItems: JellyfinItem[] = [];
     let startIndex = 0;
 
-    while (true) {
+    // Bounded by pages rather than `while (true)`: termination must not depend
+    // on the server reporting a consistent TotalRecordCount.
+    for (let page = 0; page < MAX_PAGES; page++) {
       const { data } = await firstValueFrom(
         this.http.get<JellyfinItemsResponse>(`/Users/${userId}/Items`, {
           params: {
@@ -113,12 +122,33 @@ export class JellyfinClient {
         }),
       );
 
+      if (!Array.isArray(data?.Items)) {
+        throw new Error(
+          `Jellyfin returned a malformed page for /Users/${userId}/Items (StartIndex ${startIndex}): missing Items array`,
+        );
+      }
+
       allItems.push(...data.Items);
 
-      if (allItems.length >= data.TotalRecordCount) break;
+      // An empty page makes no progress — treat it as the end of the result
+      // set regardless of what TotalRecordCount claims.
+      if (data.Items.length === 0) return allItems;
+
+      const total = data.TotalRecordCount;
+      if (!Number.isFinite(total)) {
+        this.logger.warn(
+          `Jellyfin omitted TotalRecordCount for /Users/${userId}/Items — stopping after ${allItems.length} items`,
+        );
+        return allItems;
+      }
+
+      if (allItems.length >= total) return allItems;
       startIndex += pageSize;
     }
 
+    this.logger.error(
+      `Jellyfin pagination for /Users/${userId}/Items exceeded ${MAX_PAGES} pages — returning ${allItems.length} items collected so far`,
+    );
     return allItems;
   }
 }
