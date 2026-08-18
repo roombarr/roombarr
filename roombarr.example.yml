@@ -42,6 +42,20 @@ performance:
 # audit:
 #   retention_days: 90           # Default: 90. Min: 1. Max: 3650.
 
+# ── Safety ────────────────────────────────────────────────────
+# safety:
+#   # Wall-clock budget for one evaluation. If a run is still going when this
+#   # elapses it is abandoned and the scheduler is released, so a single hung
+#   # request cannot stop Roombarr from running again. Default: 1h.
+#   # Maximum ~24.8 days — the underlying timer cannot represent more.
+#   evaluation_timeout: 1h
+#
+#   # Refuse to execute a run that resolves more than this many deletes.
+#   # Nothing is deleted and an error is logged, so a rule change or upstream
+#   # data shift that unprotects the library en masse stops for review instead
+#   # of emptying the disk. Set to null to disable. Default: 50.
+#   max_deletes_per_run: 50
+
 # ── Rules ─────────────────────────────────────────────────────
 # Each rule targets either sonarr (TV seasons) or radarr (movies).
 # Conditions are AND/OR trees referencing fields from any configured service.

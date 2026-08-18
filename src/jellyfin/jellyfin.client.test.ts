@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, mock, test } from 'bun:test';
 import { HttpModule, HttpService } from '@nestjs/axios';
 import { Test } from '@nestjs/testing';
 import { of } from 'rxjs';
@@ -265,6 +265,164 @@ describe('JellyfinClient', () => {
       http.get = () => of(axiosResponse(fixture)) as any;
       const result = await client.fetchSeriesSeasons('user-1', 'series-1');
       expect(result).toEqual([]);
+    });
+  });
+  describe('pagination termination', () => {
+    test('stops on an empty page even when TotalRecordCount is larger', async () => {
+      const { client, http } = await setup();
+      let calls = 0;
+
+      // The shape that previously spun forever: a short first page, then empty
+      // pages, with the server still claiming more records exist.
+      http.get = () => {
+        calls++;
+        const Items =
+          calls === 1
+            ? Array.from({ length: 100 }, (_, i) =>
+                makeJellyfinItem({ Id: `item-${i}` }),
+              )
+            : [];
+        return of(axiosResponse({ Items, TotalRecordCount: 5000 })) as any;
+      };
+
+      const result = await client.fetchPlayedMovies('user-1');
+
+      expect(result).toHaveLength(100);
+      expect(calls).toBe(2);
+    });
+
+    test('reads the whole set from a server that caps its page size', async () => {
+      const { client, http } = await setup();
+      let calls = 0;
+
+      // Serves a 100-item library 40 at a time despite Limit=100. Advancing by
+      // the requested limit instead of the received count would read 40 items
+      // and silently report them as the entire library.
+      const corpus = Array.from({ length: 100 }, (_, i) =>
+        makeJellyfinItem({ Id: `item-${i}` }),
+      );
+
+      http.get = (_url: string, config: any) => {
+        calls++;
+        const start = config.params.StartIndex;
+        return of(
+          axiosResponse({
+            Items: corpus.slice(start, start + 40),
+            TotalRecordCount: corpus.length,
+          }),
+        ) as any;
+      };
+
+      const result = await client.fetchPlayedMovies('user-1');
+
+      expect(result).toHaveLength(100);
+      expect(result.map(i => i.Id)).toEqual(corpus.map(i => i.Id));
+      expect(calls).toBe(3);
+    });
+
+    test('warns when a short page ends a set with no TotalRecordCount', async () => {
+      const { client, http } = await setup();
+      const warn = mock();
+      (client as any).logger = { debug: mock(), warn };
+
+      http.get = () =>
+        of(
+          axiosResponse({ Items: [makeJellyfinItem({ Id: 'item-1' })] }),
+        ) as any;
+
+      const result = await client.fetchSeriesItems('user-1');
+
+      expect(result).toHaveLength(1);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0][0]).toMatch(/omitted TotalRecordCount/);
+    });
+
+    test('throws when TotalRecordCount is missing after a full page', async () => {
+      const { client, http } = await setup();
+
+      // A full page means more items may exist; without a total there is no
+      // way to know, and a short library silently unprotects everything.
+      http.get = () =>
+        of(
+          axiosResponse({
+            Items: Array.from({ length: 100 }, (_, i) =>
+              makeJellyfinItem({ Id: `item-${i}` }),
+            ),
+          }),
+        ) as any;
+
+      await expect(client.fetchSeriesItems('user-1')).rejects.toThrow(
+        /omitted TotalRecordCount/,
+      );
+    });
+
+    test('accepts a short page with no TotalRecordCount', async () => {
+      const { client, http } = await setup();
+      let calls = 0;
+
+      // Short page — the result set is provably exhausted, so the missing
+      // total is not load-bearing.
+      http.get = () => {
+        calls++;
+        return of(
+          axiosResponse({ Items: [makeJellyfinItem({ Id: 'item-1' })] }),
+        ) as any;
+      };
+
+      const result = await client.fetchSeriesItems('user-1');
+
+      expect(result).toHaveLength(1);
+      expect(calls).toBe(1);
+    });
+
+    test('throws rather than returning a truncated set at the page ceiling', async () => {
+      const { client, http } = await setup();
+
+      // A server whose TotalRecordCount never becomes reachable.
+      http.get = () =>
+        of(
+          axiosResponse({
+            Items: Array.from({ length: 100 }, (_, i) =>
+              makeJellyfinItem({ Id: `item-${i}` }),
+            ),
+            TotalRecordCount: Number.MAX_SAFE_INTEGER,
+          }),
+        ) as any;
+
+      await expect(client.fetchPlayedMovies('user-1')).rejects.toThrow(
+        /exceeded 1000 pages/,
+      );
+    });
+
+    test('throws when a page is missing its Items array', async () => {
+      const { client, http } = await setup();
+      http.get = () => of(axiosResponse({ TotalRecordCount: 10 })) as any;
+
+      await expect(client.fetchSeriesItems('user-1')).rejects.toThrow(
+        /malformed page/,
+      );
+    });
+
+    test('paginates until TotalRecordCount is reached', async () => {
+      const { client, http } = await setup();
+      let calls = 0;
+
+      http.get = () => {
+        calls++;
+        return of(
+          axiosResponse({
+            Items: Array.from({ length: 100 }, (_, i) =>
+              makeJellyfinItem({ Id: `page-${calls}-item-${i}` }),
+            ),
+            TotalRecordCount: 250,
+          }),
+        ) as any;
+      };
+
+      const result = await client.fetchSeriesItems('user-1');
+
+      expect(result).toHaveLength(300);
+      expect(calls).toBe(3);
     });
   });
 });

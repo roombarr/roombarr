@@ -7,6 +7,13 @@ import type {
   JellyfinUser,
 } from './jellyfin.types';
 
+/**
+ * Hard ceiling on pagination requests for a single query. At the 100-item page
+ * size this covers libraries far larger than Jellyfin is used for, and stops a
+ * server that reports an inconsistent TotalRecordCount from looping forever.
+ */
+const MAX_PAGES = 1000;
+
 @Injectable()
 export class JellyfinClient {
   private readonly logger = new Logger(JellyfinClient.name);
@@ -102,7 +109,9 @@ export class JellyfinClient {
     const allItems: JellyfinItem[] = [];
     let startIndex = 0;
 
-    while (true) {
+    // Bounded by pages rather than `while (true)`: termination must not depend
+    // on the server reporting a consistent TotalRecordCount.
+    for (let page = 0; page < MAX_PAGES; page++) {
       const { data } = await firstValueFrom(
         this.http.get<JellyfinItemsResponse>(`/Users/${userId}/Items`, {
           params: {
@@ -113,12 +122,47 @@ export class JellyfinClient {
         }),
       );
 
+      if (!Array.isArray(data?.Items)) {
+        throw new Error(
+          `Jellyfin returned a malformed page for /Users/${userId}/Items (StartIndex ${startIndex}): missing Items array`,
+        );
+      }
+
       allItems.push(...data.Items);
 
-      if (allItems.length >= data.TotalRecordCount) break;
-      startIndex += pageSize;
+      // An empty page makes no progress, so nothing more is coming regardless
+      // of what the server claims the total to be.
+      if (data.Items.length === 0) return allItems;
+
+      // Advance by what arrived rather than by what was asked for. A server
+      // that caps its page size below our limit still paginates correctly
+      // this way; advancing by the limit would skip every record in the gap.
+      startIndex += data.Items.length;
+
+      const total = data.TotalRecordCount;
+      if (Number.isFinite(total)) {
+        if (allItems.length >= total) return allItems;
+        continue;
+      }
+
+      // With no total there is nothing to check the result against. A short
+      // page is the end of the set. A full one means more may exist with no
+      // way to tell, and an item missing from watch data is an item nothing is
+      // protecting — so refuse rather than silently under-report.
+      if (data.Items.length < pageSize) {
+        this.logger.warn(
+          `Jellyfin omitted TotalRecordCount for /Users/${userId}/Items — treating the short page that followed as the end of the set at ${allItems.length} items`,
+        );
+        return allItems;
+      }
+
+      throw new Error(
+        `Jellyfin omitted TotalRecordCount for /Users/${userId}/Items after a full page — cannot determine whether ${allItems.length} items is the complete set`,
+      );
     }
 
-    return allItems;
+    throw new Error(
+      `Jellyfin pagination for /Users/${userId}/Items exceeded ${MAX_PAGES} pages — refusing to return ${allItems.length} items as a complete set`,
+    );
   }
 }

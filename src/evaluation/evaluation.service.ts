@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import parseDuration from 'parse-duration';
 import { ConfigService } from '../config/config.service';
 import { matchesCron } from '../config/cron';
 import { getHydratedServices } from '../config/field-registry';
@@ -12,6 +13,14 @@ import { StateService } from '../snapshot/state.service';
 import type { EvaluationRun } from './evaluation.types';
 
 const MAX_STORED_RUNS = 10;
+
+/** Raised when an evaluation exceeds its configured wall-clock budget. */
+class EvaluationTimeoutError extends Error {
+  constructor(timeout: string) {
+    super(`Evaluation exceeded its ${timeout} budget and was abandoned`);
+    this.name = 'EvaluationTimeoutError';
+  }
+}
 
 @Injectable()
 export class EvaluationService {
@@ -121,58 +130,14 @@ export class EvaluationService {
   }
 
   private async executeEvaluation(run: EvaluationRun): Promise<void> {
+    const { evaluation_timeout } = this.configService.getConfig().safety;
+
     try {
-      const config = this.configService.getConfig();
-      const { rules } = config;
-
-      this.logger.log(
-        `Evaluation ${run.run_id} started: ${rules.length} rules to evaluate`,
-      );
-
-      // Step 1: Hydrate unified models from all services
-      const items = await this.mediaService.hydrate(rules);
-
-      // Step 2: Snapshot — persist unified models, detect field changes
-      const hydratedServices = getHydratedServices(rules);
-      await this.snapshotService.snapshot(items, hydratedServices);
-
-      // Step 3: Enrich — compute temporal state fields from change history
-      const enrichedItems = this.stateService.enrich(items);
-
-      // Step 4: Evaluate rules against all items
-      const { results, summary } = this.rulesService.evaluate(
-        enrichedItems,
-        rules,
+      await this.withDeadline(
+        this.runPipeline(run),
+        evaluation_timeout,
         run.run_id,
-        run.dry_run,
       );
-
-      // Step 5: Execute actions (no-op in dry-run mode)
-      const { results: executedResults, executionSummary } =
-        await this.actionExecutor.execute(results, enrichedItems, run.dry_run);
-
-      if (executionSummary) {
-        summary.actions_executed = executionSummary.actions_executed;
-        summary.actions_failed = executionSummary.actions_failed;
-      }
-
-      // Step 6: Update run with results
-      run.status = 'completed';
-      run.completed_at = new Date().toISOString();
-      run.summary = summary;
-      run.results = executedResults.filter(r => r.resolved_action !== null);
-
-      this.logger.log({
-        msg: `Evaluation ${run.run_id} completed`,
-        run_id: run.run_id,
-        dry_run: run.dry_run,
-        items_evaluated: summary.items_evaluated,
-        items_matched: summary.items_matched,
-        actions: summary.actions,
-        rules_skipped_missing_data: summary.rules_skipped_missing_data,
-        actions_executed: summary.actions_executed ?? null,
-        actions_failed: summary.actions_failed ?? null,
-      });
     } catch (error) {
       run.status = 'failed';
       run.completed_at = new Date().toISOString();
@@ -183,6 +148,138 @@ export class EvaluationService {
     } finally {
       this.running = false;
     }
+  }
+
+  /**
+   * Race a pipeline against its wall-clock budget.
+   *
+   * On timeout the pipeline promise is abandoned rather than cancelled — it may
+   * never settle, which is precisely the failure being defended against. What
+   * matters is that this method returns, so the caller's `finally` can release
+   * the scheduler.
+   */
+  private async withDeadline(
+    pipeline: Promise<void>,
+    timeout: string,
+    runId: string,
+  ): Promise<void> {
+    const ms = parseDuration(timeout);
+    if (ms === null || ms <= 0) {
+      throw new Error(`Invalid safety.evaluation_timeout: "${timeout}"`);
+    }
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    try {
+      await Promise.race([
+        pipeline,
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => {
+            this.logger.error(
+              `Evaluation ${runId} exceeded its ${timeout} budget — abandoning the run and releasing the scheduler. The next scheduled evaluation will proceed normally.`,
+            );
+            reject(new EvaluationTimeoutError(timeout));
+          }, ms);
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
+   * Whether this run has been abandoned by its deadline.
+   *
+   * A timed-out run is already marked failed and the scheduler has been
+   * released, so a later evaluation may be underway. The abandoned pipeline can
+   * still settle at any await point; when it does it must not write state,
+   * execute actions, or report itself completed. Checked at each step boundary,
+   * which is the closest a non-cancellable pipeline can get to stopping.
+   */
+  private isAbandoned(run: EvaluationRun): boolean {
+    if (!this.hasBeenAbandoned(run)) return false;
+
+    this.logger.warn(
+      `Evaluation ${run.run_id} continued after being abandoned — discarding its results`,
+    );
+    return true;
+  }
+
+  /** Silent form of {@link isAbandoned}, for polling inside a loop. */
+  private hasBeenAbandoned(run: EvaluationRun): boolean {
+    return run.status !== 'running';
+  }
+
+  private async runPipeline(run: EvaluationRun): Promise<void> {
+    const config = this.configService.getConfig();
+    const { rules } = config;
+
+    this.logger.log(
+      `Evaluation ${run.run_id} started: ${rules.length} rules to evaluate`,
+    );
+
+    // Step 1: Hydrate unified models from all services
+    const items = await this.mediaService.hydrate(rules);
+    if (this.isAbandoned(run)) return;
+
+    // Step 2: Snapshot — persist unified models, detect field changes
+    const hydratedServices = getHydratedServices(rules);
+    await this.snapshotService.snapshot(items, hydratedServices);
+
+    // The snapshot rows are already written by the time this returns — this
+    // guard cannot unwrite them. What it stops is everything downstream: rule
+    // evaluation emits audit-log entries as a side effect, and an abandoned run
+    // must not leave an audit trail for a run already recorded as failed.
+    if (this.isAbandoned(run)) return;
+
+    // Step 3: Enrich — compute temporal state fields from change history
+    const enrichedItems = this.stateService.enrich(items);
+
+    // Step 4: Evaluate rules against all items
+    const { results, summary } = this.rulesService.evaluate(
+      enrichedItems,
+      rules,
+      run.run_id,
+      run.dry_run,
+    );
+
+    if (this.isAbandoned(run)) return;
+
+    // Step 5: Execute actions (no-op in dry-run mode)
+    const { results: executedResults, executionSummary } =
+      await this.actionExecutor.execute({
+        results,
+        items: enrichedItems,
+        dryRun: run.dry_run,
+        isAbandoned: () => this.hasBeenAbandoned(run),
+      });
+
+    if (executionSummary) {
+      summary.actions_executed = executionSummary.actions_executed;
+      summary.actions_failed = executionSummary.actions_failed;
+      summary.aborted_reason = executionSummary.aborted_reason;
+    }
+
+    if (this.isAbandoned(run)) return;
+
+    // Step 6: Update run with results
+    run.status = 'completed';
+    run.completed_at = new Date().toISOString();
+    run.summary = summary;
+    run.results = executedResults.filter(r => r.resolved_action !== null);
+
+    this.logger.log({
+      msg: `Evaluation ${run.run_id} completed`,
+      run_id: run.run_id,
+      dry_run: run.dry_run,
+      items_evaluated: summary.items_evaluated,
+      items_matched: summary.items_matched,
+      actions: summary.actions,
+      rules_skipped_missing_data: summary.rules_skipped_missing_data,
+      actions_executed: summary.actions_executed ?? null,
+      actions_failed: summary.actions_failed ?? null,
+      aborted_reason: summary.aborted_reason ?? null,
+    });
   }
 
   /**

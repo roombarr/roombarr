@@ -172,6 +172,7 @@ export function makeConfig(
     schedule: '0 3 * * *',
     performance: { concurrency: 10 },
     audit: { retention_days: 90 },
+    safety: { evaluation_timeout: '1h', max_deletes_per_run: 50 },
     rules: [makeRule()],
     ...overrides,
   };

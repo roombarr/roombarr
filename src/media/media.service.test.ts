@@ -148,31 +148,108 @@ describe('MediaService', () => {
     expect(radarrService.fetchMovies).not.toHaveBeenCalled();
   });
 
-  test('handles null services gracefully', async () => {
+  test('fails when a required base service is unavailable', async () => {
     const serviceWithNulls = new MediaService(null, null, null, null);
     const rules: RuleConfig[] = [makeRule()];
 
-    const result = await serviceWithNulls.hydrate(rules);
-
-    expect(result).toEqual([]);
+    await expect(serviceWithNulls.hydrate(rules)).rejects.toThrow(
+      'Radarr service is required by configured rules',
+    );
   });
 
-  test('handles service fetch failure gracefully', async () => {
+  test('fails when Sonarr rules are configured without Sonarr', async () => {
+    const serviceWithoutSonarr = new MediaService(
+      null,
+      radarrService as any,
+      null,
+      null,
+    );
+    const rules: RuleConfig[] = [makeRule({ target: 'sonarr' })];
+
+    await expect(serviceWithoutSonarr.hydrate(rules)).rejects.toThrow(
+      'Sonarr service is required by configured rules',
+    );
+  });
+
+  test('fails when Jellyfin fields are configured without Jellyfin', async () => {
+    radarrService.fetchMovies = mock(() => Promise.resolve([]));
+    const serviceWithoutJellyfin = new MediaService(
+      sonarrService as any,
+      radarrService as any,
+      null,
+      jellyseerrService as any,
+    );
+    const rules: RuleConfig[] = [
+      makeRule({
+        conditions: {
+          operator: 'AND',
+          children: [
+            {
+              field: 'jellyfin.watched_by_all',
+              operator: 'equals',
+              value: true,
+            },
+          ],
+        },
+      }),
+    ];
+
+    await expect(serviceWithoutJellyfin.hydrate(rules)).rejects.toThrow(
+      'Jellyfin service is required by configured rules',
+    );
+  });
+
+  test('fails when Jellyseerr fields are configured without Jellyseerr', async () => {
+    const serviceWithoutJellyseerr = new MediaService(
+      sonarrService as any,
+      radarrService as any,
+      jellyfinService as any,
+      null,
+    );
+    const rules: RuleConfig[] = [
+      makeRule({
+        conditions: {
+          operator: 'AND',
+          children: [
+            {
+              field: 'jellyseerr.request_status',
+              operator: 'equals',
+              value: 'approved',
+            },
+          ],
+        },
+      }),
+    ];
+
+    await expect(serviceWithoutJellyseerr.hydrate(rules)).rejects.toThrow(
+      'Jellyseerr service is required by configured rules',
+    );
+  });
+
+  test('propagates a Radarr base-data fetch failure', async () => {
     radarrService.fetchMovies = mock(() =>
       Promise.reject(new Error('Connection refused')),
     );
 
     const rules: RuleConfig[] = [makeRule()];
-    const result = await service.hydrate(rules);
-
-    // Should return empty instead of throwing
-    const movies = result.filter(r => r.type === 'movie');
-    expect(movies).toHaveLength(0);
+    await expect(service.hydrate(rules)).rejects.toThrow('Connection refused');
   });
 
-  test('handles Jellyfin failure gracefully while still returning base data', async () => {
+  test('propagates a Sonarr base-data fetch failure', async () => {
+    sonarrService.fetchSeasons = mock(() =>
+      Promise.reject(new Error('Sonarr unreachable')),
+    );
+
+    const rules: RuleConfig[] = [makeRule({ target: 'sonarr' })];
+    await expect(service.hydrate(rules)).rejects.toThrow('Sonarr unreachable');
+  });
+
+  test('propagates a Jellyfin movie fetch failure instead of degrading', async () => {
+    // Swallowing this would leave every movie with jellyfin: null, which is
+    // indistinguishable from "nobody watched it" — silently dropping the keep
+    // rules that protect the library.
     jellyfinService.fetchMovieWatchData = mock(() =>
-      Promise.reject(new Error('Jellyfin offline')),
+      Promise.reject(new Error('Jellyfin unreachable')),
     );
 
     const rules: RuleConfig[] = [
@@ -190,11 +267,34 @@ describe('MediaService', () => {
       }),
     ];
 
-    const result = await service.hydrate(rules);
+    await expect(service.hydrate(rules)).rejects.toThrow(
+      'Jellyfin unreachable',
+    );
+  });
 
-    // Movies should still be present, just without Jellyfin enrichment
-    expect(result).toHaveLength(1);
-    expect(result[0].jellyfin).toBeNull();
+  test('propagates a Jellyseerr fetch failure instead of degrading', async () => {
+    jellyseerrService.fetchRequestData = mock(() =>
+      Promise.reject(new Error('Jellyseerr unreachable')),
+    );
+
+    const rules: RuleConfig[] = [
+      makeRule({
+        conditions: {
+          operator: 'AND',
+          children: [
+            {
+              field: 'jellyseerr.request_status',
+              operator: 'equals',
+              value: 'approved',
+            },
+          ],
+        },
+      }),
+    ];
+
+    await expect(service.hydrate(rules)).rejects.toThrow(
+      'Jellyseerr unreachable',
+    );
   });
 
   test('fetches both movies and seasons when both targets present', async () => {

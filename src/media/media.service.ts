@@ -31,11 +31,22 @@ export class MediaService {
    * Hydrate unified media models based on the given rules.
    * Only fetches from services that are actually referenced
    * in rule conditions (lazy fetching).
+   *
+   * @throws if a required base or enrichment service is unavailable or cannot
+   * be reached. Missing data can silently drop `keep` rules guarding the
+   * library, so hydration must fail rather than degrade to an empty result.
    */
   async hydrate(rules: RuleConfig[]): Promise<UnifiedMedia[]> {
     const neededServices = this.analyzeNeededServices(rules);
     const hasRadarrRules = rules.some(r => r.target === 'radarr');
     const hasSonarrRules = rules.some(r => r.target === 'sonarr');
+
+    if (neededServices.has('jellyfin') && !this.jellyfinService) {
+      throw new Error('Jellyfin service is required by configured rules');
+    }
+    if (neededServices.has('jellyseerr') && !this.jellyseerrService) {
+      throw new Error('Jellyseerr service is required by configured rules');
+    }
 
     this.logger.log(
       `Hydrating media: services needed = [${[...neededServices].join(', ')}]`,
@@ -43,21 +54,21 @@ export class MediaService {
 
     // Fetch base data from Sonarr/Radarr in parallel
     const [movies, seasons] = await Promise.all([
-      hasRadarrRules ? this.fetchMoviesSafe() : Promise.resolve([]),
-      hasSonarrRules ? this.fetchSeasonsSafe() : Promise.resolve([]),
+      hasRadarrRules ? this.fetchMovies() : Promise.resolve([]),
+      hasSonarrRules ? this.fetchSeasons() : Promise.resolve([]),
     ]);
 
     // Fetch enrichment data in parallel (only if needed)
     const [jellyfinMovieData, jellyfinSeasonData, jellyseerrData] =
       await Promise.all([
         neededServices.has('jellyfin') && movies.length > 0
-          ? this.fetchJellyfinMoviesSafe()
+          ? this.fetchJellyfinMovieData()
           : Promise.resolve(null),
         neededServices.has('jellyfin') && seasons.length > 0
-          ? this.fetchJellyfinSeasonsSafe(seasons)
+          ? this.fetchJellyfinSeasonData(seasons)
           : Promise.resolve(null),
         neededServices.has('jellyseerr')
-          ? this.fetchJellyseerrSafe()
+          ? this.fetchJellyseerrData()
           : Promise.resolve(null),
       ]);
 
@@ -109,86 +120,47 @@ export class MediaService {
     }
   }
 
-  private async fetchMoviesSafe() {
+  private async fetchMovies() {
     if (!this.radarrService) {
-      this.logger.warn('Radarr service not available, skipping movie fetch');
-      return [];
+      throw new Error('Radarr service is required by configured rules');
     }
-    try {
-      return await this.radarrService.fetchMovies();
-    } catch (error) {
-      this.logger.warn(`Radarr fetch failed, skipping: ${error}`);
-      return [];
-    }
+    return this.radarrService.fetchMovies();
   }
 
-  private async fetchSeasonsSafe() {
+  private async fetchSeasons() {
     if (!this.sonarrService) {
-      this.logger.warn('Sonarr service not available, skipping season fetch');
-      return [];
+      throw new Error('Sonarr service is required by configured rules');
     }
-    try {
-      return await this.sonarrService.fetchSeasons();
-    } catch (error) {
-      this.logger.warn(`Sonarr fetch failed, skipping: ${error}`);
-      return [];
-    }
+    return this.sonarrService.fetchSeasons();
   }
 
-  private async fetchJellyfinMoviesSafe(): Promise<Map<
-    number,
-    JellyfinData
-  > | null> {
+  private async fetchJellyfinMovieData(): Promise<Map<number, JellyfinData>> {
     if (!this.jellyfinService) {
-      this.logger.warn(
-        'Jellyfin service not available, skipping movie watch data',
-      );
-      return null;
+      throw new Error('Jellyfin service is required by configured rules');
     }
-    try {
-      return await this.jellyfinService.fetchMovieWatchData();
-    } catch (error) {
-      this.logger.warn(`Jellyfin movie fetch failed, skipping: ${error}`);
-      return null;
-    }
+    return this.jellyfinService.fetchMovieWatchData();
   }
 
-  private async fetchJellyfinSeasonsSafe(
+  private async fetchJellyfinSeasonData(
     seasons: Array<{
       tvdb_id: number;
       sonarr: { season: { season_number: number } };
     }>,
-  ): Promise<Map<string, JellyfinData> | null> {
+  ): Promise<Map<string, JellyfinData>> {
     if (!this.jellyfinService) {
-      this.logger.warn(
-        'Jellyfin service not available, skipping season watch data',
-      );
-      return null;
+      throw new Error('Jellyfin service is required by configured rules');
     }
-    try {
-      const identifiers: SeasonIdentifier[] = seasons.map(s => ({
-        tvdbId: s.tvdb_id,
-        seasonNumber: s.sonarr.season.season_number,
-      }));
-      return await this.jellyfinService.fetchSeasonWatchData(identifiers);
-    } catch (error) {
-      this.logger.warn(`Jellyfin season fetch failed, skipping: ${error}`);
-      return null;
-    }
+    const identifiers: SeasonIdentifier[] = seasons.map(s => ({
+      tvdbId: s.tvdb_id,
+      seasonNumber: s.sonarr.season.season_number,
+    }));
+    return this.jellyfinService.fetchSeasonWatchData(identifiers);
   }
 
-  private async fetchJellyseerrSafe(): Promise<JellyseerrIndexes | null> {
+  private async fetchJellyseerrData(): Promise<JellyseerrIndexes> {
     if (!this.jellyseerrService) {
-      this.logger.warn(
-        'Jellyseerr service not available, skipping request data',
-      );
-      return null;
+      throw new Error('Jellyseerr service is required by configured rules');
     }
-    try {
-      return await this.jellyseerrService.fetchRequestData();
-    } catch (error) {
-      this.logger.warn(`Jellyseerr fetch failed, skipping: ${error}`);
-      return null;
-    }
+    return this.jellyseerrService.fetchRequestData();
   }
 }

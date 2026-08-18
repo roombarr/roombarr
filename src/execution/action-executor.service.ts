@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AxiosError } from 'axios';
 import type { Action } from '../config/config.schema';
+import { ConfigService } from '../config/config.service';
 import { RadarrClient } from '../radarr/radarr.client';
 import type { EvaluationItemResult } from '../rules/types';
 import {
@@ -12,6 +13,15 @@ import {
 import { SonarrClient } from '../sonarr/sonarr.client';
 import type { ExecutionSummary } from './execution.types';
 
+interface ExecuteActionsOptions {
+  results: EvaluationItemResult[];
+  items: UnifiedMedia[];
+  dryRun: boolean;
+  isAbandoned?: () => boolean;
+}
+
+class ExecutionAbandonedError extends Error {}
+
 @Injectable()
 export class ActionExecutorService {
   private readonly logger = new Logger(ActionExecutorService.name);
@@ -19,18 +29,24 @@ export class ActionExecutorService {
   constructor(
     private readonly radarrClient: RadarrClient,
     private readonly sonarrClient: SonarrClient,
+    private readonly configService: ConfigService,
   ) {}
 
   /**
    * Execute resolved actions against Radarr/Sonarr.
    * In dry-run mode, every result is marked as 'skipped' with no API calls.
    * In live mode, each actionable item is executed sequentially.
+   *
+   * The abandonment callback is polled before every API request. Executing a
+   * queue of deletes can outlive the evaluation's deadline, and once that
+   * passes the scheduler is free to start another run.
    */
-  async execute(
-    results: EvaluationItemResult[],
-    items: UnifiedMedia[],
-    dryRun: boolean,
-  ): Promise<{
+  async execute({
+    results,
+    items,
+    dryRun,
+    isAbandoned,
+  }: ExecuteActionsOptions): Promise<{
     results: EvaluationItemResult[];
     executionSummary?: ExecutionSummary;
   }> {
@@ -42,6 +58,32 @@ export class ActionExecutorService {
         })),
       };
 
+    const { max_deletes_per_run } = this.configService.getConfig().safety;
+    const deleteCount = results.filter(
+      r => r.resolved_action === 'delete',
+    ).length;
+
+    // A rule change or upstream data shift can unprotect a large share of the
+    // library at once. Refusing the whole run is recoverable; deleting it is not.
+    if (max_deletes_per_run !== null && deleteCount > max_deletes_per_run) {
+      this.logger.error(
+        `Aborting execution: ${deleteCount} deletes resolved, exceeding safety.max_deletes_per_run (${max_deletes_per_run}). ` +
+          'No actions were executed. Review the pending deletions, then either raise the limit or correct the rules.',
+      );
+
+      return {
+        results: results.map(r => ({
+          ...r,
+          execution_status: 'skipped' as const,
+        })),
+        executionSummary: {
+          actions_executed: { keep: 0, unmonitor: 0, delete: 0 },
+          actions_failed: 0,
+          aborted_reason: 'max_deletes_per_run_exceeded',
+        },
+      };
+    }
+
     const itemsByInternalId = new Map(
       items.map(item => [buildInternalId(item), item]),
     );
@@ -50,7 +92,30 @@ export class ActionExecutorService {
     const counts: Record<Action, number> = { keep: 0, unmonitor: 0, delete: 0 };
     let failedCount = 0;
 
-    for (const result of results) {
+    for (const [index, result] of results.entries()) {
+      // The deadline can elapse mid-queue. Everything still pending belongs to
+      // a run that has already been written off, so stop here rather than
+      // deleting against a library another evaluation may now be acting on.
+      if (isAbandoned?.()) {
+        this.logger.error(
+          `Execution stopped after ${index} of ${results.length} results: the evaluation exceeded its deadline mid-run. ` +
+            `${counts.delete} deletes, ${counts.unmonitor} unmonitors already executed; the rest were skipped.`,
+        );
+
+        for (const pending of results.slice(index)) {
+          executed.push({ ...pending, execution_status: 'skipped' });
+        }
+
+        return {
+          results: executed,
+          executionSummary: {
+            actions_executed: counts,
+            actions_failed: failedCount,
+            aborted_reason: 'evaluation_abandoned',
+          },
+        };
+      }
+
       if (!result.resolved_action || result.resolved_action === 'keep') {
         executed.push({ ...result, execution_status: 'skipped' });
         continue;
@@ -68,10 +133,29 @@ export class ActionExecutorService {
       }
 
       try {
-        await this.executeAction(item, result.resolved_action);
+        await this.executeAction({
+          item,
+          action: result.resolved_action,
+          isAbandoned,
+        });
         executed.push({ ...result, execution_status: 'success' });
         counts[result.resolved_action]++;
       } catch (error) {
+        if (error instanceof ExecutionAbandonedError) {
+          executed.push({ ...result, execution_status: 'skipped' });
+          for (const pending of results.slice(index + 1)) {
+            executed.push({ ...pending, execution_status: 'skipped' });
+          }
+          return {
+            results: executed,
+            executionSummary: {
+              actions_executed: counts,
+              actions_failed: failedCount,
+              aborted_reason: 'evaluation_abandoned',
+            },
+          };
+        }
+
         if (this.isNotFound(error)) {
           this.logger.warn(
             `${result.resolved_action} "${result.title}": 404 — already removed`,
@@ -102,19 +186,24 @@ export class ActionExecutorService {
     };
   }
 
-  private async executeAction(
-    item: UnifiedMedia,
-    action: Action,
-  ): Promise<void> {
+  private async executeAction({
+    item,
+    action,
+    isAbandoned,
+  }: {
+    item: UnifiedMedia;
+    action: Action;
+    isAbandoned?: () => boolean;
+  }): Promise<void> {
     switch (action) {
       case 'delete':
         return item.type === 'movie'
           ? this.deleteMovie(item)
-          : this.deleteSeasonFiles(item);
+          : this.deleteSeasonFiles({ season: item, isAbandoned });
       case 'unmonitor':
         return item.type === 'movie'
-          ? this.unmonitorMovie(item)
-          : this.unmonitorSeason(item);
+          ? this.unmonitorMovie({ movie: item, isAbandoned })
+          : this.unmonitorSeason({ season: item, isAbandoned });
       case 'keep':
         return;
       default:
@@ -134,12 +223,19 @@ export class ActionExecutorService {
    * flipping `monitored` to false, and PUTting the full body back.
    * This avoids metadata corruption from partial request bodies.
    */
-  private async unmonitorMovie(movie: UnifiedMovie): Promise<void> {
+  private async unmonitorMovie({
+    movie,
+    isAbandoned,
+  }: {
+    movie: UnifiedMovie;
+    isAbandoned?: () => boolean;
+  }): Promise<void> {
     this.logger.log(
       `Unmonitoring movie "${movie.title}" (radarr_id: ${movie.radarr_id})`,
     );
     const fresh = await this.radarrClient.fetchMovie(movie.radarr_id);
     fresh.monitored = false;
+    this.throwIfAbandoned(isAbandoned);
     await this.radarrClient.updateMovie(movie.radarr_id, fresh);
   }
 
@@ -147,7 +243,13 @@ export class ActionExecutorService {
    * Delete all episode files for a specific season.
    * Fetches episode files lazily — only when deletion is actually needed.
    */
-  private async deleteSeasonFiles(season: UnifiedSeason): Promise<void> {
+  private async deleteSeasonFiles({
+    season,
+    isAbandoned,
+  }: {
+    season: UnifiedSeason;
+    isAbandoned?: () => boolean;
+  }): Promise<void> {
     const seasonNumber = season.sonarr.season.season_number;
     this.logger.log(
       `Deleting files for "${season.title}" S${String(seasonNumber).padStart(2, '0')} (series_id: ${season.sonarr_series_id})`,
@@ -169,6 +271,7 @@ export class ActionExecutorService {
     let alreadyRemovedCount = 0;
 
     for (const file of seasonFiles) {
+      this.throwIfAbandoned(isAbandoned);
       try {
         await this.sonarrClient.deleteEpisodeFile(file.id);
         deletedCount++;
@@ -197,7 +300,13 @@ export class ActionExecutorService {
    * flipping the target season's `monitored` to false, and PUTting
    * the full series body back.
    */
-  private async unmonitorSeason(season: UnifiedSeason): Promise<void> {
+  private async unmonitorSeason({
+    season,
+    isAbandoned,
+  }: {
+    season: UnifiedSeason;
+    isAbandoned?: () => boolean;
+  }): Promise<void> {
     const seasonNumber = season.sonarr.season.season_number;
     this.logger.log(
       `Unmonitoring "${season.title}" S${String(seasonNumber).padStart(2, '0')} (series_id: ${season.sonarr_series_id})`,
@@ -216,7 +325,12 @@ export class ActionExecutorService {
     }
 
     targetSeason.monitored = false;
+    this.throwIfAbandoned(isAbandoned);
     await this.sonarrClient.updateSeries(season.sonarr_series_id, freshSeries);
+  }
+
+  private throwIfAbandoned(isAbandoned?: () => boolean): void {
+    if (isAbandoned?.()) throw new ExecutionAbandonedError();
   }
 
   /** Check if an error is a 404 Not Found response from Axios. */

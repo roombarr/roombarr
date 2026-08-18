@@ -58,7 +58,7 @@ describe('EvaluationService', () => {
       enrich: mock((items: any) => items),
     };
     actionExecutor = {
-      execute: mock((results: any) => Promise.resolve({ results })),
+      execute: mock(({ results }: any) => Promise.resolve({ results })),
     };
 
     service = new EvaluationService(
@@ -85,11 +85,12 @@ describe('EvaluationService', () => {
       expect(mediaService.hydrate).toHaveBeenCalledTimes(1);
       expect(rulesService.evaluate).toHaveBeenCalledTimes(1);
       expect(actionExecutor.execute).toHaveBeenCalledTimes(1);
-      expect(actionExecutor.execute).toHaveBeenCalledWith(
-        [testEvaluationResult],
-        [testMovie],
-        testConfig.dry_run,
-      );
+      expect(actionExecutor.execute).toHaveBeenCalledWith({
+        results: [testEvaluationResult],
+        items: [testMovie],
+        dryRun: testConfig.dry_run,
+        isAbandoned: expect.any(Function),
+      });
     });
 
     test('filters out unmatched items from results', async () => {
@@ -234,6 +235,186 @@ describe('EvaluationService', () => {
       );
       await service.handleCron();
       expect(mediaService.hydrate).toHaveBeenCalledTimes(1);
+    });
+  });
+  describe('evaluation deadline (safety.evaluation_timeout)', () => {
+    test('releases the scheduler when hydrate never settles', async () => {
+      configService.getConfig = mock(() =>
+        makeConfig({
+          safety: { evaluation_timeout: '50ms', max_deletes_per_run: 50 },
+        }),
+      );
+      // A promise that never settles — the production wedge, reproduced.
+      mediaService.hydrate = mock(() => new Promise(() => {}));
+
+      const run = await service.runEvaluation();
+
+      expect(service.isRunning()).toBe(false);
+      expect(run.status).toBe('failed');
+      expect(run.error).toContain('50ms');
+    });
+
+    test('a later cron run proceeds after a timed-out run', async () => {
+      configService.getConfig = mock(() =>
+        makeConfig({
+          schedule: '* * * * *',
+          safety: { evaluation_timeout: '50ms', max_deletes_per_run: 50 },
+        }),
+      );
+      mediaService.hydrate = mock(() => new Promise(() => {}));
+      await service.handleCron();
+      expect(service.isRunning()).toBe(false);
+
+      mediaService.hydrate = mock(() => Promise.resolve([testMovie]));
+      await service.handleCron();
+      expect(mediaService.hydrate).toHaveBeenCalledTimes(1);
+    });
+
+    /**
+     * A pipeline step the test holds open. Nothing but `release` can settle it,
+     * so "the deadline fires first" is a fixed ordering rather than a race
+     * between two wall-clock timers on a loaded machine.
+     */
+    function heldStep<T>(): {
+      promise: Promise<T>;
+      release: (value: T) => void;
+    } {
+      let resolveStep: (value: T) => void = () => {};
+      const promise = new Promise<T>(resolve => {
+        resolveStep = resolve;
+      });
+      return { promise, release: value => resolveStep(value) };
+    }
+
+    test('does not execute actions for a run that already timed out', async () => {
+      configService.getConfig = mock(() =>
+        makeConfig({
+          safety: { evaluation_timeout: '30ms', max_deletes_per_run: 50 },
+        }),
+      );
+      const hydrate = heldStep<any>();
+      mediaService.hydrate = mock(() => hydrate.promise);
+
+      const run = await service.runEvaluation();
+      expect(run.status).toBe('failed');
+
+      hydrate.release([testMovie]);
+      await tick();
+
+      expect(actionExecutor.execute).not.toHaveBeenCalled();
+    });
+
+    test('does not snapshot for a run that already timed out', async () => {
+      configService.getConfig = mock(() =>
+        makeConfig({
+          safety: { evaluation_timeout: '30ms', max_deletes_per_run: 50 },
+        }),
+      );
+      const hydrate = heldStep<any>();
+      mediaService.hydrate = mock(() => hydrate.promise);
+
+      await service.runEvaluation();
+
+      hydrate.release([testMovie]);
+      await tick();
+
+      expect(snapshotService.snapshot).not.toHaveBeenCalled();
+    });
+
+    test('does not evaluate rules when the deadline elapses during the snapshot', async () => {
+      configService.getConfig = mock(() =>
+        makeConfig({
+          safety: { evaluation_timeout: '30ms', max_deletes_per_run: 50 },
+        }),
+      );
+      const snapshot = heldStep<void>();
+      snapshotService.snapshot = mock(() => snapshot.promise);
+
+      const run = await service.runEvaluation();
+      expect(run.status).toBe('failed');
+
+      // The snapshot rows land regardless — but rule evaluation writes audit
+      // entries, and an abandoned run must not leave an audit trail behind.
+      snapshot.release();
+      await tick();
+
+      expect(snapshotService.snapshot).toHaveBeenCalledTimes(1);
+      expect(rulesService.evaluate).not.toHaveBeenCalled();
+      expect(stateService.enrich).not.toHaveBeenCalled();
+      expect(actionExecutor.execute).not.toHaveBeenCalled();
+      expect(run.status).toBe('failed');
+      expect(run.results).toEqual([]);
+    });
+
+    test('does not report completed when the deadline elapses mid-execution', async () => {
+      configService.getConfig = mock(() =>
+        makeConfig({
+          safety: { evaluation_timeout: '30ms', max_deletes_per_run: 50 },
+        }),
+      );
+      const execute = heldStep<any>();
+      actionExecutor.execute = mock(({ results }: any) =>
+        execute.promise.then(() => ({ results })),
+      );
+
+      const run = await service.runEvaluation();
+      expect(run.status).toBe('failed');
+
+      execute.release(null);
+      await tick();
+
+      expect(run.status).toBe('failed');
+      expect(run.results).toEqual([]);
+    });
+
+    test('tells the executor to stop once the run is abandoned', async () => {
+      configService.getConfig = mock(() =>
+        makeConfig({
+          safety: { evaluation_timeout: '30ms', max_deletes_per_run: 50 },
+        }),
+      );
+
+      let isAbandoned: (() => boolean) | undefined;
+      const execute = heldStep<any>();
+      actionExecutor.execute = mock(
+        ({ results, isAbandoned: abandoned }: any) => {
+          isAbandoned = abandoned;
+          return execute.promise.then(() => ({ results }));
+        },
+      );
+
+      const run = await service.runEvaluation();
+      expect(run.status).toBe('failed');
+
+      // The executor is still mid-queue here; its next poll must say stop.
+      expect(isAbandoned?.()).toBe(true);
+
+      execute.release(null);
+      await tick();
+    });
+
+    test('carries an execution abort reason into the run summary', async () => {
+      actionExecutor.execute = mock(({ results }: any) =>
+        Promise.resolve({
+          results,
+          executionSummary: {
+            actions_executed: { keep: 0, unmonitor: 0, delete: 0 },
+            actions_failed: 0,
+            aborted_reason: 'max_deletes_per_run_exceeded' as const,
+          },
+        }),
+      );
+
+      const run = await service.runEvaluation();
+
+      expect(run.status).toBe('completed');
+      expect(run.summary?.aborted_reason).toBe('max_deletes_per_run_exceeded');
+    });
+
+    test('completes normally when within the deadline', async () => {
+      const run = await service.runEvaluation();
+      expect(run.status).toBe('completed');
+      expect(service.isRunning()).toBe(false);
     });
   });
 });
