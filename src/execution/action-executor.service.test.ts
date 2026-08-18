@@ -54,6 +54,9 @@ describe('ActionExecutorService', () => {
   };
   let service: ActionExecutorService;
 
+  const execute = (options: Parameters<ActionExecutorService['execute']>[0]) =>
+    service.execute(options);
+
   beforeEach(() => {
     radarrClient = {
       deleteMovie: mock(() => Promise.resolve()),
@@ -115,11 +118,11 @@ describe('ActionExecutorService', () => {
       const movie = makeMovie();
       const result = makeResult(movie, 'delete');
 
-      const { results, executionSummary } = await service.execute(
-        [result],
-        [movie],
-        true,
-      );
+      const { results, executionSummary } = await execute({
+        results: [result],
+        items: [movie],
+        dryRun: true,
+      });
 
       expect(results[0].execution_status).toBe('skipped');
       expect(executionSummary).toBeUndefined();
@@ -132,7 +135,11 @@ describe('ActionExecutorService', () => {
       const movie = makeMovie();
       const result = makeResult(movie, 'delete');
 
-      const { results } = await service.execute([result], [movie], false);
+      const { results } = await execute({
+        results: [result],
+        items: [movie],
+        dryRun: false,
+      });
 
       expect(radarrClient.deleteMovie).toHaveBeenCalledWith(101);
       expect(results[0].execution_status).toBe('success');
@@ -144,13 +151,36 @@ describe('ActionExecutorService', () => {
       const movie = makeMovie();
       const result = makeResult(movie, 'unmonitor');
 
-      const { results } = await service.execute([result], [movie], false);
+      const { results } = await execute({
+        results: [result],
+        items: [movie],
+        dryRun: false,
+      });
 
       expect(radarrClient.fetchMovie).toHaveBeenCalledWith(101);
       expect(radarrClient.updateMovie).toHaveBeenCalledTimes(1);
       const putBody = radarrClient.updateMovie.mock.calls[0][1];
       expect(putBody.monitored).toBe(false);
       expect(results[0].execution_status).toBe('success');
+    });
+
+    test('does not update a movie after the run is abandoned', async () => {
+      let abandoned = false;
+      radarrClient.fetchMovie = mock(() => {
+        abandoned = true;
+        return Promise.resolve(makeRadarrMovie({ id: 101, monitored: true }));
+      });
+      const movie = makeMovie();
+
+      const { executionSummary } = await execute({
+        results: [makeResult(movie, 'unmonitor')],
+        items: [movie],
+        dryRun: false,
+        isAbandoned: () => abandoned,
+      });
+
+      expect(radarrClient.updateMovie).not.toHaveBeenCalled();
+      expect(executionSummary?.aborted_reason).toBe('evaluation_abandoned');
     });
   });
 
@@ -159,7 +189,11 @@ describe('ActionExecutorService', () => {
       const season = makeSeason();
       const result = makeResult(season, 'delete');
 
-      const { results } = await service.execute([result], [season], false);
+      const { results } = await execute({
+        results: [result],
+        items: [season],
+        dryRun: false,
+      });
 
       expect(sonarrClient.fetchEpisodeFiles).toHaveBeenCalledWith(201);
       // Only season 1 files (ids 1 and 2), not season 2 (id 3)
@@ -180,7 +214,11 @@ describe('ActionExecutorService', () => {
       const season = makeSeason();
       const result = makeResult(season, 'delete');
 
-      const { results } = await service.execute([result], [season], false);
+      const { results } = await execute({
+        results: [result],
+        items: [season],
+        dryRun: false,
+      });
 
       expect(sonarrClient.deleteEpisodeFile).toHaveBeenCalledTimes(2);
       expect(sonarrClient.deleteEpisodeFile).toHaveBeenCalledWith(1);
@@ -193,10 +231,34 @@ describe('ActionExecutorService', () => {
       const season = makeSeason();
       const result = makeResult(season, 'delete');
 
-      const { results } = await service.execute([result], [season], false);
+      const { results } = await execute({
+        results: [result],
+        items: [season],
+        dryRun: false,
+      });
 
       expect(sonarrClient.deleteEpisodeFile).not.toHaveBeenCalled();
       expect(results[0].execution_status).toBe('success');
+    });
+
+    test('stops deleting episode files when the run is abandoned', async () => {
+      let abandoned = false;
+      sonarrClient.deleteEpisodeFile = mock(() => {
+        abandoned = true;
+        return Promise.resolve();
+      });
+      const season = makeSeason();
+      const result = makeResult(season, 'delete');
+
+      const { executionSummary } = await execute({
+        results: [result],
+        items: [season],
+        dryRun: false,
+        isAbandoned: () => abandoned,
+      });
+
+      expect(sonarrClient.deleteEpisodeFile).toHaveBeenCalledTimes(1);
+      expect(executionSummary?.aborted_reason).toBe('evaluation_abandoned');
     });
   });
 
@@ -205,7 +267,11 @@ describe('ActionExecutorService', () => {
       const season = makeSeason();
       const result = makeResult(season, 'unmonitor');
 
-      const { results } = await service.execute([result], [season], false);
+      const { results } = await execute({
+        results: [result],
+        items: [season],
+        dryRun: false,
+      });
 
       expect(sonarrClient.fetchSeriesById).toHaveBeenCalledWith(201);
       expect(sonarrClient.updateSeries).toHaveBeenCalledTimes(1);
@@ -214,6 +280,25 @@ describe('ActionExecutorService', () => {
       expect(putBody.seasons[1].monitored).toBe(true); // season 2 unchanged
       expect(results[0].execution_status).toBe('success');
     });
+
+    test('does not update a series after the run is abandoned', async () => {
+      let abandoned = false;
+      sonarrClient.fetchSeriesById = mock(() => {
+        abandoned = true;
+        return Promise.resolve(makeSonarrSeries());
+      });
+      const season = makeSeason();
+
+      const { executionSummary } = await execute({
+        results: [makeResult(season, 'unmonitor')],
+        items: [season],
+        dryRun: false,
+        isAbandoned: () => abandoned,
+      });
+
+      expect(sonarrClient.updateSeries).not.toHaveBeenCalled();
+      expect(executionSummary?.aborted_reason).toBe('evaluation_abandoned');
+    });
   });
 
   describe('keep actions', () => {
@@ -221,7 +306,11 @@ describe('ActionExecutorService', () => {
       const movie = makeMovie();
       const result = makeResult(movie, 'keep');
 
-      const { results } = await service.execute([result], [movie], false);
+      const { results } = await execute({
+        results: [result],
+        items: [movie],
+        dryRun: false,
+      });
 
       expect(radarrClient.deleteMovie).not.toHaveBeenCalled();
       expect(radarrClient.fetchMovie).not.toHaveBeenCalled();
@@ -232,7 +321,11 @@ describe('ActionExecutorService', () => {
       const movie = makeMovie();
       const result = makeResult(movie, null);
 
-      const { results } = await service.execute([result], [movie], false);
+      const { results } = await execute({
+        results: [result],
+        items: [movie],
+        dryRun: false,
+      });
 
       expect(radarrClient.deleteMovie).not.toHaveBeenCalled();
       expect(results[0].execution_status).toBe('skipped');
@@ -245,11 +338,11 @@ describe('ActionExecutorService', () => {
       const movie = makeMovie();
       const result = makeResult(movie, 'delete');
 
-      const { results, executionSummary } = await service.execute(
-        [result],
-        [movie],
-        false,
-      );
+      const { results, executionSummary } = await execute({
+        results: [result],
+        items: [movie],
+        dryRun: false,
+      });
 
       expect(results).toHaveLength(1);
       expect(results[0].execution_status).toBe('not_found');
@@ -275,11 +368,11 @@ describe('ActionExecutorService', () => {
         makeResult(movie2, 'delete'),
       ];
 
-      const { results: executed, executionSummary } = await service.execute(
+      const { results: executed, executionSummary } = await execute({
         results,
-        [movie1, movie2],
-        false,
-      );
+        items: [movie1, movie2],
+        dryRun: false,
+      });
 
       expect(executed[0].execution_status).toBe('failed');
       expect(executed[0].execution_error).toBe('Internal Server Error');
@@ -300,11 +393,11 @@ describe('ActionExecutorService', () => {
         return Promise.resolve();
       });
 
-      const { results: executed, executionSummary } = await service.execute(
-        [makeResult(movie1, 'delete'), makeResult(movie2, 'delete')],
-        [movie1, movie2],
-        false,
-      );
+      const { results: executed, executionSummary } = await execute({
+        results: [makeResult(movie1, 'delete'), makeResult(movie2, 'delete')],
+        items: [movie1, movie2],
+        dryRun: false,
+      });
 
       expect(executed).toHaveLength(2);
       expect(executed[0].execution_status).toBe('not_found');
@@ -319,7 +412,11 @@ describe('ActionExecutorService', () => {
       const result = makeResult(movie, 'delete');
 
       // Pass empty items array — item won't be found
-      const { results } = await service.execute([result], [], false);
+      const { results } = await execute({
+        results: [result],
+        items: [],
+        dryRun: false,
+      });
 
       expect(results[0].execution_status).toBe('failed');
       expect(results[0].execution_error).toBe(
@@ -340,11 +437,11 @@ describe('ActionExecutorService', () => {
       const season = makeSeason();
       const result = makeResult(season, 'unmonitor');
 
-      const { results, executionSummary } = await service.execute(
-        [result],
-        [season],
-        false,
-      );
+      const { results, executionSummary } = await execute({
+        results: [result],
+        items: [season],
+        dryRun: false,
+      });
 
       expect(results[0].execution_status).toBe('failed');
       expect(results[0].execution_error).toBe(
@@ -361,11 +458,11 @@ describe('ActionExecutorService', () => {
       const season = makeSeason();
       const result = makeResult(season, 'delete');
 
-      const { results, executionSummary } = await service.execute(
-        [result],
-        [season],
-        false,
-      );
+      const { results, executionSummary } = await execute({
+        results: [result],
+        items: [season],
+        dryRun: false,
+      });
 
       expect(results[0].execution_status).toBe('failed');
       expect(results[0].execution_error).toBe('Connection refused');
@@ -385,11 +482,11 @@ describe('ActionExecutorService', () => {
         makeResult(season, 'delete'),
       ];
 
-      const { executionSummary } = await service.execute(
+      const { executionSummary } = await execute({
         results,
-        [movie1, movie2, season],
-        false,
-      );
+        items: [movie1, movie2, season],
+        dryRun: false,
+      });
 
       expect(executionSummary).toBeDefined();
       expect(executionSummary?.actions_executed.delete).toBe(2);
@@ -419,12 +516,12 @@ describe('ActionExecutorService', () => {
         },
       );
 
-      const { results: out, executionSummary } = await service.execute(
+      const { results: out, executionSummary } = await execute({
         results,
-        movies,
-        false,
-        () => abandoned,
-      );
+        items: movies,
+        dryRun: false,
+        isAbandoned: () => abandoned,
+      });
 
       expect(radarrClient.deleteMovie).toHaveBeenCalledTimes(2);
       expect(executionSummary?.aborted_reason).toBe('evaluation_abandoned');
@@ -438,12 +535,12 @@ describe('ActionExecutorService', () => {
     test('executes nothing when abandoned before the first action', async () => {
       const { movies, results } = makeDeletes(3);
 
-      const { results: out, executionSummary } = await service.execute(
+      const { results: out, executionSummary } = await execute({
         results,
-        movies,
-        false,
-        () => true,
-      );
+        items: movies,
+        dryRun: false,
+        isAbandoned: () => true,
+      });
 
       expect(radarrClient.deleteMovie).not.toHaveBeenCalled();
       expect(out.every(r => r.execution_status === 'skipped')).toBe(true);
@@ -453,12 +550,12 @@ describe('ActionExecutorService', () => {
     test('runs to completion when never abandoned', async () => {
       const { movies, results } = makeDeletes(3);
 
-      const { executionSummary } = await service.execute(
+      const { executionSummary } = await execute({
         results,
-        movies,
-        false,
-        () => false,
-      );
+        items: movies,
+        dryRun: false,
+        isAbandoned: () => false,
+      });
 
       expect(radarrClient.deleteMovie).toHaveBeenCalledTimes(3);
       expect(executionSummary?.aborted_reason).toBeUndefined();
@@ -491,11 +588,11 @@ describe('ActionExecutorService', () => {
       const { movies, results } = makeDeletes(4);
       const limited = serviceWithLimit(3);
 
-      const { results: out, executionSummary } = await limited.execute(
+      const { results: out, executionSummary } = await limited.execute({
         results,
-        movies,
-        false,
-      );
+        items: movies,
+        dryRun: false,
+      });
 
       expect(radarrClient.deleteMovie).not.toHaveBeenCalled();
       expect(out.every(r => r.execution_status === 'skipped')).toBe(true);
@@ -509,11 +606,11 @@ describe('ActionExecutorService', () => {
       const { movies, results } = makeDeletes(3);
       const limited = serviceWithLimit(3);
 
-      const { executionSummary } = await limited.execute(
+      const { executionSummary } = await limited.execute({
         results,
-        movies,
-        false,
-      );
+        items: movies,
+        dryRun: false,
+      });
 
       expect(radarrClient.deleteMovie).toHaveBeenCalledTimes(3);
       expect(executionSummary?.aborted_reason).toBeUndefined();
@@ -524,7 +621,7 @@ describe('ActionExecutorService', () => {
       const { movies, results } = makeDeletes(25);
       const limited = serviceWithLimit(null);
 
-      await limited.execute(results, movies, false);
+      await limited.execute({ results, items: movies, dryRun: false });
 
       expect(radarrClient.deleteMovie).toHaveBeenCalledTimes(25);
     });
@@ -536,11 +633,11 @@ describe('ActionExecutorService', () => {
       const { movies, results } = makeDeletes(2);
       const limited = serviceWithLimit(3);
 
-      const { executionSummary } = await limited.execute(
-        [...keeps.map(m => makeResult(m, 'keep')), ...results],
-        [...keeps, ...movies],
-        false,
-      );
+      const { executionSummary } = await limited.execute({
+        results: [...keeps.map(m => makeResult(m, 'keep')), ...results],
+        items: [...keeps, ...movies],
+        dryRun: false,
+      });
 
       expect(executionSummary?.aborted_reason).toBeUndefined();
       expect(radarrClient.deleteMovie).toHaveBeenCalledTimes(2);

@@ -82,7 +82,11 @@ describe('full evaluation pipeline (e2e)', () => {
 
     // Step 5: Execute
     const { results: executedResults, executionSummary } =
-      await actionExecutor.execute(results, enrichedItems, dryRun);
+      await actionExecutor.execute({
+        results,
+        items: enrichedItems,
+        dryRun,
+      });
 
     if (executionSummary) {
       summary.actions_executed = executionSummary.actions_executed;

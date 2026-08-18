@@ -148,26 +148,45 @@ describe('MediaService', () => {
     expect(radarrService.fetchMovies).not.toHaveBeenCalled();
   });
 
-  test('handles null services gracefully', async () => {
+  test('fails when a required base service is unavailable', async () => {
     const serviceWithNulls = new MediaService(null, null, null, null);
     const rules: RuleConfig[] = [makeRule()];
 
-    const result = await serviceWithNulls.hydrate(rules);
-
-    expect(result).toEqual([]);
+    await expect(serviceWithNulls.hydrate(rules)).rejects.toThrow(
+      'Radarr service is required by configured rules',
+    );
   });
 
-  test('handles service fetch failure gracefully', async () => {
+  test('fails when Sonarr rules are configured without Sonarr', async () => {
+    const serviceWithoutSonarr = new MediaService(
+      null,
+      radarrService as any,
+      null,
+      null,
+    );
+    const rules: RuleConfig[] = [makeRule({ target: 'sonarr' })];
+
+    await expect(serviceWithoutSonarr.hydrate(rules)).rejects.toThrow(
+      'Sonarr service is required by configured rules',
+    );
+  });
+
+  test('propagates a Radarr base-data fetch failure', async () => {
     radarrService.fetchMovies = mock(() =>
       Promise.reject(new Error('Connection refused')),
     );
 
     const rules: RuleConfig[] = [makeRule()];
-    const result = await service.hydrate(rules);
+    await expect(service.hydrate(rules)).rejects.toThrow('Connection refused');
+  });
 
-    // Should return empty instead of throwing
-    const movies = result.filter(r => r.type === 'movie');
-    expect(movies).toHaveLength(0);
+  test('propagates a Sonarr base-data fetch failure', async () => {
+    sonarrService.fetchSeasons = mock(() =>
+      Promise.reject(new Error('Sonarr unreachable')),
+    );
+
+    const rules: RuleConfig[] = [makeRule({ target: 'sonarr' })];
+    await expect(service.hydrate(rules)).rejects.toThrow('Sonarr unreachable');
   });
 
   test('propagates a Jellyfin movie fetch failure instead of degrading', async () => {

@@ -247,12 +247,12 @@ export class EvaluationService {
 
     // Step 5: Execute actions (no-op in dry-run mode)
     const { results: executedResults, executionSummary } =
-      await this.actionExecutor.execute(
+      await this.actionExecutor.execute({
         results,
-        enrichedItems,
-        run.dry_run,
-        () => this.hasBeenAbandoned(run),
-      );
+        items: enrichedItems,
+        dryRun: run.dry_run,
+        isAbandoned: () => this.hasBeenAbandoned(run),
+      });
 
     if (executionSummary) {
       summary.actions_executed = executionSummary.actions_executed;

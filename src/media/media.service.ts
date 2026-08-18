@@ -32,10 +32,9 @@ export class MediaService {
    * Only fetches from services that are actually referenced
    * in rule conditions (lazy fetching).
    *
-   * @throws if an enrichment service that some rule depends on cannot be
-   * reached. Absent enrichment data is indistinguishable from "this item has
-   * no watch history", which silently drops the `keep` rules guarding the
-   * library, so a failed fetch must fail the run rather than degrade it.
+   * @throws if a required base or enrichment service is unavailable or cannot
+   * be reached. Missing data can silently drop `keep` rules guarding the
+   * library, so hydration must fail rather than degrade to an empty result.
    */
   async hydrate(rules: RuleConfig[]): Promise<UnifiedMedia[]> {
     const neededServices = this.analyzeNeededServices(rules);
@@ -48,8 +47,8 @@ export class MediaService {
 
     // Fetch base data from Sonarr/Radarr in parallel
     const [movies, seasons] = await Promise.all([
-      hasRadarrRules ? this.fetchMoviesSafe() : Promise.resolve([]),
-      hasSonarrRules ? this.fetchSeasonsSafe() : Promise.resolve([]),
+      hasRadarrRules ? this.fetchMovies() : Promise.resolve([]),
+      hasSonarrRules ? this.fetchSeasons() : Promise.resolve([]),
     ]);
 
     // Fetch enrichment data in parallel (only if needed)
@@ -114,30 +113,18 @@ export class MediaService {
     }
   }
 
-  private async fetchMoviesSafe() {
+  private async fetchMovies() {
     if (!this.radarrService) {
-      this.logger.warn('Radarr service not available, skipping movie fetch');
-      return [];
+      throw new Error('Radarr service is required by configured rules');
     }
-    try {
-      return await this.radarrService.fetchMovies();
-    } catch (error) {
-      this.logger.warn(`Radarr fetch failed, skipping: ${error}`);
-      return [];
-    }
+    return this.radarrService.fetchMovies();
   }
 
-  private async fetchSeasonsSafe() {
+  private async fetchSeasons() {
     if (!this.sonarrService) {
-      this.logger.warn('Sonarr service not available, skipping season fetch');
-      return [];
+      throw new Error('Sonarr service is required by configured rules');
     }
-    try {
-      return await this.sonarrService.fetchSeasons();
-    } catch (error) {
-      this.logger.warn(`Sonarr fetch failed, skipping: ${error}`);
-      return [];
-    }
+    return this.sonarrService.fetchSeasons();
   }
 
   private async fetchJellyfinMovieData(): Promise<Map<

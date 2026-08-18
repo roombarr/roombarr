@@ -13,6 +13,15 @@ import {
 import { SonarrClient } from '../sonarr/sonarr.client';
 import type { ExecutionSummary } from './execution.types';
 
+interface ExecuteActionsOptions {
+  results: EvaluationItemResult[];
+  items: UnifiedMedia[];
+  dryRun: boolean;
+  isAbandoned?: () => boolean;
+}
+
+class ExecutionAbandonedError extends Error {}
+
 @Injectable()
 export class ActionExecutorService {
   private readonly logger = new Logger(ActionExecutorService.name);
@@ -28,16 +37,16 @@ export class ActionExecutorService {
    * In dry-run mode, every result is marked as 'skipped' with no API calls.
    * In live mode, each actionable item is executed sequentially.
    *
-   * @param isAbandoned polled before each action. Executing a queue of deletes
-   * can outlive the evaluation's deadline, and once that passes the scheduler
-   * is free to start another run — so the caller gets a say in stopping.
+   * The abandonment callback is polled before every API request. Executing a
+   * queue of deletes can outlive the evaluation's deadline, and once that
+   * passes the scheduler is free to start another run.
    */
-  async execute(
-    results: EvaluationItemResult[],
-    items: UnifiedMedia[],
-    dryRun: boolean,
-    isAbandoned?: () => boolean,
-  ): Promise<{
+  async execute({
+    results,
+    items,
+    dryRun,
+    isAbandoned,
+  }: ExecuteActionsOptions): Promise<{
     results: EvaluationItemResult[];
     executionSummary?: ExecutionSummary;
   }> {
@@ -124,10 +133,29 @@ export class ActionExecutorService {
       }
 
       try {
-        await this.executeAction(item, result.resolved_action);
+        await this.executeAction({
+          item,
+          action: result.resolved_action,
+          isAbandoned,
+        });
         executed.push({ ...result, execution_status: 'success' });
         counts[result.resolved_action]++;
       } catch (error) {
+        if (error instanceof ExecutionAbandonedError) {
+          executed.push({ ...result, execution_status: 'skipped' });
+          for (const pending of results.slice(index + 1)) {
+            executed.push({ ...pending, execution_status: 'skipped' });
+          }
+          return {
+            results: executed,
+            executionSummary: {
+              actions_executed: counts,
+              actions_failed: failedCount,
+              aborted_reason: 'evaluation_abandoned',
+            },
+          };
+        }
+
         if (this.isNotFound(error)) {
           this.logger.warn(
             `${result.resolved_action} "${result.title}": 404 — already removed`,
@@ -158,19 +186,24 @@ export class ActionExecutorService {
     };
   }
 
-  private async executeAction(
-    item: UnifiedMedia,
-    action: Action,
-  ): Promise<void> {
+  private async executeAction({
+    item,
+    action,
+    isAbandoned,
+  }: {
+    item: UnifiedMedia;
+    action: Action;
+    isAbandoned?: () => boolean;
+  }): Promise<void> {
     switch (action) {
       case 'delete':
         return item.type === 'movie'
           ? this.deleteMovie(item)
-          : this.deleteSeasonFiles(item);
+          : this.deleteSeasonFiles({ season: item, isAbandoned });
       case 'unmonitor':
         return item.type === 'movie'
-          ? this.unmonitorMovie(item)
-          : this.unmonitorSeason(item);
+          ? this.unmonitorMovie({ movie: item, isAbandoned })
+          : this.unmonitorSeason({ season: item, isAbandoned });
       case 'keep':
         return;
       default:
@@ -190,12 +223,19 @@ export class ActionExecutorService {
    * flipping `monitored` to false, and PUTting the full body back.
    * This avoids metadata corruption from partial request bodies.
    */
-  private async unmonitorMovie(movie: UnifiedMovie): Promise<void> {
+  private async unmonitorMovie({
+    movie,
+    isAbandoned,
+  }: {
+    movie: UnifiedMovie;
+    isAbandoned?: () => boolean;
+  }): Promise<void> {
     this.logger.log(
       `Unmonitoring movie "${movie.title}" (radarr_id: ${movie.radarr_id})`,
     );
     const fresh = await this.radarrClient.fetchMovie(movie.radarr_id);
     fresh.monitored = false;
+    this.throwIfAbandoned(isAbandoned);
     await this.radarrClient.updateMovie(movie.radarr_id, fresh);
   }
 
@@ -203,7 +243,13 @@ export class ActionExecutorService {
    * Delete all episode files for a specific season.
    * Fetches episode files lazily — only when deletion is actually needed.
    */
-  private async deleteSeasonFiles(season: UnifiedSeason): Promise<void> {
+  private async deleteSeasonFiles({
+    season,
+    isAbandoned,
+  }: {
+    season: UnifiedSeason;
+    isAbandoned?: () => boolean;
+  }): Promise<void> {
     const seasonNumber = season.sonarr.season.season_number;
     this.logger.log(
       `Deleting files for "${season.title}" S${String(seasonNumber).padStart(2, '0')} (series_id: ${season.sonarr_series_id})`,
@@ -225,6 +271,7 @@ export class ActionExecutorService {
     let alreadyRemovedCount = 0;
 
     for (const file of seasonFiles) {
+      this.throwIfAbandoned(isAbandoned);
       try {
         await this.sonarrClient.deleteEpisodeFile(file.id);
         deletedCount++;
@@ -253,7 +300,13 @@ export class ActionExecutorService {
    * flipping the target season's `monitored` to false, and PUTting
    * the full series body back.
    */
-  private async unmonitorSeason(season: UnifiedSeason): Promise<void> {
+  private async unmonitorSeason({
+    season,
+    isAbandoned,
+  }: {
+    season: UnifiedSeason;
+    isAbandoned?: () => boolean;
+  }): Promise<void> {
     const seasonNumber = season.sonarr.season.season_number;
     this.logger.log(
       `Unmonitoring "${season.title}" S${String(seasonNumber).padStart(2, '0')} (series_id: ${season.sonarr_series_id})`,
@@ -272,7 +325,12 @@ export class ActionExecutorService {
     }
 
     targetSeason.monitored = false;
+    this.throwIfAbandoned(isAbandoned);
     await this.sonarrClient.updateSeries(season.sonarr_series_id, freshSeries);
+  }
+
+  private throwIfAbandoned(isAbandoned?: () => boolean): void {
+    if (isAbandoned?.()) throw new ExecutionAbandonedError();
   }
 
   /** Check if an error is a 404 Not Found response from Axios. */

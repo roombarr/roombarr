@@ -58,7 +58,7 @@ describe('EvaluationService', () => {
       enrich: mock((items: any) => items),
     };
     actionExecutor = {
-      execute: mock((results: any) => Promise.resolve({ results })),
+      execute: mock(({ results }: any) => Promise.resolve({ results })),
     };
 
     service = new EvaluationService(
@@ -85,12 +85,12 @@ describe('EvaluationService', () => {
       expect(mediaService.hydrate).toHaveBeenCalledTimes(1);
       expect(rulesService.evaluate).toHaveBeenCalledTimes(1);
       expect(actionExecutor.execute).toHaveBeenCalledTimes(1);
-      expect(actionExecutor.execute).toHaveBeenCalledWith(
-        [testEvaluationResult],
-        [testMovie],
-        testConfig.dry_run,
-        expect.any(Function),
-      );
+      expect(actionExecutor.execute).toHaveBeenCalledWith({
+        results: [testEvaluationResult],
+        items: [testMovie],
+        dryRun: testConfig.dry_run,
+        isAbandoned: expect.any(Function),
+      });
     });
 
     test('filters out unmatched items from results', async () => {
@@ -353,7 +353,7 @@ describe('EvaluationService', () => {
         }),
       );
       const execute = heldStep<any>();
-      actionExecutor.execute = mock((results: any) =>
+      actionExecutor.execute = mock(({ results }: any) =>
         execute.promise.then(() => ({ results })),
       );
 
@@ -377,7 +377,7 @@ describe('EvaluationService', () => {
       let isAbandoned: (() => boolean) | undefined;
       const execute = heldStep<any>();
       actionExecutor.execute = mock(
-        (results: any, _items: any, _dryRun: any, abandoned: () => boolean) => {
+        ({ results, isAbandoned: abandoned }: any) => {
           isAbandoned = abandoned;
           return execute.promise.then(() => ({ results }));
         },
@@ -394,7 +394,7 @@ describe('EvaluationService', () => {
     });
 
     test('carries an execution abort reason into the run summary', async () => {
-      actionExecutor.execute = mock((results: any) =>
+      actionExecutor.execute = mock(({ results }: any) =>
         Promise.resolve({
           results,
           executionSummary: {
