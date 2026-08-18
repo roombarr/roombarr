@@ -130,9 +130,11 @@ export class JellyfinClient {
 
       allItems.push(...data.Items);
 
-      // An empty page makes no progress — treat it as the end of the result
-      // set regardless of what TotalRecordCount claims.
-      if (data.Items.length === 0) return allItems;
+      // A page smaller than the limit means the result set is exhausted —
+      // an empty page makes no progress at all, and a short one would only
+      // skip records if we advanced past it. Neither depends on
+      // TotalRecordCount, which is what a misreporting server gets wrong.
+      if (data.Items.length < pageSize) return allItems;
 
       const total = data.TotalRecordCount;
       if (!Number.isFinite(total)) {

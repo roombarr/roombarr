@@ -187,6 +187,24 @@ export class EvaluationService {
     }
   }
 
+  /**
+   * Whether this run has been abandoned by its deadline.
+   *
+   * A timed-out run is already marked failed and the scheduler has been
+   * released, so a later evaluation may be underway. The abandoned pipeline can
+   * still settle at any await point; when it does it must not write state,
+   * execute actions, or report itself completed. Checked at each step boundary,
+   * which is the closest a non-cancellable pipeline can get to stopping.
+   */
+  private isAbandoned(run: EvaluationRun): boolean {
+    if (run.status === 'running') return false;
+
+    this.logger.warn(
+      `Evaluation ${run.run_id} continued after being abandoned — discarding its results`,
+    );
+    return true;
+  }
+
   private async runPipeline(run: EvaluationRun): Promise<void> {
     const config = this.configService.getConfig();
     const { rules } = config;
@@ -197,6 +215,7 @@ export class EvaluationService {
 
     // Step 1: Hydrate unified models from all services
     const items = await this.mediaService.hydrate(rules);
+    if (this.isAbandoned(run)) return;
 
     // Step 2: Snapshot — persist unified models, detect field changes
     const hydratedServices = getHydratedServices(rules);
@@ -213,14 +232,7 @@ export class EvaluationService {
       run.dry_run,
     );
 
-    // A run that already timed out has released the scheduler; another
-    // evaluation may be underway. Never let a zombie pipeline execute actions.
-    if (run.status !== 'running') {
-      this.logger.warn(
-        `Evaluation ${run.run_id} finished after being abandoned — discarding results without executing actions`,
-      );
-      return;
-    }
+    if (this.isAbandoned(run)) return;
 
     // Step 5: Execute actions (no-op in dry-run mode)
     const { results: executedResults, executionSummary } =
@@ -230,6 +242,8 @@ export class EvaluationService {
       summary.actions_executed = executionSummary.actions_executed;
       summary.actions_failed = executionSummary.actions_failed;
     }
+
+    if (this.isAbandoned(run)) return;
 
     // Step 6: Update run with results
     run.status = 'completed';

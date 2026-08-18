@@ -291,22 +291,49 @@ describe('JellyfinClient', () => {
       expect(calls).toBe(2);
     });
 
-    test('stops when TotalRecordCount is missing', async () => {
+    test('stops on a short page even when TotalRecordCount is larger', async () => {
       const { client, http } = await setup();
       let calls = 0;
 
+      // Fewer items than the page size means the result set is exhausted;
+      // asking for the next page would only skip records.
       http.get = () => {
         calls++;
         return of(
           axiosResponse({
-            Items: [makeJellyfinItem({ Id: `item-${calls}` })],
+            Items: Array.from({ length: 40 }, (_, i) =>
+              makeJellyfinItem({ Id: `item-${i}` }),
+            ),
+            TotalRecordCount: 5000,
+          }),
+        ) as any;
+      };
+
+      const result = await client.fetchPlayedMovies('user-1');
+
+      expect(result).toHaveLength(40);
+      expect(calls).toBe(1);
+    });
+
+    test('stops when TotalRecordCount is missing', async () => {
+      const { client, http } = await setup();
+      let calls = 0;
+
+      // A full page, so termination can only come from the missing count.
+      http.get = () => {
+        calls++;
+        return of(
+          axiosResponse({
+            Items: Array.from({ length: 100 }, (_, i) =>
+              makeJellyfinItem({ Id: `item-${i}` }),
+            ),
           }),
         ) as any;
       };
 
       const result = await client.fetchSeriesItems('user-1');
 
-      expect(result).toHaveLength(1);
+      expect(result).toHaveLength(100);
       expect(calls).toBe(1);
     });
 
@@ -314,7 +341,7 @@ describe('JellyfinClient', () => {
       const { client, http } = await setup();
       http.get = () => of(axiosResponse({ TotalRecordCount: 10 })) as any;
 
-      expect(client.fetchSeriesItems('user-1')).rejects.toThrow(
+      await expect(client.fetchSeriesItems('user-1')).rejects.toThrow(
         /malformed page/,
       );
     });

@@ -288,6 +288,42 @@ describe('EvaluationService', () => {
       expect(actionExecutor.execute).not.toHaveBeenCalled();
     });
 
+    test('does not snapshot for a run that already timed out', async () => {
+      configService.getConfig = mock(() =>
+        makeConfig({
+          safety: { evaluation_timeout: '30ms', max_deletes_per_run: 50 },
+        }),
+      );
+      mediaService.hydrate = mock(
+        () =>
+          new Promise(resolve => setTimeout(() => resolve([testMovie]), 120)),
+      );
+
+      await service.runEvaluation();
+
+      await new Promise(resolve => setTimeout(resolve, 200));
+      expect(snapshotService.snapshot).not.toHaveBeenCalled();
+    });
+
+    test('does not report completed when the deadline elapses mid-execution', async () => {
+      configService.getConfig = mock(() =>
+        makeConfig({
+          safety: { evaluation_timeout: '30ms', max_deletes_per_run: 50 },
+        }),
+      );
+      actionExecutor.execute = mock(
+        (results: any) =>
+          new Promise(resolve => setTimeout(() => resolve({ results }), 120)),
+      );
+
+      const run = await service.runEvaluation();
+      expect(run.status).toBe('failed');
+
+      await new Promise(resolve => setTimeout(resolve, 200));
+      expect(run.status).toBe('failed');
+      expect(run.results).toEqual([]);
+    });
+
     test('completes normally when within the deadline', async () => {
       const run = await service.runEvaluation();
       expect(run.status).toBe('completed');
