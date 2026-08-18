@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/roombarr/roombarr/compare/v0.2.1...v0.2.2) (2026-08-18)
+
+
+### Features
+
+* **safety:** bound evaluation runtime and cap deletes per run ([#44](https://github.com/roombarr/roombarr/issues/44)) ([ff05958](https://github.com/roombarr/roombarr/commit/ff05958b3a68139410eccd7714d134f7d67580ef))
+
 ## [0.2.1](https://github.com/roombarr/roombarr/compare/v0.2.0...v0.2.1) (2026-03-22)
 
 
