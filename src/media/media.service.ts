@@ -41,6 +41,13 @@ export class MediaService {
     const hasRadarrRules = rules.some(r => r.target === 'radarr');
     const hasSonarrRules = rules.some(r => r.target === 'sonarr');
 
+    if (neededServices.has('jellyfin') && !this.jellyfinService) {
+      throw new Error('Jellyfin service is required by configured rules');
+    }
+    if (neededServices.has('jellyseerr') && !this.jellyseerrService) {
+      throw new Error('Jellyseerr service is required by configured rules');
+    }
+
     this.logger.log(
       `Hydrating media: services needed = [${[...neededServices].join(', ')}]`,
     );
@@ -127,15 +134,9 @@ export class MediaService {
     return this.sonarrService.fetchSeasons();
   }
 
-  private async fetchJellyfinMovieData(): Promise<Map<
-    number,
-    JellyfinData
-  > | null> {
+  private async fetchJellyfinMovieData(): Promise<Map<number, JellyfinData>> {
     if (!this.jellyfinService) {
-      this.logger.warn(
-        'Jellyfin service not available, skipping movie watch data',
-      );
-      return null;
+      throw new Error('Jellyfin service is required by configured rules');
     }
     return this.jellyfinService.fetchMovieWatchData();
   }
@@ -145,12 +146,9 @@ export class MediaService {
       tvdb_id: number;
       sonarr: { season: { season_number: number } };
     }>,
-  ): Promise<Map<string, JellyfinData> | null> {
+  ): Promise<Map<string, JellyfinData>> {
     if (!this.jellyfinService) {
-      this.logger.warn(
-        'Jellyfin service not available, skipping season watch data',
-      );
-      return null;
+      throw new Error('Jellyfin service is required by configured rules');
     }
     const identifiers: SeasonIdentifier[] = seasons.map(s => ({
       tvdbId: s.tvdb_id,
@@ -159,12 +157,9 @@ export class MediaService {
     return this.jellyfinService.fetchSeasonWatchData(identifiers);
   }
 
-  private async fetchJellyseerrData(): Promise<JellyseerrIndexes | null> {
+  private async fetchJellyseerrData(): Promise<JellyseerrIndexes> {
     if (!this.jellyseerrService) {
-      this.logger.warn(
-        'Jellyseerr service not available, skipping request data',
-      );
-      return null;
+      throw new Error('Jellyseerr service is required by configured rules');
     }
     return this.jellyseerrService.fetchRequestData();
   }

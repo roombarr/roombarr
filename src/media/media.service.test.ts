@@ -171,6 +171,61 @@ describe('MediaService', () => {
     );
   });
 
+  test('fails when Jellyfin fields are configured without Jellyfin', async () => {
+    radarrService.fetchMovies = mock(() => Promise.resolve([]));
+    const serviceWithoutJellyfin = new MediaService(
+      sonarrService as any,
+      radarrService as any,
+      null,
+      jellyseerrService as any,
+    );
+    const rules: RuleConfig[] = [
+      makeRule({
+        conditions: {
+          operator: 'AND',
+          children: [
+            {
+              field: 'jellyfin.watched_by_all',
+              operator: 'equals',
+              value: true,
+            },
+          ],
+        },
+      }),
+    ];
+
+    await expect(serviceWithoutJellyfin.hydrate(rules)).rejects.toThrow(
+      'Jellyfin service is required by configured rules',
+    );
+  });
+
+  test('fails when Jellyseerr fields are configured without Jellyseerr', async () => {
+    const serviceWithoutJellyseerr = new MediaService(
+      sonarrService as any,
+      radarrService as any,
+      jellyfinService as any,
+      null,
+    );
+    const rules: RuleConfig[] = [
+      makeRule({
+        conditions: {
+          operator: 'AND',
+          children: [
+            {
+              field: 'jellyseerr.request_status',
+              operator: 'equals',
+              value: 'approved',
+            },
+          ],
+        },
+      }),
+    ];
+
+    await expect(serviceWithoutJellyseerr.hydrate(rules)).rejects.toThrow(
+      'Jellyseerr service is required by configured rules',
+    );
+  });
+
   test('propagates a Radarr base-data fetch failure', async () => {
     radarrService.fetchMovies = mock(() =>
       Promise.reject(new Error('Connection refused')),
