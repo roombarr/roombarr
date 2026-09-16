@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/roombarr/roombarr/compare/v0.2.2...v0.2.3) (2026-09-16)
+
+
+### Bug Fixes
+
+* **jellyfin:** authenticate with the MediaBrowser scheme ([#46](https://github.com/roombarr/roombarr/issues/46)) ([b79d928](https://github.com/roombarr/roombarr/commit/b79d928451667b12358cc82f04102a8edd655fb7))
+
 ## [0.2.2](https://github.com/roombarr/roombarr/compare/v0.2.1...v0.2.2) (2026-08-18)
 
 
