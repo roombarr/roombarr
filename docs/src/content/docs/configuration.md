@@ -98,9 +98,15 @@ safety:
 
 `max_deletes_per_run` refuses a run that resolves more deletes than the limit — nothing is executed and an error is logged. A rule change or an upstream data shift can unprotect a large share of a library at once; refusing the run is recoverable, deleting it is not. Size it above your normal run and revisit it after a rule change: check a `dry_run` first, raise the limit deliberately for a one-off catch-up, then put it back.
 
-`protect_airing_seasons` skips a Sonarr `delete` for any season that has a next episode scheduled (`sonarr.season.next_airing` is set). A Sonarr delete [unmonitors the season](#sonarr-deletes-also-unmonitor-the-season), so deleting an airing season would make Sonarr silently stop grabbing its new episodes. A season that Sonarr sent no statistics for is treated as airing and skipped too, because its airing status is unknown. The guard applies in dry runs as well, so a dry run shows exactly what a live run would skip.
+`protect_airing_seasons` skips a Sonarr `delete` for any season that may still air. A Sonarr delete [unmonitors the season](#sonarr-deletes-also-unmonitor-the-season), so deleting an airing season would make Sonarr silently stop grabbing its new episodes. The guard skips a season when:
 
-A skipped delete still reports `delete` as its resolved action, with a reason naming the guard in the run results and the audit log, so it can't be mistaken for a rule that didn't match. The run summary counts these in `deletes_skipped_by_guard`, and they don't count toward `max_deletes_per_run`. The guard never affects `unmonitor` actions, movies, or seasons with nothing scheduled, including ones that finished recently; use a [keep rule](#protecting-airing-and-recent-seasons) for those. Set it to `false` to delete airing seasons like any other.
+- it has a next episode scheduled (`sonarr.season.next_airing` is set), or
+- Sonarr sent no statistics for it, because its airing status is unknown, or
+- none of its episodes have aired yet (`sonarr.season.previous_airing` is not set) and the series is `continuing` or `upcoming`. This covers announced seasons whose episodes have no air dates yet. A series status Roombarr doesn't recognize is treated as still airing, and the run logs a warning naming it. Specials (season 0) are left out of this check, since they often carry undated episodes for years.
+
+A not-yet-aired season stays protected even if it already has episode files on disk. The guard applies in dry runs as well, so a dry run shows exactly what a live run would skip.
+
+A skipped delete still reports `delete` as its resolved action, with a reason naming the guard in the run results and the audit log, so it can't be mistaken for a rule that didn't match. The run summary counts these in `deletes_skipped_by_guard`, and they don't count toward `max_deletes_per_run`. The guard never affects `unmonitor` actions, movies, seasons of `ended` or `deleted` series that haven't aired, or seasons that have aired and have nothing scheduled, including ones that finished recently; use a [keep rule](#protecting-airing-and-recent-seasons) for those. Set it to `false` to delete airing seasons like any other.
 
 ## Rules
 
@@ -271,7 +277,7 @@ We recommend this keep rule for every Sonarr setup. It keeps any season with an 
         value: 30d
 ```
 
-[`safety.protect_airing_seasons`](#safety) already stops deletes of seasons with a scheduled episode, even without this rule. The keep rule goes further: it also covers recently finished seasons, and it protects against `unmonitor` rules, which the guard doesn't touch.
+[`safety.protect_airing_seasons`](#safety) already stops deletes of seasons with a scheduled episode or that haven't started airing, even without this rule. The keep rule goes further: it also covers recently finished seasons, and it protects against `unmonitor` rules, which the guard doesn't touch.
 
 ### Conflict resolution
 

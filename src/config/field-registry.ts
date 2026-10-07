@@ -118,7 +118,8 @@ export const sonarrFields: Record<string, FieldDefinition> = {
   'sonarr.status': {
     type: 'string',
     service: 'sonarr',
-    description: 'Series status: `ended` or `continuing`',
+    description:
+      'Series status: `continuing`, `upcoming`, `ended`, or `deleted`',
   },
   'sonarr.year': {
     type: 'number',

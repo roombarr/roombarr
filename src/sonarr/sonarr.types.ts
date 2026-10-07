@@ -29,7 +29,8 @@ export interface SonarrSeries {
   imdbId: string | null;
   year: number;
   path: string;
-  status: string;
+  /** Unvalidated; Sonarr may add values or omit it. */
+  status?: string | null;
   genres: string[];
   tags: number[];
   monitored: boolean;

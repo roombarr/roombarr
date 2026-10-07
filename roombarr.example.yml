@@ -56,8 +56,9 @@ performance:
 #   # of emptying the disk. Set to null to disable. Default: 50.
 #   max_deletes_per_run: 50
 #
-#   # Skip Sonarr deletes for seasons that have a next episode scheduled, or
-#   # that Sonarr sent no statistics for. A Sonarr delete unmonitors the
+#   # Skip Sonarr deletes for seasons that have a next episode scheduled, that
+#   # Sonarr sent no statistics for, or that haven't aired yet on a continuing
+#   # or upcoming series (specials excepted). A Sonarr delete unmonitors the
 #   # season, so deleting an airing one would silently stop new episodes.
 #   # Skips are logged with their reason. Default: true.
 #   protect_airing_seasons: true

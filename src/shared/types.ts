@@ -22,7 +22,8 @@ export interface RadarrData {
 export interface SonarrData {
   tags: string[];
   genres: string[];
-  status: string;
+  /** Series status as Sonarr sent it. Null when Sonarr sent none. */
+  status: string | null;
   year: number;
   path: string;
   season: SonarrSeasonData;
