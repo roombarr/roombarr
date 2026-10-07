@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/roombarr/roombarr/compare/v0.2.3...v0.2.4) (2026-10-07)
+
+
+### Bug Fixes
+
+* **sonarr:** unmonitor the season when deleting it ([#50](https://github.com/roombarr/roombarr/issues/50)) ([c1fed33](https://github.com/roombarr/roombarr/commit/c1fed3340dc7eb78a624ed4c975332f8bfcd7a71))
+
 ## [0.2.3](https://github.com/roombarr/roombarr/compare/v0.2.2...v0.2.3) (2026-09-16)
 
 
