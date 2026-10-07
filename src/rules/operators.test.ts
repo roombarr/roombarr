@@ -212,4 +212,34 @@ describe('operators', () => {
       expect(operators.is_not_empty([], undefined)).toBe(false);
     });
   });
+
+  describe('is_set', () => {
+    test('matches a date', () => {
+      expect(operators.is_set('2026-10-14T01:00:00Z', undefined)).toBe(true);
+    });
+
+    test('rejects null', () => {
+      expect(operators.is_set(null, undefined)).toBe(false);
+    });
+
+    test('rejects undefined', () => {
+      expect(operators.is_set(undefined, undefined)).toBe(false);
+    });
+  });
+
+  describe('is_not_set', () => {
+    test('matches null', () => {
+      expect(operators.is_not_set(null, undefined)).toBe(true);
+    });
+
+    test('matches undefined', () => {
+      expect(operators.is_not_set(undefined, undefined)).toBe(true);
+    });
+
+    test('rejects a date', () => {
+      expect(operators.is_not_set('2026-10-14T01:00:00Z', undefined)).toBe(
+        false,
+      );
+    });
+  });
 });

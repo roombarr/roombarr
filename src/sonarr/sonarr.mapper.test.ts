@@ -87,7 +87,81 @@ describe('mapSeason', () => {
         episode_file_count: 7,
         has_file: true,
         size_on_disk: 14_000_000_000,
+        statistics: 'reported',
+        next_airing: null,
+        previous_airing: null,
       },
+    });
+  });
+
+  test('exposes the season air dates Sonarr reports', () => {
+    const series = makeSonarrSeries();
+    const season: SonarrSeason = {
+      seasonNumber: 3,
+      monitored: true,
+      statistics: {
+        episodeCount: 4,
+        episodeFileCount: 4,
+        sizeOnDisk: 8_000_000_000,
+        totalEpisodeCount: 10,
+        percentOfEpisodes: 40,
+        nextAiring: '2026-10-14T01:00:00Z',
+        previousAiring: '2026-10-07T01:00:00Z',
+      },
+    };
+    const result = mapSeason(series, season, tagMap);
+
+    expect(result.season).toMatchObject({
+      statistics: 'reported',
+      next_airing: '2026-10-14T01:00:00Z',
+      previous_airing: '2026-10-07T01:00:00Z',
+    });
+  });
+
+  test('exposes null air dates when Sonarr sends them as null', () => {
+    const series = makeSonarrSeries();
+    const season: SonarrSeason = {
+      seasonNumber: 3,
+      monitored: true,
+      statistics: {
+        episodeCount: 10,
+        episodeFileCount: 10,
+        sizeOnDisk: 8_000_000_000,
+        totalEpisodeCount: 10,
+        percentOfEpisodes: 100,
+        nextAiring: null,
+        previousAiring: null,
+      },
+    };
+    const result = mapSeason(series, season, tagMap);
+
+    expect(result.season).toMatchObject({
+      statistics: 'reported',
+      next_airing: null,
+      previous_airing: null,
+    });
+  });
+
+  test('treats statistics with an unparseable air date as missing', () => {
+    const series = makeSonarrSeries();
+    const season: SonarrSeason = {
+      seasonNumber: 3,
+      monitored: true,
+      statistics: {
+        episodeCount: 10,
+        episodeFileCount: 10,
+        sizeOnDisk: 8_000_000_000,
+        totalEpisodeCount: 10,
+        percentOfEpisodes: 100,
+        nextAiring: 'next tuesday',
+      },
+    };
+    const result = mapSeason(series, season, tagMap);
+
+    expect(result.season).toMatchObject({
+      statistics: 'missing',
+      next_airing: null,
+      previous_airing: null,
     });
   });
 
@@ -103,6 +177,9 @@ describe('mapSeason', () => {
       episode_file_count: 0,
       has_file: false,
       size_on_disk: 0,
+      statistics: 'missing',
+      next_airing: null,
+      previous_airing: null,
     });
   });
 

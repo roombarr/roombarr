@@ -31,13 +31,23 @@ export class SonarrService {
       for (const season of s.seasons) {
         if (season.seasonNumber === 0) continue;
 
+        const sonarr = mapSeason(s, season, tagMap);
+
+        // The mapper drops statistics whose air dates don't parse, which makes
+        // the airing-season guard skip deletes. Say why, so it isn't a mystery.
+        if (season.statistics && sonarr.season.statistics === 'missing') {
+          this.logger.warn(
+            `Sonarr sent an unparseable air date for "${s.title}" S${String(season.seasonNumber).padStart(2, '0')}; treating its airing status as unknown`,
+          );
+        }
+
         seasons.push({
           type: 'season',
           sonarr_series_id: s.id,
           tvdb_id: s.tvdbId,
           title: `${s.title} - S${String(season.seasonNumber).padStart(2, '0')}`,
           year: s.year,
-          sonarr: mapSeason(s, season, tagMap),
+          sonarr,
           jellyfin: null,
           jellyseerr: null,
           state: null,

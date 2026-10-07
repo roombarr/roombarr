@@ -655,7 +655,11 @@ describe('ActionExecutorService', () => {
         {
           getConfig: () =>
             makeConfig({
-              safety: { evaluation_timeout: '1h', max_deletes_per_run },
+              safety: {
+                evaluation_timeout: '1h',
+                max_deletes_per_run,
+                protect_airing_seasons: true,
+              },
             }),
         } as any,
       );
@@ -719,5 +723,51 @@ describe('ActionExecutorService', () => {
       expect(executionSummary?.aborted_reason).toBeUndefined();
       expect(radarrClient.deleteMovie).toHaveBeenCalledTimes(2);
     });
+
+    test('guard-skipped deletes do not count toward the delete limit', async () => {
+      const guarded = Array.from({ length: 5 }, (_, i) =>
+        makeSeason({ sonarr_series_id: 300 + i }),
+      );
+      const { movies, results } = makeDeletes(2);
+      const limited = serviceWithLimit(3);
+
+      const { executionSummary } = await limited.execute({
+        results: [...guarded.map(makeGuardedDelete), ...results],
+        items: [...guarded, ...movies],
+        dryRun: false,
+      });
+
+      expect(executionSummary?.aborted_reason).toBeUndefined();
+      expect(radarrClient.deleteMovie).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('guard-skipped deletes', () => {
+    test('neither unmonitors the season nor deletes its files', async () => {
+      const season = makeSeason();
+
+      const { results, executionSummary } = await execute({
+        results: [makeGuardedDelete(season)],
+        items: [season],
+        dryRun: false,
+      });
+
+      expect(sonarrClient.updateSeries).not.toHaveBeenCalled();
+      expect(sonarrClient.deleteEpisodeFile).not.toHaveBeenCalled();
+      expect(results[0].execution_status).toBe('skipped');
+      expect(results[0].skipped_by_guard?.guard).toBe('protect_airing_seasons');
+      expect(executionSummary?.actions_executed.delete).toBe(0);
+    });
   });
 });
+
+function makeGuardedDelete(item: UnifiedMedia): EvaluationItemResult {
+  return {
+    ...makeResult(item, 'delete'),
+    resolved_action: 'delete',
+    skipped_by_guard: {
+      guard: 'protect_airing_seasons',
+      reason: 'protect_airing_seasons: next episode is scheduled',
+    },
+  };
+}

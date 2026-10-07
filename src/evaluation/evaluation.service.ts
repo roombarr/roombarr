@@ -236,12 +236,13 @@ export class EvaluationService {
     const enrichedItems = this.stateService.enrich(items);
 
     // Step 4: Evaluate rules against all items
-    const { results, summary } = this.rulesService.evaluate(
-      enrichedItems,
+    const { results, summary } = this.rulesService.evaluate({
+      items: enrichedItems,
       rules,
-      run.run_id,
-      run.dry_run,
-    );
+      evaluationId: run.run_id,
+      dryRun: run.dry_run,
+      safety: config.safety,
+    });
 
     if (this.isAbandoned(run)) return;
 
@@ -276,6 +277,7 @@ export class EvaluationService {
       items_matched: summary.items_matched,
       actions: summary.actions,
       rules_skipped_missing_data: summary.rules_skipped_missing_data,
+      deletes_skipped_by_guard: summary.deletes_skipped_by_guard,
       actions_executed: summary.actions_executed ?? null,
       actions_failed: summary.actions_failed ?? null,
       aborted_reason: summary.aborted_reason ?? null,

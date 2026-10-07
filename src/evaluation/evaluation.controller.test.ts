@@ -29,6 +29,7 @@ const completedRun: EvaluationRun = {
     items_matched: 2,
     actions: { delete: 1, unmonitor: 1, keep: 0 },
     rules_skipped_missing_data: 0,
+    deletes_skipped_by_guard: 0,
   },
   results: [
     {

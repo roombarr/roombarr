@@ -126,7 +126,8 @@ curl http://localhost:3000/evaluate/550e8400-e29b-41d4-a716-446655440000
     "items_evaluated": 142,
     "items_matched": 7,
     "actions": { "delete": 7, "unmonitor": 0, "keep": 0 },
-    "rules_skipped_missing_data": 0
+    "rules_skipped_missing_data": 0,
+    "deletes_skipped_by_guard": 0
   },
   "results": [...]
 }

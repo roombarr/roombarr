@@ -35,7 +35,9 @@ export class ActionExecutorService {
   /**
    * Execute resolved actions against Radarr/Sonarr.
    * In dry-run mode, every result is marked as 'skipped' with no API calls.
-   * In live mode, each actionable item is executed sequentially.
+   * In live mode, each actionable item is executed sequentially. Deletes a
+   * safety guard skipped are never executed and don't count toward
+   * `safety.max_deletes_per_run`.
    *
    * The abandonment callback is polled before every API request. Executing a
    * queue of deletes can outlive the evaluation's deadline, and once that
@@ -60,7 +62,7 @@ export class ActionExecutorService {
 
     const { max_deletes_per_run } = this.configService.getConfig().safety;
     const deleteCount = results.filter(
-      r => r.resolved_action === 'delete',
+      r => r.resolved_action === 'delete' && !r.skipped_by_guard,
     ).length;
 
     // A rule change or upstream data shift can unprotect a large share of the
@@ -117,6 +119,14 @@ export class ActionExecutorService {
       }
 
       if (!result.resolved_action || result.resolved_action === 'keep') {
+        executed.push({ ...result, execution_status: 'skipped' });
+        continue;
+      }
+
+      if (result.skipped_by_guard) {
+        this.logger.log(
+          `Skipping ${result.resolved_action} "${result.title}": ${result.skipped_by_guard.reason}`,
+        );
         executed.push({ ...result, execution_status: 'skipped' });
         continue;
       }

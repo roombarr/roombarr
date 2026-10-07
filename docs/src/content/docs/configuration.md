@@ -85,17 +85,22 @@ audit:
 
 ## Safety
 
-**Optional.** Bounds on a single evaluation. Both have defaults; you only need this block to change them.
+**Optional.** Bounds on a single evaluation. All have defaults; you only need this block to change them.
 
 ```yaml
 safety:
   evaluation_timeout: 1h # default: 1h, max: ~24.8 days
   max_deletes_per_run: 50 # default: 50, null to disable
+  protect_airing_seasons: true # default: true
 ```
 
 `evaluation_timeout` is the wall-clock budget for one run. A run still going when it elapses is abandoned and the scheduler is released, so a single hung request can't stop Roombarr from ever running again. The abandoned run stops at its next step boundary and does not execute further actions.
 
 `max_deletes_per_run` refuses a run that resolves more deletes than the limit — nothing is executed and an error is logged. A rule change or an upstream data shift can unprotect a large share of a library at once; refusing the run is recoverable, deleting it is not. Size it above your normal run and revisit it after a rule change: check a `dry_run` first, raise the limit deliberately for a one-off catch-up, then put it back.
+
+`protect_airing_seasons` skips a Sonarr `delete` for any season that has a next episode scheduled (`sonarr.season.next_airing` is set). A Sonarr delete [unmonitors the season](#sonarr-deletes-also-unmonitor-the-season), so deleting an airing season would make Sonarr silently stop grabbing its new episodes. A season that Sonarr sent no statistics for is treated as airing and skipped too, because its airing status is unknown. The guard applies in dry runs as well, so a dry run shows exactly what a live run would skip.
+
+A skipped delete still reports `delete` as its resolved action, with a reason naming the guard in the run results and the audit log, so it can't be mistaken for a rule that didn't match. The run summary counts these in `deletes_skipped_by_guard`, and they don't count toward `max_deletes_per_run`. The guard never affects `unmonitor` actions, movies, or seasons with nothing scheduled, including ones that finished recently; use a [keep rule](#protecting-airing-and-recent-seasons) for those. Set it to `false` to delete airing seasons like any other.
 
 ## Rules
 
@@ -169,7 +174,9 @@ conditions:
   value: 2010 # Value to compare against
 ```
 
-The `is_empty` and `is_not_empty` operators must **not** include a `value`. All other operators require one.
+The `is_empty`, `is_not_empty`, `is_set`, and `is_not_set` operators must **not** include a `value`. All other operators require one.
+
+`is_set` and `is_not_set` work on any date field and check whether it has a value at all. Use them when null means something specific, such as `sonarr.season.next_airing` being null when no episode is scheduled. The other date operators keep their own null handling: `older_than` matches a null date and `newer_than` never does.
 
 ### Nesting groups
 
@@ -226,8 +233,45 @@ Earlier versions deleted season files without unmonitoring, so seasons they empt
 
 Empty seasons that resolve to `delete` count toward [`safety.max_deletes_per_run`](#safety), so the first run after upgrading can exceed the limit and abort. If it does, review the pending list in a `dry_run`, then raise the limit for that one run.
 
-Seasons that are empty and already unmonitored keep counting toward the limit on later runs too. To stop this, add a condition to your Sonarr `delete` rules that matches only seasons with files or still-monitored seasons: an `OR` group with `sonarr.season.has_file` equals `true` and `sonarr.season.monitored` equals `true`.
+Seasons that are empty and already unmonitored keep counting toward the limit on later runs too. To stop this, add a condition to your Sonarr `delete` rules that matches only seasons with files, or monitored seasons that have already aired:
+
+```yaml
+- operator: OR
+  children:
+    - field: sonarr.season.has_file
+      operator: equals
+      value: true
+    - operator: AND
+      children:
+        - field: sonarr.season.monitored
+          operator: equals
+          value: true
+        - field: sonarr.season.previous_airing
+          operator: is_set
+```
+
+Don't use `sonarr.season.monitored` equals `true` on its own here. Upcoming seasons are monitored and empty, so it would match every one of them. Pair this with the [recommended keep rule](#protecting-airing-and-recent-seasons), so a season whose latest episode aired recently but hasn't downloaded yet isn't deleted.
 :::
+
+### Protecting airing and recent seasons
+
+We recommend this keep rule for every Sonarr setup. It keeps any season with an episode scheduled, and any season whose latest episode aired within the last 30 days:
+
+```yaml
+- name: Keep airing and recent seasons
+  target: sonarr
+  action: keep
+  conditions:
+    operator: OR
+    children:
+      - field: sonarr.season.next_airing
+        operator: is_set
+      - field: sonarr.season.previous_airing
+        operator: newer_than
+        value: 30d
+```
+
+[`safety.protect_airing_seasons`](#safety) already stops deletes of seasons with a scheduled episode, even without this rule. The keep rule goes further: it also covers recently finished seasons, and it protects against `unmonitor` rules, which the guard doesn't touch.
 
 ### Conflict resolution
 

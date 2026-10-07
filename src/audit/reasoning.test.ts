@@ -135,4 +135,18 @@ describe('buildReasoning', () => {
       '((radarr.tags includes "seasonal" AND radarr.status equals "released") OR radarr.genres includes "Horror")',
     );
   });
+
+  test('formats is_set and is_not_set operators without value', () => {
+    const conditions: ConditionGroup = {
+      operator: 'OR',
+      children: [
+        { field: 'sonarr.season.next_airing', operator: 'is_set' },
+        { field: 'sonarr.season.previous_airing', operator: 'is_not_set' },
+      ],
+    };
+
+    expect(buildReasoning(conditions)).toBe(
+      '(sonarr.season.next_airing is set OR sonarr.season.previous_airing is not set)',
+    );
+  });
 });

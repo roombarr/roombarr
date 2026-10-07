@@ -54,7 +54,10 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
 
     this.auditLogger.info(entry);
     this.logger.log(
-      `[${params.dryRun ? 'DRY RUN' : 'LIVE'}] ${params.action} ${params.item.type} "${params.item.title}" — rule: ${params.winningRule}`,
+      `[${params.dryRun ? 'DRY RUN' : 'LIVE'}] ${params.action} ${params.item.type} "${params.item.title}" — rule: ${params.winningRule}` +
+        (params.skippedByGuard
+          ? ` — skipped by ${params.skippedByGuard.reason}`
+          : ''),
     );
   }
 
@@ -67,6 +70,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
       matched_rules: params.matchedRules,
       reasoning: params.reasoning,
       dry_run: params.dryRun,
+      ...(params.skippedByGuard && { skipped_by_guard: params.skippedByGuard }),
     };
 
     if (params.item.type === 'movie') {
