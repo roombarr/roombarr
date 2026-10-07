@@ -684,6 +684,19 @@ describe('RulesService.evaluate airing-season guard', () => {
     },
   });
 
+  /** A season Sonarr reports statistics for, but with no air dates at all. */
+  const undatedSeason = (status: string | null, seasonNumber = 1) =>
+    makeSeason({
+      sonarr: {
+        status,
+        season: {
+          season_number: seasonNumber,
+          next_airing: null,
+          previous_airing: null,
+        },
+      },
+    });
+
   test('skips a delete for a season with a scheduled next episode', () => {
     const { results } = service.evaluate({
       items: [airingSeason],
@@ -732,6 +745,200 @@ describe('RulesService.evaluate airing-season guard', () => {
     expect(results[0].skipped_by_guard).toBeUndefined();
   });
 
+  test('skips a delete for an undated season of a continuing series', () => {
+    const { results } = service.evaluate({
+      items: [undatedSeason('continuing')],
+      rules: [deleteSeasons],
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
+
+    expect(results[0].skipped_by_guard).toEqual({
+      guard: 'protect_airing_seasons',
+      reason: expect.stringContaining('no episodes have aired yet'),
+    });
+  });
+
+  test('skips a delete for an undated season of an upcoming series', () => {
+    const { results } = service.evaluate({
+      items: [undatedSeason('upcoming')],
+      rules: [deleteSeasons],
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
+
+    expect(results[0].skipped_by_guard?.reason).toContain(
+      'no episodes have aired yet',
+    );
+  });
+
+  test.each([
+    'ended',
+    'deleted',
+    'ENDED',
+  ])('does not guard an undated season of a %s series', status => {
+    const { results } = service.evaluate({
+      items: [undatedSeason(status)],
+      rules: [deleteSeasons],
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
+
+    expect(results[0].resolved_action).toBe('delete');
+    expect(results[0].skipped_by_guard).toBeUndefined();
+  });
+
+  test('treats series status case-insensitively', () => {
+    const { results } = service.evaluate({
+      items: [undatedSeason('Continuing')],
+      rules: [deleteSeasons],
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
+
+    expect(results[0].skipped_by_guard?.reason).toContain(
+      'no episodes have aired yet',
+    );
+  });
+
+  test('skips an undated season of a series with an unrecognized or missing status, warning once per value', () => {
+    const warn = mock();
+    const warnedService = new RulesService(mockAuditService);
+    (warnedService as any).logger = { warn };
+
+    const { results } = warnedService.evaluate({
+      items: [
+        undatedSeason('hiatus', 1),
+        undatedSeason('hiatus', 2),
+        undatedSeason(null, 1),
+      ],
+      rules: [deleteSeasons],
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
+
+    for (const result of results) {
+      expect(result.skipped_by_guard?.reason).toContain(
+        'series status is unknown',
+      );
+    }
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn.mock.calls[0][0]).toContain('"hiatus"');
+    expect(warn.mock.calls[1][0]).toContain('no series status');
+  });
+
+  test('does not warn about a series status that played no part in the skip', () => {
+    const warn = mock();
+    const warnedService = new RulesService(mockAuditService);
+    (warnedService as any).logger = { warn };
+    const scheduled = makeSeason({
+      sonarr: {
+        status: 'hiatus',
+        season: { next_airing: '2026-10-14T01:00:00Z' },
+      },
+    });
+
+    const { results } = warnedService.evaluate({
+      items: [scheduled],
+      rules: [deleteSeasons],
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
+
+    expect(results[0].skipped_by_guard?.reason).toContain('scheduled');
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  test('does not apply the not-yet-aired check to specials', () => {
+    const specials = undatedSeason('continuing', 0);
+    const scheduledSpecials = makeSeason({
+      sonarr: {
+        status: 'continuing',
+        season: { season_number: 0, next_airing: '2026-10-14T01:00:00Z' },
+      },
+    });
+    const unknownSpecials = makeSeason({
+      sonarr: {
+        season: {
+          season_number: 0,
+          statistics: 'missing',
+          next_airing: null,
+          previous_airing: null,
+        },
+      },
+    });
+
+    const { results } = service.evaluate({
+      items: [specials, scheduledSpecials, unknownSpecials],
+      rules: [deleteSeasons],
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
+
+    expect(results[0].skipped_by_guard).toBeUndefined();
+    expect(results[1].skipped_by_guard?.reason).toContain('scheduled');
+    expect(results[2].skipped_by_guard?.reason).toContain('unknown');
+  });
+
+  test('does not guard a finished season of a continuing series', () => {
+    const finished = makeSeason({
+      sonarr: {
+        status: 'continuing',
+        season: { previous_airing: '2026-10-01T01:00:00Z' },
+      },
+    });
+
+    const { results } = service.evaluate({
+      items: [finished],
+      rules: [deleteSeasons],
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
+
+    expect(results[0].skipped_by_guard).toBeUndefined();
+  });
+
+  test('still guards a not-yet-aired season that has files on disk, and counts it', () => {
+    const logAction = mock(() => {});
+    const auditedService = new RulesService({
+      logAction,
+    } as unknown as AuditService);
+    const withFiles = makeSeason({
+      sonarr: {
+        status: 'continuing',
+        season: { episode_file_count: 3, has_file: true },
+      },
+    });
+
+    const { results, summary } = auditedService.evaluate({
+      items: [withFiles],
+      rules: [deleteSeasons],
+      evaluationId: 'test-eval-id',
+      dryRun: false,
+      safety: GUARD_ON,
+    });
+
+    expect(results[0].skipped_by_guard?.reason).toContain(
+      'no episodes have aired yet',
+    );
+    expect(summary.deletes_skipped_by_guard).toBe(1);
+    expect(logAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skippedByGuard: expect.objectContaining({
+          reason: expect.stringContaining('no episodes have aired yet'),
+        }),
+      }),
+    );
+  });
+
   test('does not guard unmonitor actions', () => {
     const { results } = service.evaluate({
       items: [airingSeason],
@@ -747,7 +954,7 @@ describe('RulesService.evaluate airing-season guard', () => {
 
   test('does not guard when protect_airing_seasons is off', () => {
     const { results } = service.evaluate({
-      items: [airingSeason, unknownSeason],
+      items: [airingSeason, unknownSeason, undatedSeason('continuing')],
       rules: [deleteSeasons],
       evaluationId: 'test-eval-id',
       dryRun: true,

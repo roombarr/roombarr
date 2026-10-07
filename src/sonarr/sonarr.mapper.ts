@@ -58,7 +58,7 @@ export function mapSeason(
   return {
     tags: resolveTagNames(series.tags, tagMap),
     genres: series.genres,
-    status: series.status,
+    status: series.status ?? null,
     year: series.year,
     path: series.path,
     season: {

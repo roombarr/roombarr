@@ -9,7 +9,7 @@ import type {
 } from '../config/config.schema';
 import { getServiceFromField } from '../config/field-registry';
 import { buildInternalId, type UnifiedMedia } from '../shared/types';
-import { checkAiringGuard } from './airing-guard';
+import { checkAiringGuard, describeUnknownStatus } from './airing-guard';
 import { resolveField } from './field-resolver';
 import { operators } from './operators';
 import {
@@ -45,6 +45,7 @@ export class RulesService {
   } {
     const results: EvaluationItemResult[] = [];
     let skippedCount = 0;
+    const unknownStatuses = new Set<string>();
 
     // Pre-compute reasoning strings per rule (memoized — condition tree is identical for all items)
     const reasoningCache = new Map<string, string>();
@@ -73,10 +74,15 @@ export class RulesService {
       const resolvedAction = this.resolveAction(matches);
       const externalId = item.type === 'movie' ? item.tmdb_id : item.tvdb_id;
       const matchedRuleNames = matches.map(m => m.rule_name);
-      const guardSkip =
+      const guardDecision =
         resolvedAction === 'delete' && safety.protect_airing_seasons
           ? checkAiringGuard(item)
           : null;
+      const guardSkip = guardDecision?.skip ?? null;
+
+      if (guardDecision?.unknownStatus) {
+        unknownStatuses.add(describeUnknownStatus(guardDecision.unknownStatus));
+      }
 
       // Emit audit event for destructive actions and keep-overrides
       if (resolvedAction !== null) {
@@ -122,6 +128,12 @@ export class RulesService {
               skipped_by_guard: guardSkip,
             }
           : { ...fields, resolved_action: resolvedAction },
+      );
+    }
+
+    for (const description of unknownStatuses) {
+      this.logger.warn(
+        `${description}; protect_airing_seasons treats its not-yet-aired seasons as still airing`,
       );
     }
 
