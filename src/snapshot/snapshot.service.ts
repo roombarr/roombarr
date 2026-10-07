@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { gt, sql } from 'drizzle-orm';
+import { eq, gt, sql } from 'drizzle-orm';
 import type { BunSQLiteDatabase } from 'drizzle-orm/bun-sqlite';
 import diff from 'microdiff';
+import { z } from 'zod';
 import { fieldRegistry } from '../config/field-registry';
 import { DatabaseService } from '../database/database.service';
 import type * as schema from '../database/schema';
@@ -18,6 +19,11 @@ interface SnapshotRow {
   dataHash: string;
   missedEvaluations: number;
 }
+
+/** The slice of a stored movie snapshot that records import-list membership. */
+const storedImportListMembershipSchema = z.object({
+  'radarr.import_list_ids': z.array(z.number()),
+});
 
 /** How many evaluations an item can be absent before its snapshot is purged. */
 const ORPHAN_GRACE_EVALUATIONS = 7;
@@ -292,6 +298,49 @@ export class SnapshotService {
 
     // Step 5: Cleanup (outside transaction for smaller lock windows)
     await this.cleanupOrphans();
+  }
+
+  /**
+   * The import-list membership each movie had when it was last snapshotted,
+   * keyed by TMDB ID.
+   *
+   * Used to hold membership when Radarr can't report it, so an outage isn't
+   * mistaken for every movie leaving its lists. Movies never snapshotted, or
+   * whose stored data has no readable membership, are absent from the map.
+   */
+  lastRecordedImportListMembership(): Map<number, number[]> {
+    const rows = this.getDb()
+      .select({ mediaId: mediaItems.mediaId, data: mediaItems.data })
+      .from(mediaItems)
+      .where(eq(mediaItems.mediaType, 'movie'))
+      .all();
+
+    const membership = new Map<number, number[]>();
+    for (const row of rows) {
+      const parsed = storedImportListMembershipSchema.safeParse(
+        this.parseStoredData(row.data),
+      );
+      if (!parsed.success) {
+        this.logger.warn(
+          `No readable import-list membership stored for movie/${row.mediaId}, treating it as unrecorded`,
+        );
+        continue;
+      }
+      membership.set(
+        Number(row.mediaId),
+        parsed.data['radarr.import_list_ids'],
+      );
+    }
+    return membership;
+  }
+
+  /** Parse a stored snapshot's JSON, treating corrupt data as unknown. */
+  private parseStoredData(data: string): unknown {
+    try {
+      return JSON.parse(data);
+    } catch {
+      return null;
+    }
   }
 
   /** Extract the media ID used as the composite key. */

@@ -10,6 +10,7 @@ import {
   createMockJellyfinClient,
   createMockJellyseerrClient,
   createMockRadarrClient,
+  createMockSnapshotService,
   createMockSonarrClient,
   makeJellyfinUser,
   makeJellyseerrRequest,
@@ -161,7 +162,10 @@ describe('media hydration pipeline (integration)', () => {
     ]);
 
     // Wire real services with mock clients
-    const radarrService = new RadarrService(radarrClient);
+    const radarrService = new RadarrService(
+      radarrClient,
+      createMockSnapshotService(),
+    );
     const jellyfinService = new JellyfinService(jellyfinClient, 5);
     const jellyseerrService = new JellyseerrService(jellyseerrClient);
     const mediaService = new MediaService(
@@ -245,7 +249,10 @@ describe('media hydration pipeline (integration)', () => {
       radarrClient.fetchImportListMovies as ReturnType<typeof mock>
     ).mockResolvedValue([]);
 
-    const radarrService = new RadarrService(radarrClient);
+    const radarrService = new RadarrService(
+      radarrClient,
+      createMockSnapshotService(),
+    );
     const jellyfinService = new JellyfinService(jellyfinClient, 5);
     const jellyseerrService = new JellyseerrService(jellyseerrClient);
     const mediaService = new MediaService(
@@ -461,7 +468,10 @@ describe('media hydration pipeline (integration)', () => {
       }),
     ]);
 
-    const radarrService = new RadarrService(radarrClient);
+    const radarrService = new RadarrService(
+      radarrClient,
+      createMockSnapshotService(),
+    );
     const jellyfinService = new JellyfinService(jellyfinClient, 5);
     const jellyseerrService = new JellyseerrService(jellyseerrClient);
     const mediaService = new MediaService(

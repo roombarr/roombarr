@@ -1,6 +1,7 @@
 import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '../config/config.service';
+import { SnapshotModule } from '../snapshot/snapshot.module';
 import { RadarrClient } from './radarr.client';
 import { RadarrService } from './radarr.service';
 
@@ -17,6 +18,7 @@ import { RadarrService } from './radarr.service';
         };
       },
     }),
+    SnapshotModule,
   ],
   providers: [RadarrClient, RadarrService],
   exports: [RadarrClient, RadarrService],

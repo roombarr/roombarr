@@ -24,5 +24,6 @@ export {
   createMockJellyfinClient,
   createMockJellyseerrClient,
   createMockRadarrClient,
+  createMockSnapshotService,
   createMockSonarrClient,
 } from './mocks';
