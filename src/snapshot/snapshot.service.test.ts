@@ -1,4 +1,13 @@
-import { beforeEach, describe, expect, test } from 'bun:test';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  spyOn,
+  test,
+} from 'bun:test';
+import { Logger } from '@nestjs/common';
 import { count, eq, like } from 'drizzle-orm';
 import { fieldChanges, mediaItems } from '../database/schema';
 import { makeJellyfinData, makeMovie, useTestDatabase } from '../test/index';
@@ -297,5 +306,59 @@ describe('SnapshotService', () => {
     expect(row!.lastSeenAt).toBeTruthy();
     // Should be an ISO timestamp
     expect(new Date(row!.lastSeenAt).toISOString()).toBe(row!.lastSeenAt);
+  });
+
+  describe('lastRecordedImportListMembership', () => {
+    afterEach(() => {
+      mock.restore();
+    });
+
+    function insertMovieRow(mediaId: string, data: string) {
+      const now = new Date().toISOString();
+      db.drizzle
+        .insert(mediaItems)
+        .values({
+          mediaType: 'movie',
+          mediaId,
+          title: `Movie ${mediaId}`,
+          data,
+          dataHash: mediaId,
+          firstSeenAt: now,
+          lastSeenAt: now,
+        })
+        .run();
+    }
+
+    test('summarises movies with no readable membership in one warning, with per-movie detail at debug', () => {
+      const warnSpy = spyOn(Logger.prototype, 'warn').mockImplementation(
+        () => {},
+      );
+      const debugSpy = spyOn(Logger.prototype, 'debug').mockImplementation(
+        () => {},
+      );
+      insertMovieRow('100', JSON.stringify({ 'radarr.import_list_ids': [7] }));
+      insertMovieRow('200', JSON.stringify({ 'radarr.monitored': true }));
+      insertMovieRow('300', 'not json');
+
+      const membership = snapshotService.lastRecordedImportListMembership();
+
+      expect([...membership]).toEqual([[100, [7]]]);
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(String(warnSpy.mock.calls[0][0])).toContain('2 movie(s)');
+      const debugMessages = debugSpy.mock.calls.map(([m]) => String(m));
+      expect(debugMessages.some(m => m.includes('movie/200'))).toBe(true);
+      expect(debugMessages.some(m => m.includes('movie/300'))).toBe(true);
+    });
+
+    test('does not warn when every movie has readable membership', () => {
+      const warnSpy = spyOn(Logger.prototype, 'warn').mockImplementation(
+        () => {},
+      );
+      insertMovieRow('100', JSON.stringify({ 'radarr.import_list_ids': [] }));
+
+      snapshotService.lastRecordedImportListMembership();
+
+      expect(warnSpy).not.toHaveBeenCalled();
+    });
   });
 });

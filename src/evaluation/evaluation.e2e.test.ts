@@ -564,6 +564,28 @@ describe('full evaluation pipeline (e2e)', () => {
         expect(holdWarning).toContain('/import-lists/7/acknowledge');
       });
 
+      test('a list Radarr paused, then resumed, releases its hold on its own with no history recorded', async () => {
+        reportList([100, 200, 300, 400]);
+        await runOn(0);
+        reportList([]);
+        await runOn(1);
+        await runOn(2);
+        reportList([100, 200, 300, 400]);
+
+        const recovered = await runOn(3);
+        warnSpy.mockClear();
+        const after = await runOn(4);
+
+        expect(new Set(Object.values(actions(recovered.allResults)))).toEqual(
+          new Set(['keep']),
+        );
+        expect(daysOff(after.enrichedItems)).toEqual([null, null, null, null]);
+        expect(importListChanges()).toEqual([]);
+        const warnings = warnSpy.mock.calls.map(([message]) => String(message));
+        expect(warnings.some(m => m.includes('Trakt Watchlist'))).toBe(false);
+        expect(importListGuard.acknowledge(7)).toBe('not_held');
+      });
+
       test('an empty list stays held across runs and a restart', async () => {
         reportList([100, 200, 300, 400]);
         await runOn(0);
