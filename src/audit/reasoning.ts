@@ -1,4 +1,8 @@
-import type { ConditionGroup } from '../config/config.schema';
+import {
+  type ConditionGroup,
+  type LeafCondition,
+  VALUELESS_OPERATORS,
+} from '../config/config.schema';
 
 /** Build a human-readable reasoning string from a condition tree. */
 export function buildReasoning(conditions: ConditionGroup): string {
@@ -17,16 +21,11 @@ function formatConditionGroup(group: ConditionGroup): string {
   return `(${parts.join(` ${group.operator} `)})`;
 }
 
-function formatLeafCondition(condition: {
-  field: string;
-  operator: string;
-  value?: unknown;
-}): string {
+function formatLeafCondition(condition: LeafCondition): string {
   const { field, operator, value } = condition;
-
-  if (operator === 'is_empty') return `${field} is empty`;
-  if (operator === 'is_not_empty') return `${field} is not empty`;
-
   const displayOp = operator.replace(/_/g, ' ');
+
+  if (VALUELESS_OPERATORS.has(operator)) return `${field} ${displayOp}`;
+
   return `${field} ${displayOp} ${JSON.stringify(value)}`;
 }

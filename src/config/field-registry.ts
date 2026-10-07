@@ -160,6 +160,18 @@ export const sonarrFields: Record<string, FieldDefinition> = {
     service: 'sonarr',
     description: 'Season file size in bytes',
   },
+  'sonarr.season.next_airing': {
+    type: 'date',
+    service: 'sonarr',
+    description:
+      'When the next episode of this season airs. Null when nothing is scheduled — use `is_set` to check for an upcoming episode.',
+  },
+  'sonarr.season.previous_airing': {
+    type: 'date',
+    service: 'sonarr',
+    description:
+      'When the most recent episode of this season aired. Null when nothing has aired — `older_than` matches null dates.',
+  },
 };
 
 export const jellyfinFields: Record<string, FieldDefinition> = {
@@ -309,6 +321,14 @@ export const operatorDefinitions: Record<string, OperatorDefinition> = {
     compatibleTypes: ['array'],
     description:
       'True if the array has one or more elements. No value required.',
+  },
+  is_set: {
+    compatibleTypes: ['date'],
+    description: 'True if the date is not null. No value required.',
+  },
+  is_not_set: {
+    compatibleTypes: ['date'],
+    description: 'True if the date is null. No value required.',
   },
 };
 

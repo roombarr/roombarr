@@ -9,6 +9,7 @@ import type {
 } from '../config/config.schema';
 import { getServiceFromField } from '../config/field-registry';
 import { buildInternalId, type UnifiedMedia } from '../shared/types';
+import { checkAiringGuard } from './airing-guard';
 import { resolveField } from './field-resolver';
 import { operators } from './operators';
 import {
@@ -20,18 +21,28 @@ import {
   type RuleMatch,
 } from './types';
 
+interface EvaluateOptions {
+  items: UnifiedMedia[];
+  rules: RoombarrConfig['rules'];
+  evaluationId: string;
+  dryRun: boolean;
+  safety: Pick<RoombarrConfig['safety'], 'protect_airing_seasons'>;
+}
+
 @Injectable()
 export class RulesService {
   private readonly logger = new Logger(RulesService.name);
 
   constructor(private readonly auditService: AuditService) {}
 
-  evaluate(
-    items: UnifiedMedia[],
-    rules: RoombarrConfig['rules'],
-    evaluationId: string,
-    dryRun: boolean,
-  ): { results: EvaluationItemResult[]; summary: EvaluationSummary } {
+  /**
+   * Evaluate every item against the rules and resolve one action per item.
+   * Resolved deletes are checked against the safety guards in `safety`.
+   */
+  evaluate({ items, rules, evaluationId, dryRun, safety }: EvaluateOptions): {
+    results: EvaluationItemResult[];
+    summary: EvaluationSummary;
+  } {
     const results: EvaluationItemResult[] = [];
     let skippedCount = 0;
 
@@ -62,6 +73,10 @@ export class RulesService {
       const resolvedAction = this.resolveAction(matches);
       const externalId = item.type === 'movie' ? item.tmdb_id : item.tvdb_id;
       const matchedRuleNames = matches.map(m => m.rule_name);
+      const guardSkip =
+        resolvedAction === 'delete' && safety.protect_airing_seasons
+          ? checkAiringGuard(item)
+          : null;
 
       // Emit audit event for destructive actions and keep-overrides
       if (resolvedAction !== null) {
@@ -84,20 +99,30 @@ export class RulesService {
               reasoning: reasoningCache.get(winningRule.rule_name) ?? '',
               evaluationId,
               dryRun,
+              ...(guardSkip && { skippedByGuard: guardSkip }),
             });
           }
         }
       }
 
-      results.push({
+      const fields = {
         title: item.title,
         type: item.type,
         internal_id: buildInternalId(item),
         external_id: externalId,
         matched_rules: matchedRuleNames,
-        resolved_action: resolvedAction,
         dry_run: dryRun,
-      });
+      };
+
+      results.push(
+        guardSkip
+          ? {
+              ...fields,
+              resolved_action: 'delete',
+              skipped_by_guard: guardSkip,
+            }
+          : { ...fields, resolved_action: resolvedAction },
+      );
     }
 
     const matched = results.filter(r => r.resolved_action !== null);
@@ -119,6 +144,8 @@ export class RulesService {
         items_matched: matched.length,
         actions: actionCounts,
         rules_skipped_missing_data: skippedCount,
+        deletes_skipped_by_guard: results.filter(r => r.skipped_by_guard)
+          .length,
       },
     };
   }

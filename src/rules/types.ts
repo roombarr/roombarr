@@ -8,14 +8,33 @@ export type { Action, ConditionGroup, RuleConfig };
 
 export type ExecutionStatus = 'success' | 'failed' | 'skipped' | 'not_found';
 
-export interface EvaluationItemResult {
+/** A built-in safety guard that can skip a resolved action. */
+export type SafetyGuard = 'protect_airing_seasons';
+
+/** Why a safety guard stopped a resolved action from being executed. */
+export interface GuardSkip {
+  guard: SafetyGuard;
+  /** Human-readable explanation, prefixed with the guard name. */
+  reason: string;
+}
+
+/**
+ * How an item resolved. Only a delete can be skipped by a guard; the item
+ * still reports `delete` so it can't be mistaken for a rule that didn't match.
+ */
+type Resolution =
+  | { resolved_action: Action | null; skipped_by_guard?: undefined }
+  | { resolved_action: 'delete'; skipped_by_guard: GuardSkip };
+
+export type EvaluationItemResult = EvaluationItemFields & Resolution;
+
+interface EvaluationItemFields {
   title: string;
   type: 'movie' | 'season';
   /** Composite key unique per item (e.g. "movie:42", "season:10:1"). */
   internal_id: string;
   external_id: number;
   matched_rules: string[];
-  resolved_action: Action | null;
   dry_run: boolean;
   /**
    * Present in both dry-run and live mode. Set to 'skipped' for dry-run items
@@ -33,6 +52,11 @@ export interface EvaluationSummary {
   items_matched: number;
   actions: Record<Action, number>;
   rules_skipped_missing_data: number;
+  /**
+   * Resolved deletes a safety guard skipped. These are still counted in
+   * `actions.delete` but are never executed.
+   */
+  deletes_skipped_by_guard: number;
   /** Present only when dry_run is false. */
   actions_executed?: Record<Action, number>;
   actions_failed?: number;

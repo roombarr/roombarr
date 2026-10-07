@@ -25,9 +25,19 @@ const conditionOperators = [
   'includes_all',
   'is_empty',
   'is_not_empty',
+  'is_set',
+  'is_not_set',
 ] as const;
 
 export type ConditionOperator = (typeof conditionOperators)[number];
+
+/** Operators that test the field alone and must not be given a `value`. */
+export const VALUELESS_OPERATORS: ReadonlySet<ConditionOperator> = new Set([
+  'is_empty',
+  'is_not_empty',
+  'is_set',
+  'is_not_set',
+]);
 
 export type Action = 'delete' | 'unmonitor' | 'keep';
 
@@ -74,6 +84,7 @@ export interface RoombarrConfig {
   safety: {
     evaluation_timeout: string;
     max_deletes_per_run: number | null;
+    protect_airing_seasons: boolean;
   };
   rules: RuleConfig[];
 }
@@ -130,6 +141,7 @@ const auditSchema = z
 const SAFETY_DEFAULTS = {
   evaluation_timeout: '1h',
   max_deletes_per_run: 50,
+  protect_airing_seasons: true,
 } as const;
 
 /**
@@ -183,6 +195,16 @@ const safetySchema = z
       .min(0)
       .nullable()
       .default(SAFETY_DEFAULTS.max_deletes_per_run),
+    /**
+     * Skip Sonarr deletes for seasons that have a next episode scheduled, or
+     * whose airing status is unknown. A Sonarr delete unmonitors the season,
+     * so deleting one that is still airing silently stops new episodes.
+     *
+     * @see docs/adr/0002-delete-skips-airing-seasons.md
+     */
+    protect_airing_seasons: z
+      .boolean()
+      .default(SAFETY_DEFAULTS.protect_airing_seasons),
   })
   .default(SAFETY_DEFAULTS);
 
@@ -317,22 +339,15 @@ function validateLeafCondition(
     );
   }
 
-  // is_empty/is_not_empty must not have a value
-  if (
-    (operator === 'is_empty' || operator === 'is_not_empty') &&
-    value !== undefined
-  ) {
+  // Valueless operators must not have a value
+  if (VALUELESS_OPERATORS.has(operator) && value !== undefined) {
     errors.push(
       `Rule "${ruleName}": operator "${operator}" must not have a value`,
     );
   }
 
   // All other operators must have a value
-  if (
-    operator !== 'is_empty' &&
-    operator !== 'is_not_empty' &&
-    value === undefined
-  ) {
+  if (!VALUELESS_OPERATORS.has(operator) && value === undefined) {
     errors.push(`Rule "${ruleName}": operator "${operator}" requires a value`);
   }
 

@@ -1,4 +1,5 @@
 import type { Action } from '../config/config.schema';
+import type { GuardSkip } from '../rules/types';
 import type { UnifiedMedia } from '../shared/types';
 
 export interface LogActionParams {
@@ -9,6 +10,8 @@ export interface LogActionParams {
   readonly reasoning: string;
   readonly evaluationId: string;
   readonly dryRun: boolean;
+  /** Set when a safety guard skipped the resolved action. */
+  readonly skippedByGuard?: GuardSkip;
 }
 
 interface BaseAuditEntry {
@@ -19,6 +22,8 @@ interface BaseAuditEntry {
   matched_rules: readonly string[];
   reasoning: string;
   dry_run: boolean;
+  /** Present only when a safety guard skipped the resolved action. */
+  skipped_by_guard?: GuardSkip;
 }
 
 export interface MovieAuditEntry extends BaseAuditEntry {

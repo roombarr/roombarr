@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, mock, test } from 'bun:test';
 import type { AuditService } from '../audit/audit.service';
 import type { RuleConfig } from '../config/config.schema';
 import type { UnifiedMedia } from '../shared/types';
@@ -10,6 +10,8 @@ const mockAuditService = {
 } as unknown as AuditService;
 
 const service = new RulesService(mockAuditService);
+
+const GUARD_ON = { protect_airing_seasons: true };
 
 describe('RulesService.evaluate', () => {
   test('matches a simple rule', () => {
@@ -31,12 +33,13 @@ describe('RulesService.evaluate', () => {
       },
     ];
 
-    const { results, summary } = service.evaluate(
-      items,
-      rules,
-      'test-eval-id',
-      true,
-    );
+    const { results, summary } = service.evaluate({
+      items: items,
+      rules: rules,
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
     expect(results[0].resolved_action).toBe('keep');
     expect(results[0].matched_rules).toEqual(['Protect permanent']);
     expect(summary.items_matched).toBe(1);
@@ -60,7 +63,13 @@ describe('RulesService.evaluate', () => {
       },
     ];
 
-    const { results } = service.evaluate(items, rules, 'test-eval-id', true);
+    const { results } = service.evaluate({
+      items: items,
+      rules: rules,
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
     expect(results[0].resolved_action).toBeNull();
     expect(results[0].matched_rules).toEqual([]);
   });
@@ -86,7 +95,13 @@ describe('RulesService.evaluate', () => {
       },
     ];
 
-    const { results } = service.evaluate(items, rules, 'test-eval-id', true);
+    const { results } = service.evaluate({
+      items: items,
+      rules: rules,
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
     expect(results[0].resolved_action).toBeNull();
   });
 
@@ -135,7 +150,13 @@ describe('RulesService.evaluate', () => {
       },
     ];
 
-    const { results } = service.evaluate(items, rules, 'test-eval-id', true);
+    const { results } = service.evaluate({
+      items: items,
+      rules: rules,
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
     expect(results[0].resolved_action).toBe('keep');
     expect(results[0].matched_rules).toContain('Delete watched');
     expect(results[0].matched_rules).toContain('Keep permanent');
@@ -187,7 +208,13 @@ describe('RulesService.evaluate', () => {
       },
     ];
 
-    const { results } = service.evaluate(items, rules, 'test-eval-id', true);
+    const { results } = service.evaluate({
+      items: items,
+      rules: rules,
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
     expect(results[0].resolved_action).toBe('unmonitor');
   });
 
@@ -212,12 +239,13 @@ describe('RulesService.evaluate', () => {
       },
     ];
 
-    const { results, summary } = service.evaluate(
-      items,
-      rules,
-      'test-eval-id',
-      true,
-    );
+    const { results, summary } = service.evaluate({
+      items: items,
+      rules: rules,
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
     expect(results[0].resolved_action).toBeNull();
     expect(summary.rules_skipped_missing_data).toBe(1);
   });
@@ -278,7 +306,13 @@ describe('RulesService.evaluate', () => {
       },
     ];
 
-    const { results } = service.evaluate(items, rules, 'test-eval-id', true);
+    const { results } = service.evaluate({
+      items: items,
+      rules: rules,
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
     expect(results[0].resolved_action).toBe('delete');
   });
 
@@ -326,7 +360,13 @@ describe('RulesService.evaluate', () => {
       },
     ];
 
-    const { results } = service.evaluate(items, rules, 'test-eval-id', true);
+    const { results } = service.evaluate({
+      items: items,
+      rules: rules,
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
     expect(results[0].resolved_action).toBe('delete');
   });
 
@@ -354,7 +394,13 @@ describe('RulesService.evaluate', () => {
       },
     ];
 
-    const { results } = service.evaluate(items, rules, 'test-eval-id', true);
+    const { results } = service.evaluate({
+      items: items,
+      rules: rules,
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
     expect(results[0].resolved_action).toBe('delete');
     expect(results[0].type).toBe('season');
   });
@@ -384,12 +430,13 @@ describe('RulesService.evaluate', () => {
       },
     ];
 
-    const { results, summary } = service.evaluate(
-      items,
-      rules,
-      'test-eval-id',
-      true,
-    );
+    const { results, summary } = service.evaluate({
+      items: items,
+      rules: rules,
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
     expect(summary.items_evaluated).toBe(3);
     expect(summary.items_matched).toBe(2);
     expect(results[0].resolved_action).toBe('delete');
@@ -425,7 +472,13 @@ describe('RulesService.evaluate', () => {
       },
     ];
 
-    const { results } = service.evaluate(items, rules, 'test-eval-id', true);
+    const { results } = service.evaluate({
+      items: items,
+      rules: rules,
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
     expect(results[0].resolved_action).toBe('delete');
   });
 
@@ -488,7 +541,13 @@ describe('RulesService.evaluate', () => {
       },
     ];
 
-    const { summary } = service.evaluate(items, rules, 'test-eval-id', true);
+    const { summary } = service.evaluate({
+      items: items,
+      rules: rules,
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
     expect(summary.items_evaluated).toBe(3);
     // Movie 1: skipped (no jellyfin) for "Delete watched", no match for "Keep permanent" → null
     // Movie 2: matches "Delete watched" → delete
@@ -517,7 +576,13 @@ describe('RulesService.evaluate', () => {
       },
     ];
 
-    const { results } = service.evaluate(items, rules, 'test-eval-id', true);
+    const { results } = service.evaluate({
+      items: items,
+      rules: rules,
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
     for (const result of results) {
       expect(result.dry_run).toBe(true);
     }
@@ -543,7 +608,13 @@ describe('RulesService.evaluate', () => {
       },
     ];
 
-    const { results } = service.evaluate(items, rules, 'test-eval-id', false);
+    const { results } = service.evaluate({
+      items: items,
+      rules: rules,
+      evaluationId: 'test-eval-id',
+      dryRun: false,
+      safety: GUARD_ON,
+    });
     for (const result of results) {
       expect(result.dry_run).toBe(false);
     }
@@ -568,8 +639,164 @@ describe('RulesService.evaluate', () => {
       snapshot: { first_seen_at: '2020-01-01T00:00:00Z' },
     });
 
-    const { results } = service.evaluate([movie], [rule], 'test-run', true);
+    const { results } = service.evaluate({
+      items: [movie],
+      rules: [rule],
+      evaluationId: 'test-run',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
 
     expect(results[0].matched_rules).toContain(rule.name);
+  });
+});
+
+describe('RulesService.evaluate airing-season guard', () => {
+  const deleteSeasons = makeRule({
+    name: 'Delete seasons',
+    target: 'sonarr',
+    action: 'delete',
+    conditions: {
+      operator: 'AND',
+      children: [
+        { field: 'sonarr.season.monitored', operator: 'equals', value: true },
+      ],
+    },
+  });
+
+  const unmonitorSeasons = makeRule({
+    ...deleteSeasons,
+    name: 'Unmonitor seasons',
+    action: 'unmonitor',
+  });
+
+  const airingSeason = makeSeason({
+    sonarr: { season: { next_airing: '2026-10-14T01:00:00Z' } },
+  });
+
+  const unknownSeason = makeSeason({
+    sonarr: {
+      season: {
+        statistics: 'missing',
+        next_airing: null,
+        previous_airing: null,
+      },
+    },
+  });
+
+  test('skips a delete for a season with a scheduled next episode', () => {
+    const { results } = service.evaluate({
+      items: [airingSeason],
+      rules: [deleteSeasons],
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
+
+    expect(results[0].resolved_action).toBe('delete');
+    expect(results[0].skipped_by_guard).toEqual({
+      guard: 'protect_airing_seasons',
+      reason: expect.stringContaining('2026-10-14T01:00:00Z'),
+    });
+  });
+
+  test('skips a delete for a season Sonarr sent no statistics for', () => {
+    const { results } = service.evaluate({
+      items: [unknownSeason],
+      rules: [deleteSeasons],
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
+
+    expect(results[0].skipped_by_guard).toEqual({
+      guard: 'protect_airing_seasons',
+      reason: expect.stringContaining('airing status is unknown'),
+    });
+  });
+
+  test('does not guard a finished season with no scheduled episode', () => {
+    const finished = makeSeason({
+      sonarr: { season: { previous_airing: '2026-10-01T01:00:00Z' } },
+    });
+
+    const { results } = service.evaluate({
+      items: [finished],
+      rules: [deleteSeasons],
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
+
+    expect(results[0].resolved_action).toBe('delete');
+    expect(results[0].skipped_by_guard).toBeUndefined();
+  });
+
+  test('does not guard unmonitor actions', () => {
+    const { results } = service.evaluate({
+      items: [airingSeason],
+      rules: [unmonitorSeasons],
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
+
+    expect(results[0].resolved_action).toBe('unmonitor');
+    expect(results[0].skipped_by_guard).toBeUndefined();
+  });
+
+  test('does not guard when protect_airing_seasons is off', () => {
+    const { results } = service.evaluate({
+      items: [airingSeason, unknownSeason],
+      rules: [deleteSeasons],
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: { protect_airing_seasons: false },
+    });
+
+    for (const result of results) {
+      expect(result.resolved_action).toBe('delete');
+      expect(result.skipped_by_guard).toBeUndefined();
+    }
+  });
+
+  test('counts guard-skipped deletes in the summary', () => {
+    const finished = makeSeason({ sonarr: { season: { season_number: 2 } } });
+
+    const { summary } = service.evaluate({
+      items: [airingSeason, unknownSeason, finished],
+      rules: [deleteSeasons],
+      evaluationId: 'test-eval-id',
+      dryRun: true,
+      safety: GUARD_ON,
+    });
+
+    expect(summary.actions.delete).toBe(3);
+    expect(summary.deletes_skipped_by_guard).toBe(2);
+  });
+
+  test('records the guard on the audit entry', () => {
+    const logAction = mock(() => {});
+    const auditedService = new RulesService({
+      logAction,
+    } as unknown as AuditService);
+
+    auditedService.evaluate({
+      items: [airingSeason],
+      rules: [deleteSeasons],
+      evaluationId: 'test-eval-id',
+      dryRun: false,
+      safety: GUARD_ON,
+    });
+
+    expect(logAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'delete',
+        skippedByGuard: {
+          guard: 'protect_airing_seasons',
+          reason: expect.any(String),
+        },
+      }),
+    );
   });
 });

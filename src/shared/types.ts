@@ -25,15 +25,37 @@ export interface SonarrData {
   status: string;
   year: number;
   path: string;
-  season: {
-    season_number: number;
-    monitored: boolean;
-    episode_count: number;
-    episode_file_count: number;
-    has_file: boolean;
-    size_on_disk: number;
-  };
+  season: SonarrSeasonData;
 }
+
+/**
+ * Season air dates, keyed on whether Sonarr reported statistics at all.
+ * "No statistics" means the airing status is unknown, which is not the same
+ * as "statistics with nothing scheduled" — the airing-season guard treats
+ * unknown as airing.
+ */
+export type SonarrSeasonAiring =
+  | {
+      statistics: 'reported';
+      /** Next scheduled episode. Null when nothing is scheduled. */
+      next_airing: string | null;
+      /** Most recently aired episode. Null when nothing has aired. */
+      previous_airing: string | null;
+    }
+  | {
+      statistics: 'missing';
+      next_airing: null;
+      previous_airing: null;
+    };
+
+export type SonarrSeasonData = {
+  season_number: number;
+  monitored: boolean;
+  episode_count: number;
+  episode_file_count: number;
+  has_file: boolean;
+  size_on_disk: number;
+} & SonarrSeasonAiring;
 
 export interface JellyfinData {
   watched_by: string[];

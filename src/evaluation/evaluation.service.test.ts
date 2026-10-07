@@ -22,6 +22,7 @@ const testSummary: EvaluationSummary = {
   items_matched: 1,
   actions: { keep: 0, unmonitor: 0, delete: 1 },
   rules_skipped_missing_data: 0,
+  deletes_skipped_by_guard: 0,
 };
 
 /** Let microtask queue drain so fire-and-forget promises complete. */
@@ -241,7 +242,11 @@ describe('EvaluationService', () => {
     test('releases the scheduler when hydrate never settles', async () => {
       configService.getConfig = mock(() =>
         makeConfig({
-          safety: { evaluation_timeout: '50ms', max_deletes_per_run: 50 },
+          safety: {
+            evaluation_timeout: '50ms',
+            max_deletes_per_run: 50,
+            protect_airing_seasons: true,
+          },
         }),
       );
       // A promise that never settles — the production wedge, reproduced.
@@ -258,7 +263,11 @@ describe('EvaluationService', () => {
       configService.getConfig = mock(() =>
         makeConfig({
           schedule: '* * * * *',
-          safety: { evaluation_timeout: '50ms', max_deletes_per_run: 50 },
+          safety: {
+            evaluation_timeout: '50ms',
+            max_deletes_per_run: 50,
+            protect_airing_seasons: true,
+          },
         }),
       );
       mediaService.hydrate = mock(() => new Promise(() => {}));
@@ -289,7 +298,11 @@ describe('EvaluationService', () => {
     test('does not execute actions for a run that already timed out', async () => {
       configService.getConfig = mock(() =>
         makeConfig({
-          safety: { evaluation_timeout: '30ms', max_deletes_per_run: 50 },
+          safety: {
+            evaluation_timeout: '30ms',
+            max_deletes_per_run: 50,
+            protect_airing_seasons: true,
+          },
         }),
       );
       const hydrate = heldStep<any>();
@@ -307,7 +320,11 @@ describe('EvaluationService', () => {
     test('does not snapshot for a run that already timed out', async () => {
       configService.getConfig = mock(() =>
         makeConfig({
-          safety: { evaluation_timeout: '30ms', max_deletes_per_run: 50 },
+          safety: {
+            evaluation_timeout: '30ms',
+            max_deletes_per_run: 50,
+            protect_airing_seasons: true,
+          },
         }),
       );
       const hydrate = heldStep<any>();
@@ -324,7 +341,11 @@ describe('EvaluationService', () => {
     test('does not evaluate rules when the deadline elapses during the snapshot', async () => {
       configService.getConfig = mock(() =>
         makeConfig({
-          safety: { evaluation_timeout: '30ms', max_deletes_per_run: 50 },
+          safety: {
+            evaluation_timeout: '30ms',
+            max_deletes_per_run: 50,
+            protect_airing_seasons: true,
+          },
         }),
       );
       const snapshot = heldStep<void>();
@@ -349,7 +370,11 @@ describe('EvaluationService', () => {
     test('does not report completed when the deadline elapses mid-execution', async () => {
       configService.getConfig = mock(() =>
         makeConfig({
-          safety: { evaluation_timeout: '30ms', max_deletes_per_run: 50 },
+          safety: {
+            evaluation_timeout: '30ms',
+            max_deletes_per_run: 50,
+            protect_airing_seasons: true,
+          },
         }),
       );
       const execute = heldStep<any>();
@@ -370,7 +395,11 @@ describe('EvaluationService', () => {
     test('tells the executor to stop once the run is abandoned', async () => {
       configService.getConfig = mock(() =>
         makeConfig({
-          safety: { evaluation_timeout: '30ms', max_deletes_per_run: 50 },
+          safety: {
+            evaluation_timeout: '30ms',
+            max_deletes_per_run: 50,
+            protect_airing_seasons: true,
+          },
         }),
       );
 

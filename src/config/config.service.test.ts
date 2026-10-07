@@ -658,6 +658,76 @@ describe('validateConfig (cross-validation)', () => {
     );
   });
 
+  test('passes with is_set and is_not_set on date fields with no value', () => {
+    const config = makeConfig({
+      rules: [
+        makeRule({
+          target: 'sonarr',
+          conditions: {
+            operator: 'OR',
+            children: [
+              { field: 'sonarr.season.next_airing', operator: 'is_set' },
+              {
+                field: 'sonarr.season.previous_airing',
+                operator: 'is_not_set',
+              },
+            ],
+          },
+        }),
+        makeRule({
+          conditions: {
+            operator: 'AND',
+            children: [{ field: 'radarr.digital_release', operator: 'is_set' }],
+          },
+        }),
+      ],
+    });
+    const errors = validateConfig(config);
+    expect(errors).toEqual([]);
+  });
+
+  test('fails when is_set is used on a non-date field', () => {
+    const config = makeConfig({
+      rules: [
+        makeRule({
+          conditions: {
+            operator: 'AND',
+            children: [{ field: 'radarr.tags', operator: 'is_set' }],
+          },
+        }),
+      ],
+    });
+    const errors = validateConfig(config);
+    expect(errors).toContainEqual(
+      expect.stringContaining(
+        'operator "is_set" is not compatible with field "radarr.tags"',
+      ),
+    );
+  });
+
+  test('fails when is_not_set has a value', () => {
+    const config = makeConfig({
+      rules: [
+        makeRule({
+          conditions: {
+            operator: 'AND',
+            children: [
+              {
+                field: 'radarr.digital_release',
+                operator: 'is_not_set',
+                value: '30d',
+              },
+            ],
+          },
+        }),
+      ],
+    });
+    const errors = validateConfig(config);
+    expect(errors).toContainEqual(
+      expect.stringContaining('operator "is_not_set" must not have a value'),
+    );
+  });
+
   test('passes with is_empty and no value', () => {
     const config = makeConfig({
       rules: [

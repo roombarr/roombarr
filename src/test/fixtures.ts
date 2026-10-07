@@ -45,6 +45,9 @@ const defaultSonarrSeason: SonarrData['season'] = {
   episode_file_count: 10,
   has_file: true,
   size_on_disk: 10_000_000_000,
+  statistics: 'reported',
+  next_airing: null,
+  previous_airing: null,
 };
 
 const defaultSonarr: SonarrData = {
@@ -102,7 +105,11 @@ export function makeSeason(overrides: SeasonOverrides = {}): UnifiedSeason {
     sonarr: {
       ...defaultSonarr,
       ...sonarrTopLevel,
-      season: { ...defaultSonarrSeason, ...seasonOverrides },
+      // Overrides may mix airing variants; tests own keeping them coherent.
+      season: {
+        ...defaultSonarrSeason,
+        ...seasonOverrides,
+      } as SonarrData['season'],
     },
   };
 }
@@ -172,7 +179,11 @@ export function makeConfig(
     schedule: '0 3 * * *',
     performance: { concurrency: 10 },
     audit: { retention_days: 90 },
-    safety: { evaluation_timeout: '1h', max_deletes_per_run: 50 },
+    safety: {
+      evaluation_timeout: '1h',
+      max_deletes_per_run: 50,
+      protect_airing_seasons: true,
+    },
     rules: [makeRule()],
     ...overrides,
   };

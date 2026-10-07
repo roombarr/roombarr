@@ -73,12 +73,13 @@ describe('full evaluation pipeline (e2e)', () => {
     const enrichedItems = stateService.enrich(items);
 
     // Step 4: Evaluate
-    const { results, summary } = rulesService.evaluate(
-      enrichedItems,
+    const { results, summary } = rulesService.evaluate({
+      items: enrichedItems,
       rules,
       evaluationId,
       dryRun,
-    );
+      safety: { protect_airing_seasons: true },
+    });
 
     // Step 5: Execute
     const { results: executedResults, executionSummary } =

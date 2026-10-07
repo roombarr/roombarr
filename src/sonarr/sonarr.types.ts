@@ -10,6 +10,10 @@ export interface SonarrSeasonStatistics {
   sizeOnDisk: number;
   totalEpisodeCount: number;
   percentOfEpisodes: number;
+  /** ISO timestamp of the next scheduled episode. Absent or null when none is scheduled. */
+  nextAiring?: string | null;
+  /** ISO timestamp of the most recently aired episode. Absent or null when none has aired. */
+  previousAiring?: string | null;
 }
 
 export interface SonarrSeason {

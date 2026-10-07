@@ -59,4 +59,8 @@ export const operators: Record<string, OperatorFn> = {
     if (!Array.isArray(field)) return false;
     return field.length > 0;
   },
+
+  is_set: field => field !== null && field !== undefined,
+
+  is_not_set: field => field === null || field === undefined,
 };

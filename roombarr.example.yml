@@ -55,6 +55,12 @@ performance:
 #   # data shift that unprotects the library en masse stops for review instead
 #   # of emptying the disk. Set to null to disable. Default: 50.
 #   max_deletes_per_run: 50
+#
+#   # Skip Sonarr deletes for seasons that have a next episode scheduled, or
+#   # that Sonarr sent no statistics for. A Sonarr delete unmonitors the
+#   # season, so deleting an airing one would silently stop new episodes.
+#   # Skips are logged with their reason. Default: true.
+#   protect_airing_seasons: true
 
 # ── Rules ─────────────────────────────────────────────────────
 # Each rule targets either sonarr (TV seasons) or radarr (movies).
@@ -87,6 +93,21 @@ rules:
         - field: radarr.tags
           operator: includes
           value: favorite
+
+  # Keep seasons that are still airing or whose latest episode aired recently.
+  # safety.protect_airing_seasons already stops deletes of airing seasons; this
+  # rule also covers recently finished seasons and protects against unmonitor.
+  - name: Keep airing and recent seasons
+    target: sonarr
+    action: keep
+    conditions:
+      operator: OR
+      children:
+        - field: sonarr.season.next_airing
+          operator: is_set
+        - field: sonarr.season.previous_airing
+          operator: newer_than
+          value: 30d
 
   # Unmonitor completed series seasons that everyone has watched
   - name: Unmonitor watched completed seasons
