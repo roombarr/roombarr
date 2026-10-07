@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.6](https://github.com/roombarr/roombarr/compare/v0.2.5...v0.2.6) (2026-10-07)
+
+
+### Features
+
+* **radarr:** hold a collapsed import list's membership until it recovers or is acknowledged ([#63](https://github.com/roombarr/roombarr/issues/63)) ([9cb72fe](https://github.com/roombarr/roombarr/commit/9cb72fe875dda23ebd73f860e8d18f6156608e4c))
+
+
+### Bug Fixes
+
+* **radarr:** hold import-list membership when the import-list fetch fails ([#62](https://github.com/roombarr/roombarr/issues/62)) ([60118ec](https://github.com/roombarr/roombarr/commit/60118ecdd810d1fe99a92d5052bd822d6bccd39e))
+* **sonarr:** protect seasons that haven't aired yet from deletes ([#58](https://github.com/roombarr/roombarr/issues/58)) ([f4a08c9](https://github.com/roombarr/roombarr/commit/f4a08c99626e2e77090745356e753bf58ca842c5))
+
 ## [0.2.5](https://github.com/roombarr/roombarr/compare/v0.2.4...v0.2.5) (2026-10-07)
 
 
