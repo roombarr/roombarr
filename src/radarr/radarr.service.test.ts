@@ -1,5 +1,14 @@
-import { beforeEach, describe, expect, mock, test } from 'bun:test';
-import { makeRadarrMovie } from '../test/index';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  spyOn,
+  test,
+} from 'bun:test';
+import { Logger } from '@nestjs/common';
+import { createMockSnapshotService, makeRadarrMovie } from '../test/index';
 import { RadarrService } from './radarr.service';
 import type { RadarrImportListMovie, RadarrTag } from './radarr.types';
 
@@ -17,7 +26,11 @@ describe('RadarrService', () => {
       fetchTags: mock(() => Promise.resolve([])),
       fetchImportListMovies: mock(() => Promise.resolve([])),
     };
-    service = new RadarrService(client as any);
+    service = new RadarrService(client as any, createMockSnapshotService());
+  });
+
+  afterEach(() => {
+    mock.restore();
   });
 
   test('fetches and maps movies to unified format', async () => {
@@ -60,18 +73,61 @@ describe('RadarrService', () => {
     expect(result[0].radarr.tags).toEqual(['watched', 'keep']);
   });
 
-  test('handles fetchImportListMovies failure gracefully', async () => {
-    const movie = makeRadarrMovie();
-    client.fetchMovies = mock(() => Promise.resolve([movie]));
+  test('holds last recorded membership when the import-list fetch fails', async () => {
+    client.fetchMovies = mock(() =>
+      Promise.resolve([
+        makeRadarrMovie({ id: 1, tmdbId: 100 }),
+        makeRadarrMovie({ id: 2, tmdbId: 200 }),
+      ]),
+    );
     client.fetchImportListMovies = mock(() =>
-      Promise.reject(new Error('Endpoint not found')),
+      Promise.reject(new Error('Request failed with status code 503')),
+    );
+    service = new RadarrService(
+      client as any,
+      createMockSnapshotService(new Map([[100, [5, 10]]])),
+    );
+
+    const result = await service.fetchMovies();
+
+    expect(result).toHaveLength(1);
+    expect(result[0].radarr.on_import_list).toBe(true);
+    expect(result[0].radarr.import_list_ids).toEqual([5, 10]);
+  });
+
+  test('holds a recorded empty membership as off every list', async () => {
+    client.fetchMovies = mock(() =>
+      Promise.resolve([makeRadarrMovie({ tmdbId: 100 })]),
+    );
+    client.fetchImportListMovies = mock(() =>
+      Promise.reject(new Error('Request failed with status code 503')),
+    );
+    service = new RadarrService(
+      client as any,
+      createMockSnapshotService(new Map([[100, []]])),
     );
 
     const result = await service.fetchMovies();
 
     expect(result).toHaveLength(1);
     expect(result[0].radarr.on_import_list).toBe(false);
-    expect(result[0].radarr.import_list_ids).toEqual([]);
+  });
+
+  test('logs the import-list failure as an error naming the held membership', async () => {
+    const errorSpy = spyOn(Logger.prototype, 'error').mockImplementation(
+      () => {},
+    );
+    client.fetchImportListMovies = mock(() =>
+      Promise.reject(new Error('Request failed with status code 503')),
+    );
+
+    await service.fetchMovies();
+
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    const [message] = errorSpy.mock.calls[0];
+    expect(message).toContain('holding');
+    expect(message).toContain('skipping 0 movies');
+    expect(message).toContain('Request failed with status code 503');
   });
 
   test('marks movies on import list correctly', async () => {

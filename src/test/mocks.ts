@@ -9,6 +9,7 @@ import type {
   RadarrMovie,
   RadarrTag,
 } from '../radarr/radarr.types';
+import type { SnapshotService } from '../snapshot/snapshot.service';
 import type { SonarrClient } from '../sonarr/sonarr.client';
 import type {
   SonarrEpisodeFile,
@@ -26,6 +27,18 @@ export function createMockRadarrClient() {
     deleteMovie: mock<() => Promise<void>>(),
     updateMovie: mock<() => Promise<void>>(),
   } as unknown as RadarrClient;
+}
+
+/**
+ * Creates a mock `SnapshotService` with no recorded import-list membership.
+ * Pass `membership` to simulate movies snapshotted on lists in a prior run.
+ */
+export function createMockSnapshotService(
+  membership: Map<number, number[]> = new Map(),
+) {
+  return {
+    lastRecordedImportListMembership: mock(() => membership),
+  } as unknown as SnapshotService;
 }
 
 /** Creates a mock `SonarrClient` with all methods stubbed. */
