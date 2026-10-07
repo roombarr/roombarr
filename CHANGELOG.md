@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.5](https://github.com/roombarr/roombarr/compare/v0.2.4...v0.2.5) (2026-10-07)
+
+
+### Features
+
+* **sonarr:** skip deletes of airing seasons and expose season air dates ([#54](https://github.com/roombarr/roombarr/issues/54)) ([1ff4dc7](https://github.com/roombarr/roombarr/commit/1ff4dc7d96a1bb63c09ed6e8bc20b8fc38981486))
+
 ## [0.2.4](https://github.com/roombarr/roombarr/compare/v0.2.3...v0.2.4) (2026-10-07)
 
 
