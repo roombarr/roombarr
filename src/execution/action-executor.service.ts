@@ -199,7 +199,7 @@ export class ActionExecutorService {
       case 'delete':
         return item.type === 'movie'
           ? this.deleteMovie(item)
-          : this.deleteSeasonFiles({ season: item, isAbandoned });
+          : this.deleteSeason({ season: item, isAbandoned });
       case 'unmonitor':
         return item.type === 'movie'
           ? this.unmonitorMovie({ movie: item, isAbandoned })
@@ -240,6 +240,29 @@ export class ActionExecutorService {
   }
 
   /**
+   * Delete a season: unmonitor it, then delete its episode files.
+   *
+   * Sonarr can't remove a single season, and a monitored season with no files
+   * is "missing" — Sonarr re-grabs it and the next run deletes it again. The
+   * unmonitor goes first so a failure there leaves the files untouched; a
+   * failure partway through the file deletes leaves an unmonitored season
+   * that the next run finishes off.
+   *
+   * @see docs/adr/0001-deletes-leave-nothing-that-re-grabs.md
+   */
+  private async deleteSeason({
+    season,
+    isAbandoned,
+  }: {
+    season: UnifiedSeason;
+    isAbandoned?: () => boolean;
+  }): Promise<void> {
+    await this.unmonitorSeason({ season, isAbandoned });
+    this.throwIfAbandoned(isAbandoned);
+    await this.deleteSeasonFiles({ season, isAbandoned });
+  }
+
+  /**
    * Delete all episode files for a specific season.
    * Fetches episode files lazily — only when deletion is actually needed.
    */
@@ -260,9 +283,11 @@ export class ActionExecutorService {
     );
     const seasonFiles = allFiles.filter(f => f.seasonNumber === seasonNumber);
 
+    // Expected for seasons emptied by earlier versions, which deleted files
+    // without unmonitoring.
     if (seasonFiles.length === 0) {
-      this.logger.warn(
-        `No episode files found for "${season.title}" S${String(seasonNumber).padStart(2, '0')}`,
+      this.logger.log(
+        `No episode files to delete for "${season.title}" S${String(seasonNumber).padStart(2, '0')}`,
       );
       return;
     }

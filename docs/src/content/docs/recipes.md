@@ -96,6 +96,25 @@ rules:
           value: true
 ```
 
+## Debouncing import-list churn
+
+Movies that arrive from a Radarr import list can drop off the list and come back. A delete rule that fires the moment a movie leaves the list can delete a movie that returns a few days later, and Radarr then downloads it again. Gate delete rules on `state.days_off_import_list` so a movie must stay off its lists for a while before it's deleted.
+
+**What happens:** A movie is deleted only once it has been off every import list for more than 30 days. `state.days_off_import_list` is null while a movie is on a list and before Roombarr has seen it leave one, so this rule never matches movies that were never tracked on a list. Use a separate rule for those.
+
+```yaml
+rules:
+  - name: Delete movies that left their import list
+    target: radarr
+    action: delete
+    conditions:
+      operator: AND
+      children:
+        - field: state.days_off_import_list
+          operator: greater_than
+          value: 30
+```
+
 ## Protection-first approach
 
 Start with broad cleanup rules, then add `keep` rules to protect specific items. This demonstrates conflict resolution in practice — `keep` always wins over `delete` and `unmonitor`, regardless of rule order.

@@ -203,6 +203,98 @@ describe('ActionExecutorService', () => {
       expect(results[0].execution_status).toBe('success');
     });
 
+    test('unmonitors only the target season before deleting any files', async () => {
+      const calls: string[] = [];
+      sonarrClient.updateSeries = mock(() => {
+        calls.push('updateSeries');
+        return Promise.resolve();
+      });
+      sonarrClient.deleteEpisodeFile = mock(() => {
+        calls.push('deleteEpisodeFile');
+        return Promise.resolve();
+      });
+      const season = makeSeason();
+
+      const { results, executionSummary } = await execute({
+        results: [makeResult(season, 'delete')],
+        items: [season],
+        dryRun: false,
+      });
+
+      expect(calls).toEqual([
+        'updateSeries',
+        'deleteEpisodeFile',
+        'deleteEpisodeFile',
+      ]);
+      const putBody = sonarrClient.updateSeries.mock.calls[0][1];
+      expect(putBody.monitored).toBe(true);
+      expect(putBody.seasons).toEqual([
+        { seasonNumber: 1, monitored: false },
+        { seasonNumber: 2, monitored: true },
+      ]);
+      expect(results[0].execution_status).toBe('success');
+      expect(executionSummary?.actions_executed).toEqual({
+        keep: 0,
+        unmonitor: 0,
+        delete: 1,
+      });
+    });
+
+    test('deletes no files when the unmonitor fails', async () => {
+      sonarrClient.updateSeries = mock(() =>
+        Promise.reject(new Error('Sonarr unavailable')),
+      );
+      const season = makeSeason();
+
+      const { results, executionSummary } = await execute({
+        results: [makeResult(season, 'delete')],
+        items: [season],
+        dryRun: false,
+      });
+
+      expect(sonarrClient.deleteEpisodeFile).not.toHaveBeenCalled();
+      expect(results[0].execution_status).toBe('failed');
+      expect(results[0].execution_error).toBe('Sonarr unavailable');
+      expect(executionSummary?.actions_failed).toBe(1);
+    });
+
+    test('reports failure when a file delete fails after the season was unmonitored', async () => {
+      sonarrClient.deleteEpisodeFile = mock(() =>
+        Promise.reject(new Error('Connection refused')),
+      );
+      const season = makeSeason();
+
+      const { results } = await execute({
+        results: [makeResult(season, 'delete')],
+        items: [season],
+        dryRun: false,
+      });
+
+      expect(sonarrClient.updateSeries).toHaveBeenCalledTimes(1);
+      expect(
+        sonarrClient.updateSeries.mock.calls[0][1].seasons[0].monitored,
+      ).toBe(false);
+      expect(results[0].execution_status).toBe('failed');
+    });
+
+    test('still unmonitors a season that has no episode files', async () => {
+      sonarrClient.fetchEpisodeFiles = mock(() => Promise.resolve([]));
+      const season = makeSeason();
+
+      const { results } = await execute({
+        results: [makeResult(season, 'delete')],
+        items: [season],
+        dryRun: false,
+      });
+
+      expect(sonarrClient.updateSeries).toHaveBeenCalledTimes(1);
+      expect(
+        sonarrClient.updateSeries.mock.calls[0][1].seasons[0].monitored,
+      ).toBe(false);
+      expect(sonarrClient.deleteEpisodeFile).not.toHaveBeenCalled();
+      expect(results[0].execution_status).toBe('success');
+    });
+
     test('continues deleting remaining files when individual file returns 404', async () => {
       let callCount = 0;
       sonarrClient.deleteEpisodeFile = mock(() => {
@@ -223,21 +315,6 @@ describe('ActionExecutorService', () => {
       expect(sonarrClient.deleteEpisodeFile).toHaveBeenCalledTimes(2);
       expect(sonarrClient.deleteEpisodeFile).toHaveBeenCalledWith(1);
       expect(sonarrClient.deleteEpisodeFile).toHaveBeenCalledWith(2);
-      expect(results[0].execution_status).toBe('success');
-    });
-
-    test('handles season with no episode files gracefully', async () => {
-      sonarrClient.fetchEpisodeFiles = mock(() => Promise.resolve([]));
-      const season = makeSeason();
-      const result = makeResult(season, 'delete');
-
-      const { results } = await execute({
-        results: [result],
-        items: [season],
-        dryRun: false,
-      });
-
-      expect(sonarrClient.deleteEpisodeFile).not.toHaveBeenCalled();
       expect(results[0].execution_status).toBe('success');
     });
 

@@ -126,10 +126,10 @@ rules:
 
 ### Targets
 
-| Target   | Evaluates                     | On delete                                     |
-| -------- | ----------------------------- | --------------------------------------------- |
-| `radarr` | Each movie independently      | Removes the movie and deletes files from disk |
-| `sonarr` | Each **season** independently | Deletes episode files for that season only    |
+| Target   | Evaluates                     | On delete                                             |
+| -------- | ----------------------------- | ----------------------------------------------------- |
+| `radarr` | Each movie independently      | Removes the movie and deletes files from disk         |
+| `sonarr` | Each **season** independently | Unmonitors the season, then deletes its episode files |
 
 ### Condition groups
 
@@ -210,6 +210,24 @@ State fields (`state.*`) are exempt from skipping. A null state value means "no 
 | `delete`    | Remove from Radarr/Sonarr and delete files from disk  |
 | `unmonitor` | Stop monitoring for new downloads (files stay)        |
 | `keep`      | Explicitly protect this item from other rules (no-op) |
+
+### Sonarr deletes also unmonitor the season
+
+A delete means the media is stale and unwanted, so Roombarr never leaves Radarr or Sonarr in a state where it would download that media again on its own. Deleting a movie removes it from Radarr entirely. Sonarr can't remove a single season, so a Sonarr `delete` unmonitors the season and then deletes its episode files. If the season stayed monitored, Sonarr would treat the episodes as missing and grab them again, and the next run would delete them again.
+
+Only the matched season is unmonitored. The series itself, its new-season monitoring, and its other seasons are unchanged, so a continuing show still picks up new seasons. This is not configurable.
+
+The unmonitor runs first. If it fails, no files are deleted and the action is reported as failed. If a file delete fails afterwards, the season is left unmonitored with some files still on disk. The next run finishes the delete as long as the season still matches the rule, so a rule that requires `sonarr.season.monitored` to be `true` won't retry it.
+
+A season that resolves to `delete` but has no episode files is still unmonitored. A season that is already empty and unmonitored but still matches a `delete` rule resolves to `delete` on every run. It is unmonitored again each time, which does no harm, but it counts toward `safety.max_deletes_per_run` each time.
+
+:::caution[Upgrading from 0.2.3 or earlier]
+Earlier versions deleted season files without unmonitoring, so seasons they emptied may still be monitored in Sonarr. Any of those that still match a `delete` rule are unmonitored on the next run. Any that no longer match a rule must be unmonitored by hand in Sonarr.
+
+Empty seasons that resolve to `delete` count toward [`safety.max_deletes_per_run`](#safety), so the first run after upgrading can exceed the limit and abort. If it does, review the pending list in a `dry_run`, then raise the limit for that one run.
+
+Seasons that are empty and already unmonitored keep counting toward the limit on later runs too. To stop this, add a condition to your Sonarr `delete` rules that matches only seasons with files or still-monitored seasons: an `OR` group with `sonarr.season.has_file` equals `true` and `sonarr.season.monitored` equals `true`.
+:::
 
 ### Conflict resolution
 
