@@ -170,5 +170,5 @@ A `failed` status means the evaluation itself encountered an error (e.g., all co
 - Each result includes an `internal_id` (e.g., `"movie:42"`, `"season:10:1"`) as a stable composite key.
 - In live mode, `execution_status` is `"success"`, `"failed"`, or `"not_found"` (treated as a success — the item was already gone). In dry-run mode, it is `"skipped"`.
 - If `execution_status` is `"failed"`, an `execution_error` string is present with the error message.
-- A delete that a safety guard skipped keeps `"resolved_action": "delete"`, has `execution_status` `"skipped"`, and carries a `skipped_by_guard` object with the `guard` name and a `reason`. `summary.deletes_skipped_by_guard` counts these. They are included in `summary.actions.delete` but are never executed. See [`safety.protect_airing_seasons`](/configuration/#safety).
+- A delete that a safety guard skipped keeps `"resolved_action": "delete"`, has `execution_status` `"skipped"`, and carries a `skipped_by_guard` object with the `guard` name and a `reason`. `summary.deletes_skipped_by_guard` counts these. They are included in `summary.actions.delete` but are never executed. See [`safety.protect_airing_seasons`](/roombarr/configuration/#safety).
 - Only the last 10 evaluation runs are kept in memory. Older runs are evicted and will return `404 Not Found`.
