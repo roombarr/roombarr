@@ -46,3 +46,19 @@ export const fieldChanges = sqliteTable(
     }).onDelete('cascade'),
   ],
 );
+
+/**
+ * Radarr import lists the collapse guard is holding, one row per held list.
+ * A row exists only while its list is held.
+ *
+ * @see docs/adr/0003-import-list-collapse-holds-membership.md
+ */
+export const importListHolds = sqliteTable('import_list_holds', {
+  listId: integer('list_id').primaryKey(),
+  reason: text('reason', { enum: ['empty', 'shrunk'] }).notNull(),
+  trustedSize: integer('trusted_size').notNull(),
+  currentSize: integer('current_size').notNull(),
+  heldSince: text('held_since').notNull(),
+  sizeSince: text('size_since').notNull(),
+  acknowledgedAt: text('acknowledged_at'),
+});

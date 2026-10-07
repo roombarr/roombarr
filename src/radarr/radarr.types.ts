@@ -34,3 +34,11 @@ export interface RadarrImportListMovie {
   title: string;
   isExisting: boolean;
 }
+
+/** An import list as configured in Radarr (`GET /api/v3/importlist`). */
+export interface ConfiguredImportList {
+  id: number;
+  name: string;
+  /** The user's enable toggle. A list Radarr paused itself stays enabled. */
+  enabled: boolean;
+}

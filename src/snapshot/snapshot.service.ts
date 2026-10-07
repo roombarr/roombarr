@@ -316,12 +316,14 @@ export class SnapshotService {
       .all();
 
     const membership = new Map<number, number[]>();
+    let unreadable = 0;
     for (const row of rows) {
       const parsed = storedImportListMembershipSchema.safeParse(
         this.parseStoredData(row.data),
       );
       if (!parsed.success) {
-        this.logger.warn(
+        unreadable++;
+        this.logger.debug(
           `No readable import-list membership stored for movie/${row.mediaId}, treating it as unrecorded`,
         );
         continue;
@@ -329,6 +331,12 @@ export class SnapshotService {
       membership.set(
         Number(row.mediaId),
         parsed.data['radarr.import_list_ids'],
+      );
+    }
+
+    if (unreadable > 0) {
+      this.logger.warn(
+        `No readable import-list membership stored for ${unreadable} movie(s), treating them as unrecorded (debug logs name each one)`,
       );
     }
     return membership;

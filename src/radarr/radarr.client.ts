@@ -1,11 +1,18 @@
 import { HttpService } from '@nestjs/axios';
 import { Injectable, Logger } from '@nestjs/common';
 import { firstValueFrom } from 'rxjs';
+import { z } from 'zod';
 import type {
+  ConfiguredImportList,
   RadarrImportListMovie,
   RadarrMovie,
   RadarrTag,
 } from './radarr.types';
+
+/** The fields of `GET /api/v3/importlist` the collapse guard relies on. */
+const importListsSchema = z.array(
+  z.object({ id: z.number(), name: z.string(), enabled: z.boolean() }),
+);
 
 @Injectable()
 export class RadarrClient {
@@ -62,5 +69,17 @@ export class RadarrClient {
     );
     this.logger.debug(`Fetched ${data.length} import list movies`);
     return data;
+  }
+
+  /**
+   * Fetch the import lists configured in Radarr. A list Radarr paused itself
+   * after repeated failures is still reported as enabled.
+   */
+  async fetchImportLists(): Promise<ConfiguredImportList[]> {
+    this.logger.debug('Fetching import lists from Radarr');
+    const { data } = await firstValueFrom(
+      this.http.get<unknown>('/api/v3/importlist'),
+    );
+    return importListsSchema.parse(data);
   }
 }

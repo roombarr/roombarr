@@ -92,6 +92,8 @@ safety:
   evaluation_timeout: 1h # default: 1h, max: ~24.8 days
   max_deletes_per_run: 50 # default: 50, null to disable
   protect_airing_seasons: true # default: true
+  hold_collapsed_import_lists: true # default: true
+  import_list_collapse_threshold: 0.5 # default: 0.5, between 0 and 1
 ```
 
 `evaluation_timeout` is the wall-clock budget for one run. A run still going when it elapses is abandoned and the scheduler is released, so a single hung request can't stop Roombarr from ever running again. The abandoned run stops at its next step boundary and does not execute further actions.
@@ -107,6 +109,16 @@ safety:
 A not-yet-aired season stays protected even if it already has episode files on disk. The guard applies in dry runs as well, so a dry run shows exactly what a live run would skip.
 
 A skipped delete still reports `delete` as its resolved action, with a reason naming the guard in the run results and the audit log, so it can't be mistaken for a rule that didn't match. The run summary counts these in `deletes_skipped_by_guard`, and they don't count toward `max_deletes_per_run`. The guard never affects `unmonitor` actions, movies, seasons of `ended` or `deleted` series that haven't aired, or seasons that have aired and have nothing scheduled, including ones that finished recently; use a [keep rule](#protecting-airing-and-recent-seasons) for those. Set it to `false` to delete airing seasons like any other.
+
+`hold_collapsed_import_lists` protects movies kept by `radarr.on_import_list`, `radarr.import_list_ids` or `state.days_off_import_list` from a Radarr import list that breaks. Radarr reports a list whose provider is failing, or that it has paused after repeated failures, as if it were empty, so without the guard every movie on it would leave the list in the same run. A list **collapses** when it reports no movies, or loses more than `import_list_collapse_threshold` of its movies, since the last run. Only movies in your Radarr library count.
+
+While a list is held, the movies last recorded on it still count as on it: list-based keep rules keep matching, and `state.days_off_import_list` doesn't start counting. Movies newly added to the list, and movies on any other list, are on-list as usual. Every run that holds a list logs a warning naming the list, its last trusted and current sizes, and how to release it. A held list is released when:
+
+- it recovers to within the threshold of its last trusted size, or
+- it shrank but isn't empty, and has reported that same size on every run for 3 days. Its new size is then trusted, and movies no longer on it start their `days_off_import_list` countdown from that run, or
+- you acknowledge it with [`POST /import-lists/:listId/acknowledge`](/roombarr/api/#post-import-listslistidacknowledge). An empty list is only ever released this way, since a provider outage can be permanent. The next run releases the list, and a later collapse of the same list is held again.
+
+Removing a list or turning off its **Enable** toggle in Radarr is deliberate, not a collapse: its movies leave it normally. The first run with the guard checks each list against the movies Roombarr last recorded on it, so upgrading during an outage still holds a list that has already gone empty. The guard runs in dry runs too, so an acknowledgement is used by the next run whether or not it's a dry run. A threshold of `0` holds a list for any shrink at all, so every removal waits 3 days. Set `hold_collapsed_import_lists` to `false` to always believe what Radarr reports.
 
 ## Rules
 

@@ -3,8 +3,10 @@ import type { JellyfinClient } from '../jellyfin/jellyfin.client';
 import type { JellyfinItem, JellyfinUser } from '../jellyfin/jellyfin.types';
 import type { JellyseerrClient } from '../jellyseerr/jellyseerr.client';
 import type { JellyseerrRequest } from '../jellyseerr/jellyseerr.types';
+import type { ImportListGuardService } from '../radarr/import-list-guard.service';
 import type { RadarrClient } from '../radarr/radarr.client';
 import type {
+  ConfiguredImportList,
   RadarrImportListMovie,
   RadarrMovie,
   RadarrTag,
@@ -24,6 +26,9 @@ export function createMockRadarrClient() {
     fetchMovie: mock<() => Promise<RadarrMovie>>(),
     fetchTags: mock<() => Promise<RadarrTag[]>>(),
     fetchImportListMovies: mock<() => Promise<RadarrImportListMovie[]>>(),
+    fetchImportLists: mock<() => Promise<ConfiguredImportList[]>>(() =>
+      Promise.resolve([]),
+    ),
     deleteMovie: mock<() => Promise<void>>(),
     updateMovie: mock<() => Promise<void>>(),
   } as unknown as RadarrClient;
@@ -39,6 +44,18 @@ export function createMockSnapshotService(
   return {
     lastRecordedImportListMembership: mock(() => membership),
   } as unknown as SnapshotService;
+}
+
+/**
+ * Creates a mock `ImportListGuardService` that holds nothing: membership is
+ * exactly what Radarr reported.
+ */
+export function createPassThroughImportListGuard() {
+  return {
+    resolveMembership: mock(
+      ({ reported }: { reported: Map<number, number[]> }) => reported,
+    ),
+  } as unknown as ImportListGuardService;
 }
 
 /** Creates a mock `SonarrClient` with all methods stubbed. */

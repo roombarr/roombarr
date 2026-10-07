@@ -85,6 +85,8 @@ export interface RoombarrConfig {
     evaluation_timeout: string;
     max_deletes_per_run: number | null;
     protect_airing_seasons: boolean;
+    hold_collapsed_import_lists: boolean;
+    import_list_collapse_threshold: number;
   };
   rules: RuleConfig[];
 }
@@ -142,6 +144,8 @@ const SAFETY_DEFAULTS = {
   evaluation_timeout: '1h',
   max_deletes_per_run: 50,
   protect_airing_seasons: true,
+  hold_collapsed_import_lists: true,
+  import_list_collapse_threshold: 0.5,
 } as const;
 
 /**
@@ -205,6 +209,30 @@ const safetySchema = z
     protect_airing_seasons: z
       .boolean()
       .default(SAFETY_DEFAULTS.protect_airing_seasons),
+    /**
+     * Hold a Radarr import list's last trusted membership when it collapses,
+     * instead of treating every movie on it as having left at once. A list
+     * collapses when it reports no movies, or shrinks by more than
+     * `import_list_collapse_threshold`, in a run where Radarr answers. Turn
+     * this off to always believe what Radarr reports.
+     *
+     * @see docs/adr/0003-import-list-collapse-holds-membership.md
+     */
+    hold_collapsed_import_lists: z
+      .boolean()
+      .default(SAFETY_DEFAULTS.hold_collapsed_import_lists),
+    /**
+     * The fraction of its trusted size an import list may lose in one run
+     * before it counts as collapsed. `0.5` holds a list that drops below
+     * half its movies; `1` holds only lists that go empty.
+     *
+     * @see docs/adr/0003-import-list-collapse-holds-membership.md
+     */
+    import_list_collapse_threshold: z
+      .number()
+      .min(0)
+      .max(1)
+      .default(SAFETY_DEFAULTS.import_list_collapse_threshold),
   })
   .default(SAFETY_DEFAULTS);
 

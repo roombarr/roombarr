@@ -1,9 +1,9 @@
 ---
 title: API
-description: HTTP endpoints for health checks and on-demand evaluations.
+description: HTTP endpoints for health checks, on-demand evaluations, and releasing held import lists.
 ---
 
-Roombarr exposes a small HTTP API for health checks and on-demand evaluations.
+Roombarr exposes a small HTTP API for health checks, on-demand evaluations, and releasing held import lists.
 
 ## Endpoints
 
@@ -172,3 +172,33 @@ A `failed` status means the evaluation itself encountered an error (e.g., all co
 - If `execution_status` is `"failed"`, an `execution_error` string is present with the error message.
 - A delete that a safety guard skipped keeps `"resolved_action": "delete"`, has `execution_status` `"skipped"`, and carries a `skipped_by_guard` object with the `guard` name and a `reason`. `summary.deletes_skipped_by_guard` counts these. They are included in `summary.actions.delete` but are never executed. See [`safety.protect_airing_seasons`](/roombarr/configuration/#safety).
 - Only the last 10 evaluation runs are kept in memory. Older runs are evicted and will return `404 Not Found`.
+
+### `POST /import-lists/:listId/acknowledge`
+
+Acknowledge that a Radarr import list held by [`safety.hold_collapsed_import_lists`](/roombarr/configuration/#safety) really did collapse. `listId` is the list's ID in Radarr, which the hold warning in the logs names. The next evaluation releases the list: movies no longer on it leave it and their `state.days_off_import_list` countdown starts. The acknowledgement survives a restart and is used up by that run, so a later collapse of the same list is held again.
+
+**Acknowledged:**
+
+```
+HTTP/1.1 200 OK
+
+{
+  "list_id": 7,
+  "acknowledged": true,
+  "message": "Import list 7 acknowledged. The next evaluation releases its held movies."
+}
+```
+
+**List not held:**
+
+```
+HTTP/1.1 409 Conflict
+
+{
+  "statusCode": 409,
+  "message": "Import list 9 is not held, so there is nothing to acknowledge.",
+  "error": "Conflict"
+}
+```
+
+Like `POST /evaluate`, this endpoint is unauthenticated: anyone who can reach Roombarr can release a held list. Run Roombarr on a private network.
