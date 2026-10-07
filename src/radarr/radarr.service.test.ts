@@ -8,7 +8,11 @@ import {
   test,
 } from 'bun:test';
 import { Logger } from '@nestjs/common';
-import { createMockSnapshotService, makeRadarrMovie } from '../test/index';
+import {
+  createMockSnapshotService,
+  createPassThroughImportListGuard,
+  makeRadarrMovie,
+} from '../test/index';
 import { RadarrService } from './radarr.service';
 import type { RadarrImportListMovie, RadarrTag } from './radarr.types';
 
@@ -17,6 +21,7 @@ describe('RadarrService', () => {
     fetchMovies: ReturnType<typeof mock>;
     fetchTags: ReturnType<typeof mock>;
     fetchImportListMovies: ReturnType<typeof mock>;
+    fetchImportLists: ReturnType<typeof mock>;
   };
   let service: RadarrService;
 
@@ -25,8 +30,13 @@ describe('RadarrService', () => {
       fetchMovies: mock(() => Promise.resolve([])),
       fetchTags: mock(() => Promise.resolve([])),
       fetchImportListMovies: mock(() => Promise.resolve([])),
+      fetchImportLists: mock(() => Promise.resolve([])),
     };
-    service = new RadarrService(client as any, createMockSnapshotService());
+    service = new RadarrService(
+      client as any,
+      createMockSnapshotService(),
+      createPassThroughImportListGuard(),
+    );
   });
 
   afterEach(() => {
@@ -86,6 +96,7 @@ describe('RadarrService', () => {
     service = new RadarrService(
       client as any,
       createMockSnapshotService(new Map([[100, [5, 10]]])),
+      createPassThroughImportListGuard(),
     );
 
     const result = await service.fetchMovies();
@@ -105,6 +116,7 @@ describe('RadarrService', () => {
     service = new RadarrService(
       client as any,
       createMockSnapshotService(new Map([[100, []]])),
+      createPassThroughImportListGuard(),
     );
 
     const result = await service.fetchMovies();

@@ -401,6 +401,34 @@ describe('configSchema', () => {
     );
     expect(result.success).toBe(true);
   });
+
+  test('holds collapsed import lists by default, at a 0.5 threshold', () => {
+    const result = configSchema.safeParse(validConfig());
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.safety.hold_collapsed_import_lists).toBe(true);
+      expect(result.data.safety.import_list_collapse_threshold).toBe(0.5);
+    }
+  });
+
+  test('accepts turning off the import-list collapse guard', () => {
+    const result = configSchema.safeParse(
+      validConfig({ safety: { hold_collapsed_import_lists: false } }),
+    );
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.safety.hold_collapsed_import_lists).toBe(false);
+    }
+  });
+
+  test('rejects an import_list_collapse_threshold outside 0 to 1', () => {
+    for (const import_list_collapse_threshold of [-0.1, 1.5]) {
+      const result = configSchema.safeParse(
+        validConfig({ safety: { import_list_collapse_threshold } }),
+      );
+      expect(result.success).toBe(false);
+    }
+  });
 });
 
 describe('validateConfig (cross-validation)', () => {

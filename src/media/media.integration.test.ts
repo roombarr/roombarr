@@ -12,6 +12,7 @@ import {
   createMockRadarrClient,
   createMockSnapshotService,
   createMockSonarrClient,
+  createPassThroughImportListGuard,
   makeJellyfinUser,
   makeJellyseerrRequest,
   makeRadarrImportListMovie,
@@ -165,6 +166,7 @@ describe('media hydration pipeline (integration)', () => {
     const radarrService = new RadarrService(
       radarrClient,
       createMockSnapshotService(),
+      createPassThroughImportListGuard(),
     );
     const jellyfinService = new JellyfinService(jellyfinClient, 5);
     const jellyseerrService = new JellyseerrService(jellyseerrClient);
@@ -252,6 +254,7 @@ describe('media hydration pipeline (integration)', () => {
     const radarrService = new RadarrService(
       radarrClient,
       createMockSnapshotService(),
+      createPassThroughImportListGuard(),
     );
     const jellyfinService = new JellyfinService(jellyfinClient, 5);
     const jellyseerrService = new JellyseerrService(jellyseerrClient);
@@ -471,6 +474,7 @@ describe('media hydration pipeline (integration)', () => {
     const radarrService = new RadarrService(
       radarrClient,
       createMockSnapshotService(),
+      createPassThroughImportListGuard(),
     );
     const jellyfinService = new JellyfinService(jellyfinClient, 5);
     const jellyseerrService = new JellyseerrService(jellyseerrClient);

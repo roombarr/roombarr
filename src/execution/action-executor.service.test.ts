@@ -659,6 +659,8 @@ describe('ActionExecutorService', () => {
                 evaluation_timeout: '1h',
                 max_deletes_per_run,
                 protect_airing_seasons: true,
+                hold_collapsed_import_lists: true,
+                import_list_collapse_threshold: 0.5,
               },
             }),
         } as any,
